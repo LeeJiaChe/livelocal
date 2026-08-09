@@ -273,9 +273,9 @@ begin
 end;
 $$;
 
-revoke all on function public.accept_current_ugc_rules() from public;
+revoke all on function public.accept_current_ugc_rules() from public, anon, authenticated, service_role;
 grant execute on function public.accept_current_ugc_rules() to authenticated;
-revoke all on function private.assert_current_ugc_rules_accepted() from public;
-revoke all on function private.assert_no_banned_words(text) from public;
+revoke all on function private.assert_current_ugc_rules_accepted() from public, anon, authenticated, service_role;
+revoke all on function private.assert_no_banned_words(text) from public, anon, authenticated, service_role;
 
 commit;
