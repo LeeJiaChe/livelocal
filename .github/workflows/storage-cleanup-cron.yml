@@ -1,0 +1,42 @@
+name: Storage Cleanup Cron
+
+on:
+  schedule:
+    # 3:15 AM Malaysia Time (UTC+8) = 19:15 UTC
+    - cron: '15 19 * * *'
+  workflow_dispatch:
+
+jobs:
+  storage-cleanup:
+    name: Run Storage Cleanup Edge Function
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: storage-cleanup
+      cancel-in-progress: false
+    permissions:
+      contents: read
+
+    steps:
+      - name: Validate configuration
+        env:
+          FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          AUTH_TOKEN: ${{ secrets.SUPABASE_FUNCTION_AUTH_TOKEN }}
+          CRON_SECRET: ${{ secrets.STORAGE_CLEANUP_CRON_SECRET }}
+        run: |
+          if [ -z "$FUNCTION_URL" ] || [ -z "$AUTH_TOKEN" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Error: Required secrets are missing."
+            exit 1
+          fi
+
+      - name: Invoke Edge Function
+        run: |
+          curl --fail-with-body --silent --show-error -X POST "$FUNCTION_URL" \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
+            -H "x-cleanup-secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{}'
+        env:
+          FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          AUTH_TOKEN: ${{ secrets.SUPABASE_FUNCTION_AUTH_TOKEN }}
+          CRON_SECRET: ${{ secrets.STORAGE_CLEANUP_CRON_SECRET }}

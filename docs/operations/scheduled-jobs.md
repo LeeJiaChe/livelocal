@@ -1,6 +1,6 @@
 # Scheduled account and evidence jobs
 
-Status: **SQL queue and Edge worker implemented; deployment/scheduler not configured**
+Status: **GitHub Actions scheduler and Edge worker implemented; production configuration required**
 
 These jobs are privileged operations. Run them from Supabase Cron, a secured
 Edge Function scheduler, or another approved backend worker. Never embed or
@@ -8,12 +8,24 @@ use the service-role key in Flutter.
 
 ## Storage cleanup and account deletion finalizer
 
-Deploy and invoke `supabase/functions/storage-cleanup` at least daily after
-staging replay and destructive-data review. A shorter interval is recommended
-so replaced/discarded draft media does not remain longer than necessary.
-Require a valid function invocation JWT and set a high-entropy
-`STORAGE_CLEANUP_CRON_SECRET`; pass it only as the `x-cleanup-secret` header
-from the approved scheduler. Rotate and store it as a server secret.
+GitHub Actions now provides the repository-level scheduler for storage cleanup via `.github/workflows/storage-cleanup-cron.yml`. The scheduled workflow executes automatically at 3:15 AM Malaysia Time (UTC+8 / 19:15 UTC) to avoid GitHub Actions' high-load top-of-the-hour periods.
+
+The workflow executes only after it exists on the repository's default branch. However, scheduled execution alone does not prove remote deployment or configuration success.
+
+### Configuration Prerequisites
+Before the workflow can succeed, the `supabase/functions/storage-cleanup` Edge Function must already be deployed to the target environment.
+
+Production/staging secrets must be configured manually in GitHub Actions (via environment or repository secrets). The exact required secret names are:
+- `SUPABASE_FUNCTION_URL`: The full URL to the deployed Edge Function.
+- `SUPABASE_FUNCTION_AUTH_TOKEN`: A valid function invocation token/JWT used in the Authorization Bearer header.
+- `STORAGE_CLEANUP_CRON_SECRET`: Must exactly match the Edge Function's environment secret.
+
+**IMPORTANT:** `SUPABASE_SERVICE_ROLE_KEY` remains strictly inside the Edge Function environment. Do NOT put the service-role key in GitHub Actions.
+
+### Execution and Verification
+To verify the setup, operators should run a manual `workflow_dispatch` from the GitHub Actions tab for first-run verification.
+
+Operators verify the first successful run by checking the GitHub Actions logs (which should return a 200 HTTP status) and inspecting the Supabase Edge Function logs to confirm processed/finalized counts.
 
 The worker first calls `public.finalize_due_account_deletions()` to queue known
 user-owned objects, claims cleanup jobs, performs copy/delete through the

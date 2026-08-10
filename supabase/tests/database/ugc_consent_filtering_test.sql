@@ -1,0 +1,219 @@
+begin;
+
+select plan(19);
+
+-- Setup standard roles
+
+-- Create test user
+insert into auth.users (id, email, email_confirmed_at) values ('c0000000-0000-0000-0000-000000000001'::uuid, 'test@example.com', clock_timestamp());
+
+-- Set app_settings with test version and test banned word
+insert into public.app_settings (key, value)
+values 
+  ('current_ugc_rule_version', '"test-v1"'::jsonb),
+  ('banned_words', '["badword", "nasty"]'::jsonb)
+on conflict (key) do update set value = excluded.value;
+
+-- Test: unauthenticated acceptance rejected
+set local role anon;
+select throws_ok(
+  $$ select public.accept_current_ugc_rules() $$,
+  '42501',
+  'permission denied for function accept_current_ugc_rules',
+  'accept_current_ugc_rules rejects anon execution'
+);
+
+-- Test: authenticated user can accept rules
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000001", "role": "authenticated"}', true);
+
+select lives_ok(
+  $$ select public.accept_current_ugc_rules() $$,
+  'Authenticated user can accept current UGC rules'
+);
+
+-- Test: Idempotent acceptance
+select lives_ok(
+  $$ select public.accept_current_ugc_rules() $$,
+  'Accepting rules multiple times is idempotent'
+);
+
+-- Test: Acceptance verified
+set local role postgres;
+select results_eq(
+  $$ select rule_version from public.user_ugc_rule_acceptances where user_id = 'c0000000-0000-0000-0000-000000000001'::uuid $$,
+  $$ values ('test-v1') $$,
+  'User acceptance is correctly recorded for current version'
+);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000001", "role": "authenticated"}', true);
+
+-- Test: Historical acceptance preservation & stale acceptance rejection
+-- We simulate a version change
+set local role postgres;
+update public.app_settings set value = '"test-v2"'::jsonb where key = 'current_ugc_rule_version';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000001", "role": "authenticated"}', true);
+
+set local role postgres;
+select throws_ok(
+  $$ select private.assert_current_ugc_rules_accepted() $$,
+  'P0001',
+  'UGC_RULES_ACCEPTANCE_REQUIRED',
+  'assert_current_ugc_rules_accepted fails after current version changes'
+);
+
+-- Re-accept new version
+set local role authenticated;
+select public.accept_current_ugc_rules();
+
+set local role postgres;
+select results_eq(
+  $$ select rule_version from public.user_ugc_rule_acceptances where user_id = 'c0000000-0000-0000-0000-000000000001'::uuid order by rule_version $$,
+  $$ values ('test-v1'), ('test-v2') $$,
+  'Historical acceptance is preserved alongside new acceptance'
+);
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000001", "role": "authenticated"}', true);
+
+-- Test: upsert_review rejects without current acceptance
+-- Set to a new user
+set local role postgres;
+insert into auth.users (id, email, email_confirmed_at) values ('c0000000-0000-0000-0000-000000000002'::uuid, 'test2@example.com', clock_timestamp());
+insert into public.spots (id, owner_id) values ('c0000000-0000-0000-0000-000000000010'::uuid, 'c0000000-0000-0000-0000-000000000002'::uuid);
+insert into public.spot_revisions (id, spot_id, revision_number, author_id, status, name, category, description, state, city, address, price_range, best_time, things_to_do, image_path)
+values ('c0000000-0000-0000-0000-000000000012'::uuid, 'c0000000-0000-0000-0000-000000000010'::uuid, 1, 'c0000000-0000-0000-0000-000000000002'::uuid, 'approved', 'Test', 'Test', 'A great description of the test place', 'Test', 'Test', 'Test Address', '$', 'Test', 'Test', 'test.jpg');
+insert into public.published_spots (id, revision_id, name, category, description, state, city, address, price_range, best_time, things_to_do, image_path)
+values ('c0000000-0000-0000-0000-000000000010'::uuid, 'c0000000-0000-0000-0000-000000000012'::uuid, 'Test', 'Test', 'A great description of the test place', 'Test', 'Test', 'Test Address', '$', 'Test', 'Test', 'test.jpg');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000002", "role": "authenticated"}', true);
+
+select throws_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!') $$,
+  'P0001',
+  'UGC_RULES_ACCEPTANCE_REQUIRED',
+  'upsert_review throws UGC_RULES_ACCEPTANCE_REQUIRED if rules not accepted'
+);
+
+-- Test: submit_spot_revision rejects without current acceptance
+set local role postgres;
+insert into public.spot_revisions (id, spot_id, revision_number, author_id, status, name, category, description, state, city, address, price_range, best_time, things_to_do, image_path, image_rights_confirmed_at)
+values ('c0000000-0000-0000-0000-000000000011'::uuid, 'c0000000-0000-0000-0000-000000000010'::uuid, 2, 'c0000000-0000-0000-0000-000000000002'::uuid, 'draft', 'Test', 'Test', 'A great description of the test place', 'Test', 'Test', 'Test Address', '$', 'Test', 'Test', 'test.jpg', clock_timestamp());
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000002", "role": "authenticated"}', true);
+
+select throws_ok(
+  $$ select public.submit_spot_revision('c0000000-0000-0000-0000-000000000011'::uuid) $$,
+  'P0001',
+  'UGC_RULES_ACCEPTANCE_REQUIRED',
+  'submit_spot_revision throws UGC_RULES_ACCEPTANCE_REQUIRED if rules not accepted'
+);
+
+
+-- Test: upsert_review succeeds after acceptance (if content clean)
+select public.accept_current_ugc_rules();
+
+select lives_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!') $$,
+  'upsert_review succeeds after rules are accepted'
+);
+
+-- Test: banned_words missing => UGC_FILTER_CONFIG_INVALID
+set local role postgres;
+delete from public.app_settings where key = 'banned_words';
+set local role authenticated;
+select throws_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!', 1) $$,
+  'P0001',
+  'UGC_FILTER_CONFIG_INVALID',
+  'Missing config fails closed'
+);
+
+-- Test: banned_words non-array => UGC_FILTER_CONFIG_INVALID
+set local role postgres;
+insert into public.app_settings (key, value) values ('banned_words', '"not-an-array"'::jsonb);
+set local role authenticated;
+select throws_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!', 1) $$,
+  'P0001',
+  'UGC_FILTER_CONFIG_INVALID',
+  'Non-array config fails closed'
+);
+
+-- Test: malformed array contents fail closed
+set local role postgres;
+update public.app_settings set value = '["bad", null]'::jsonb where key = 'banned_words';
+set local role authenticated;
+select throws_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!', 1) $$,
+  'P0001',
+  'UGC_FILTER_CONFIG_INVALID',
+  'Array with null fails closed'
+);
+
+-- Test: banned_words = [] permits clean content
+set local role postgres;
+update public.app_settings set value = '[]'::jsonb where key = 'banned_words';
+set local role authenticated;
+select lives_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!', 1) $$,
+  'Empty array permits content'
+);
+
+-- Restore valid blocklist for remaining tests
+set local role postgres;
+update public.app_settings set value = '["badword", "nasty"]'::jsonb where key = 'banned_words';
+set local role authenticated;
+
+-- Test: Filtering blocklist - whole word match rejects
+select throws_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is a badword.', 2) $$,
+  '22023',
+  'UGC_CONTENT_RESTRICTED',
+  'Filtering rejects whole word match with punctuation'
+);
+
+-- Test: Filtering blocklist - whole word match case insensitive
+select throws_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is a BADWORD ') $$,
+  '22023',
+  'UGC_CONTENT_RESTRICTED',
+  'Filtering rejects case insensitive match'
+);
+
+-- Test: Filtering blocklist - substring match succeeds
+select lives_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is notbadwordy!', 2) $$,
+  'Filtering ignores substring matches to avoid false positives'
+);
+
+-- Test: filtering applied to submit_spot_revision
+set local role postgres;
+update public.spot_revisions set name = 'This is a badword', image_path = 'test.jpg', image_rights_confirmed_at = clock_timestamp() where id = 'c0000000-0000-0000-0000-000000000011'::uuid;
+update public.spots set current_revision_id = 'c0000000-0000-0000-0000-000000000011'::uuid where id = 'c0000000-0000-0000-0000-000000000010'::uuid;
+set local role authenticated;
+select throws_ok(
+  $$ select public.submit_spot_revision('c0000000-0000-0000-0000-000000000011'::uuid) $$,
+  '22023',
+  'UGC_CONTENT_RESTRICTED',
+  'submit_spot_revision rejects if name contains a banned word'
+);
+
+-- Test: Client cannot directly insert into acceptance table
+select throws_ok(
+  $$ insert into public.user_ugc_rule_acceptances (user_id, rule_version) values ('c0000000-0000-0000-0000-000000000002'::uuid, 'test-v2') $$,
+  '42501',
+  'permission denied for table user_ugc_rule_acceptances',
+  'Authenticated users cannot directly insert into acceptance table'
+);
+
+-- Test: Client cannot directly update app_settings
+select throws_ok(
+  $$ update public.app_settings set value = '"bypassed"'::jsonb where key = 'current_ugc_rule_version' $$,
+  '42501',
+  'permission denied for table app_settings',
+  'Authenticated users cannot modify app_settings'
+);
+
+select * from finish();
+rollback;

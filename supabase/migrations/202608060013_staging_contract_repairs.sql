@@ -378,6 +378,7 @@ grant execute on function public.list_active_discounts(uuid)
 grant execute on function public.get_my_account() to authenticated;
 grant execute on function public.update_my_profile(text) to authenticated;
 grant execute on function public.update_my_avatar(text) to authenticated;
+grant execute on function public.accept_current_ugc_rules() to authenticated;
 grant execute on function public.request_account_deletion() to authenticated;
 grant execute on function public.cancel_account_deletion() to authenticated;
 grant execute on function public.submit_account_appeal(uuid, text, text)

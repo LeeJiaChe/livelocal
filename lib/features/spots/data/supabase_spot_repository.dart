@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/errors/supabase_error_mapper.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../models/spot_model.dart';
 import '../domain/spot_repository.dart';
@@ -40,7 +41,10 @@ class SupabaseSpotRepository implements SpotRepository {
         ),
       );
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'Local spots could not be loaded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Local spots could not be loaded.',
+      );
     }
   }
 
@@ -79,7 +83,10 @@ class SupabaseSpotRepository implements SpotRepository {
         }),
       );
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'Pending spot submissions could not be loaded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Pending spot submissions could not be loaded.',
+      );
     }
   }
 
@@ -113,7 +120,10 @@ class SupabaseSpotRepository implements SpotRepository {
         );
       }));
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'Your spot submissions could not be loaded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Your spot submissions could not be loaded.',
+      );
     }
   }
 
@@ -181,7 +191,10 @@ class SupabaseSpotRepository implements SpotRepository {
           }
         }
       }
-      throw _dataError(error, 'The spot draft could not be saved.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The spot draft could not be saved.',
+      );
     }
   }
 
@@ -225,7 +238,10 @@ class SupabaseSpotRepository implements SpotRepository {
       if (uploadedPath != null) {
         await _removeFailedUpload(uploadedPath);
       }
-      throw _dataError(error, 'The spot revision could not be saved.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The spot revision could not be saved.',
+      );
     }
   }
 
@@ -240,7 +256,10 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'The spot draft could not be discarded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The spot draft could not be discarded.',
+      );
     }
   }
 
@@ -252,7 +271,10 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'The spot submission could not be withdrawn.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The spot submission could not be withdrawn.',
+      );
     }
   }
 
@@ -267,7 +289,7 @@ class SupabaseSpotRepository implements SpotRepository {
         'p_duplicate_override_reason': duplicateOverrideReason,
       });
     } on PostgrestException catch (error) {
-      throw _dataError(
+      throw SupabaseErrorMapper.parseError(
         error,
         error.code == '23505'
             ? 'A probable duplicate needs to be resolved before submission.'
@@ -284,7 +306,7 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw _dataError(
+      throw SupabaseErrorMapper.parseError(
         error,
         'Photo rights could not be confirmed for this draft.',
       );
@@ -306,7 +328,7 @@ class SupabaseSpotRepository implements SpotRepository {
         'p_expected_version': expectedVersion,
       });
     } on PostgrestException catch (error) {
-      throw _dataError(
+      throw SupabaseErrorMapper.parseError(
         error,
         error.code == '40001'
             ? 'This submission changed. Refresh and try again.'
@@ -421,16 +443,5 @@ class SupabaseSpotRepository implements SpotRepository {
         userMessage: 'The selected file is not a valid supported image.',
       );
     }
-  }
-
-  AppException _dataError(PostgrestException error, String message) {
-    return AppException(
-      code: error.code == '40001'
-          ? AppErrorCode.conflict
-          : AppErrorCode.unexpected,
-      userMessage: message,
-      technicalMessage: error.message,
-      cause: error,
-    );
   }
 }
