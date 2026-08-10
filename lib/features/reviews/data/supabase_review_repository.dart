@@ -53,7 +53,10 @@ class SupabaseReviewRepository implements ReviewRepository {
         );
       }).toList();
     } on PostgrestException catch (error) {
-      throw SupabaseErrorMapper.parseError(error, 'Reviews could not be loaded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Reviews could not be loaded.',
+      );
     }
   }
 
@@ -115,7 +118,10 @@ class SupabaseReviewRepository implements ReviewRepository {
         'p_expected_version': expectedVersion,
       });
     } on PostgrestException catch (error) {
-      throw SupabaseErrorMapper.parseError(error, 'The review could not be deleted.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The review could not be deleted.',
+      );
     }
   }
 

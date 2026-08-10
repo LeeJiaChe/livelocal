@@ -41,7 +41,10 @@ class SupabaseSpotRepository implements SpotRepository {
         ),
       );
     } on PostgrestException catch (error) {
-      throw SupabaseErrorMapper.parseError(error, 'Local spots could not be loaded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Local spots could not be loaded.',
+      );
     }
   }
 
@@ -80,7 +83,10 @@ class SupabaseSpotRepository implements SpotRepository {
         }),
       );
     } on PostgrestException catch (error) {
-      throw SupabaseErrorMapper.parseError(error, 'Pending spot submissions could not be loaded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Pending spot submissions could not be loaded.',
+      );
     }
   }
 
@@ -114,7 +120,10 @@ class SupabaseSpotRepository implements SpotRepository {
         );
       }));
     } on PostgrestException catch (error) {
-      throw SupabaseErrorMapper.parseError(error, 'Your spot submissions could not be loaded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Your spot submissions could not be loaded.',
+      );
     }
   }
 
@@ -182,7 +191,10 @@ class SupabaseSpotRepository implements SpotRepository {
           }
         }
       }
-      throw SupabaseErrorMapper.parseError(error, 'The spot draft could not be saved.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The spot draft could not be saved.',
+      );
     }
   }
 
@@ -226,7 +238,10 @@ class SupabaseSpotRepository implements SpotRepository {
       if (uploadedPath != null) {
         await _removeFailedUpload(uploadedPath);
       }
-      throw SupabaseErrorMapper.parseError(error, 'The spot revision could not be saved.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The spot revision could not be saved.',
+      );
     }
   }
 
@@ -241,7 +256,10 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw SupabaseErrorMapper.parseError(error, 'The spot draft could not be discarded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The spot draft could not be discarded.',
+      );
     }
   }
 
@@ -253,7 +271,10 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw SupabaseErrorMapper.parseError(error, 'The spot submission could not be withdrawn.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The spot submission could not be withdrawn.',
+      );
     }
   }
 
