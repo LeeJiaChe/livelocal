@@ -136,7 +136,7 @@ select throws_ok(
 
 -- Test: Filtering blocklist - substring match succeeds
 select lives_ok(
-  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is notbadwordy!') $$,
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is notbadwordy!', 1) $$,
   'Filtering ignores substring matches to avoid false positives'
 );
 
