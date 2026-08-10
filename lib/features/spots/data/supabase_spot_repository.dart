@@ -444,5 +444,4 @@ class SupabaseSpotRepository implements SpotRepository {
       );
     }
   }
-
 }
