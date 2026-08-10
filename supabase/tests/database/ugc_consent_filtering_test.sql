@@ -82,9 +82,9 @@ set local role postgres;
 insert into auth.users (id, email) values ('c0000000-0000-0000-0000-000000000002'::uuid, 'test2@example.com');
 insert into public.spots (id, owner_id) values ('c0000000-0000-0000-0000-000000000010'::uuid, 'c0000000-0000-0000-0000-000000000002'::uuid);
 insert into public.spot_revisions (id, spot_id, revision_number, author_id, status, name, category, description, state, city, address, price_range, best_time, things_to_do, image_path)
-values ('c0000000-0000-0000-0000-000000000012'::uuid, 'c0000000-0000-0000-0000-000000000010'::uuid, 1, 'c0000000-0000-0000-0000-000000000002'::uuid, 'approved', 'Test', 'Test', 'A great description of the test place', 'Test', 'Test', 'Test', '$', 'Test', 'Test', 'test.jpg');
+values ('c0000000-0000-0000-0000-000000000012'::uuid, 'c0000000-0000-0000-0000-000000000010'::uuid, 1, 'c0000000-0000-0000-0000-000000000002'::uuid, 'approved', 'Test', 'Test', 'A great description of the test place', 'Test', 'Test', 'Test Address', '$', 'Test', 'Test', 'test.jpg');
 insert into public.published_spots (id, revision_id, name, category, description, state, city, address, price_range, best_time, things_to_do, image_path)
-values ('c0000000-0000-0000-0000-000000000010'::uuid, 'c0000000-0000-0000-0000-000000000012'::uuid, 'Test', 'Test', 'A great description of the test place', 'Test', 'Test', 'Test', '$', 'Test', 'Test', 'test.jpg');
+values ('c0000000-0000-0000-0000-000000000010'::uuid, 'c0000000-0000-0000-0000-000000000012'::uuid, 'Test', 'Test', 'A great description of the test place', 'Test', 'Test', 'Test Address', '$', 'Test', 'Test', 'test.jpg');
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000002", "role": "authenticated"}', true);
 
@@ -98,7 +98,7 @@ select throws_ok(
 -- Test: submit_spot_revision rejects without current acceptance
 set local role postgres;
 insert into public.spot_revisions (id, spot_id, revision_number, author_id, status, name, category, description, state, city, address, price_range, best_time, things_to_do, image_path)
-values ('c0000000-0000-0000-0000-000000000011'::uuid, 'c0000000-0000-0000-0000-000000000010'::uuid, 2, 'c0000000-0000-0000-0000-000000000002'::uuid, 'draft', 'Test', 'Test', 'A great description of the test place', 'Test', 'Test', 'Test', '$', 'Test', 'Test', 'test.jpg');
+values ('c0000000-0000-0000-0000-000000000011'::uuid, 'c0000000-0000-0000-0000-000000000010'::uuid, 2, 'c0000000-0000-0000-0000-000000000002'::uuid, 'draft', 'Test', 'Test', 'A great description of the test place', 'Test', 'Test', 'Test Address', '$', 'Test', 'Test', 'test.jpg');
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000002", "role": "authenticated"}', true);
 
