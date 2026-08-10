@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(19);
 
 -- Setup standard roles
 
@@ -118,9 +118,56 @@ select lives_ok(
   'upsert_review succeeds after rules are accepted'
 );
 
+-- Test: banned_words missing => UGC_FILTER_CONFIG_INVALID
+set local role postgres;
+delete from public.app_settings where key = 'banned_words';
+set local role authenticated;
+select throws_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!', 1) $$,
+  'P0001',
+  'UGC_FILTER_CONFIG_INVALID',
+  'Missing config fails closed'
+);
+
+-- Test: banned_words non-array => UGC_FILTER_CONFIG_INVALID
+set local role postgres;
+insert into public.app_settings (key, value) values ('banned_words', '"not-an-array"'::jsonb);
+set local role authenticated;
+select throws_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!', 1) $$,
+  'P0001',
+  'UGC_FILTER_CONFIG_INVALID',
+  'Non-array config fails closed'
+);
+
+-- Test: malformed array contents fail closed
+set local role postgres;
+update public.app_settings set value = '["bad", null]'::jsonb where key = 'banned_words';
+set local role authenticated;
+select throws_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!', 1) $$,
+  'P0001',
+  'UGC_FILTER_CONFIG_INVALID',
+  'Array with null fails closed'
+);
+
+-- Test: banned_words = [] permits clean content
+set local role postgres;
+update public.app_settings set value = '[]'::jsonb where key = 'banned_words';
+set local role authenticated;
+select lives_ok(
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'Great spot!', 1) $$,
+  'Empty array permits content'
+);
+
+-- Restore valid blocklist for remaining tests
+set local role postgres;
+update public.app_settings set value = '["badword", "nasty"]'::jsonb where key = 'banned_words';
+set local role authenticated;
+
 -- Test: Filtering blocklist - whole word match rejects
 select throws_ok(
-  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is a badword.') $$,
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is a badword.', 2) $$,
   '22023',
   'UGC_CONTENT_RESTRICTED',
   'Filtering rejects whole word match with punctuation'
@@ -136,7 +183,7 @@ select throws_ok(
 
 -- Test: Filtering blocklist - substring match succeeds
 select lives_ok(
-  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is notbadwordy!', 1) $$,
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is notbadwordy!', 2) $$,
   'Filtering ignores substring matches to avoid false positives'
 );
 

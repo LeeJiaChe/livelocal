@@ -5,6 +5,8 @@ import 'package:live_local/features/moderation/presentation/ugc_consent_dialog.d
 import 'package:live_local/features/reviews/presentation/review_controller.dart';
 import 'package:live_local/features/reviews/domain/review_repository.dart';
 import 'package:live_local/models/review_model.dart';
+import 'package:live_local/core/errors/supabase_error_mapper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MockReviewRepository implements ReviewRepository {
   int upsertCalls = 0;
@@ -269,4 +271,59 @@ void main() {
     expect(find.text('Community Rules Update'), findsNothing);
     expect(controller.errorMessage, 'Other error');
   });
+
+  test('P0001 + exact UGC_RULES_ACCEPTANCE_REQUIRED triggers consent flow', () {
+    final error = SupabaseErrorMapper.parseError(
+      const PostgrestException(
+        message: 'UGC_RULES_ACCEPTANCE_REQUIRED',
+        code: 'P0001',
+      ),
+      'Fallback',
+    );
+    expect(error.userMessage, 'UGC_RULES_ACCEPTANCE_REQUIRED');
+    expect(error.code, AppErrorCode.forbidden);
+  });
+
+  test(
+    'same message with a different SQLSTATE does NOT trigger consent flow',
+    () {
+      final error = SupabaseErrorMapper.parseError(
+        const PostgrestException(
+          message: 'UGC_RULES_ACCEPTANCE_REQUIRED',
+          code: 'P0002',
+        ),
+        'Fallback',
+      );
+      expect(error.userMessage, 'Fallback');
+    },
+  );
+
+  test('unrelated P0001 does NOT trigger consent flow', () {
+    final error = SupabaseErrorMapper.parseError(
+      const PostgrestException(
+        message: 'OTHER_ERROR',
+        code: 'P0001',
+      ),
+      'Fallback',
+    );
+    expect(error.userMessage, 'Fallback');
+  });
+
+  test(
+    '22023 + UGC_CONTENT_RESTRICTED still maps to restricted-content validation',
+    () {
+      final error = SupabaseErrorMapper.parseError(
+        const PostgrestException(
+          message: 'UGC_CONTENT_RESTRICTED',
+          code: '22023',
+        ),
+        'Fallback',
+      );
+      expect(error.code, AppErrorCode.validation);
+      expect(
+        error.userMessage,
+        'Your content contains restricted words. Please revise it and try again.',
+      );
+    },
+  );
 }

@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../core/errors/supabase_error_mapper.dart';
 import '../../../models/review_model.dart';
 import '../domain/review_repository.dart';
 
@@ -52,7 +53,10 @@ class SupabaseReviewRepository implements ReviewRepository {
         );
       }).toList();
     } on PostgrestException catch (error) {
-      throw _error(error, 'Reviews could not be loaded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Reviews could not be loaded.',
+      );
     }
   }
 
@@ -94,7 +98,7 @@ class SupabaseReviewRepository implements ReviewRepository {
         isOwnedByCurrentUser: true,
       );
     } on PostgrestException catch (error) {
-      throw _error(
+      throw SupabaseErrorMapper.parseError(
         error,
         error.code == '40001'
             ? 'Your review changed. Refresh and try again.'
@@ -114,7 +118,10 @@ class SupabaseReviewRepository implements ReviewRepository {
         'p_expected_version': expectedVersion,
       });
     } on PostgrestException catch (error) {
-      throw _error(error, 'The review could not be deleted.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The review could not be deleted.',
+      );
     }
   }
 
@@ -140,43 +147,12 @@ class SupabaseReviewRepository implements ReviewRepository {
         version: (row['version'] as num).toInt(),
       );
     } on PostgrestException catch (error) {
-      throw _error(
+      throw SupabaseErrorMapper.parseError(
         error,
         error.code == '23505'
             ? 'You already have an active report for this review.'
             : 'The report could not be submitted.',
       );
     }
-  }
-
-  AppException _error(PostgrestException error, String message) {
-    if (error.message == 'UGC_RULES_ACCEPTANCE_REQUIRED') {
-      return AppException(
-        code: AppErrorCode.forbidden,
-        userMessage: 'UGC_RULES_ACCEPTANCE_REQUIRED',
-        technicalMessage: error.message,
-        cause: error,
-      );
-    }
-    if (error.code == '22023' && error.message == 'UGC_CONTENT_RESTRICTED') {
-      return AppException(
-        code: AppErrorCode.validation,
-        userMessage:
-            'Your content contains restricted words. Please revise it and try again.',
-        technicalMessage: error.message,
-        cause: error,
-      );
-    }
-    return AppException(
-      code: switch (error.code) {
-        '23505' => AppErrorCode.conflict,
-        '40001' => AppErrorCode.conflict,
-        '42501' => AppErrorCode.forbidden,
-        _ => AppErrorCode.unexpected,
-      },
-      userMessage: message,
-      technicalMessage: error.message,
-      cause: error,
-    );
   }
 }
