@@ -40,7 +40,7 @@ class SupabaseSpotRepository implements SpotRepository {
         ),
       );
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'Local spots could not be loaded.');
+      throw parseError(error, 'Local spots could not be loaded.');
     }
   }
 
@@ -79,7 +79,7 @@ class SupabaseSpotRepository implements SpotRepository {
         }),
       );
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'Pending spot submissions could not be loaded.');
+      throw parseError(error, 'Pending spot submissions could not be loaded.');
     }
   }
 
@@ -113,7 +113,7 @@ class SupabaseSpotRepository implements SpotRepository {
         );
       }));
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'Your spot submissions could not be loaded.');
+      throw parseError(error, 'Your spot submissions could not be loaded.');
     }
   }
 
@@ -181,7 +181,7 @@ class SupabaseSpotRepository implements SpotRepository {
           }
         }
       }
-      throw _dataError(error, 'The spot draft could not be saved.');
+      throw parseError(error, 'The spot draft could not be saved.');
     }
   }
 
@@ -225,7 +225,7 @@ class SupabaseSpotRepository implements SpotRepository {
       if (uploadedPath != null) {
         await _removeFailedUpload(uploadedPath);
       }
-      throw _dataError(error, 'The spot revision could not be saved.');
+      throw parseError(error, 'The spot revision could not be saved.');
     }
   }
 
@@ -240,7 +240,7 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'The spot draft could not be discarded.');
+      throw parseError(error, 'The spot draft could not be discarded.');
     }
   }
 
@@ -252,7 +252,7 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw _dataError(error, 'The spot submission could not be withdrawn.');
+      throw parseError(error, 'The spot submission could not be withdrawn.');
     }
   }
 
@@ -267,7 +267,7 @@ class SupabaseSpotRepository implements SpotRepository {
         'p_duplicate_override_reason': duplicateOverrideReason,
       });
     } on PostgrestException catch (error) {
-      throw _dataError(
+      throw parseError(
         error,
         error.code == '23505'
             ? 'A probable duplicate needs to be resolved before submission.'
@@ -284,7 +284,7 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw _dataError(
+      throw parseError(
         error,
         'Photo rights could not be confirmed for this draft.',
       );
@@ -306,7 +306,7 @@ class SupabaseSpotRepository implements SpotRepository {
         'p_expected_version': expectedVersion,
       });
     } on PostgrestException catch (error) {
-      throw _dataError(
+      throw parseError(
         error,
         error.code == '40001'
             ? 'This submission changed. Refresh and try again.'
@@ -423,8 +423,8 @@ class SupabaseSpotRepository implements SpotRepository {
     }
   }
 
-  AppException _dataError(PostgrestException error, String message) {
-    if (error.message == 'UGC_RULES_ACCEPTANCE_REQUIRED') {
+  AppException parseError(PostgrestException error, String message) {
+    if (error.code == 'P0001' && error.message == 'UGC_RULES_ACCEPTANCE_REQUIRED') {
       return AppException(
         code: AppErrorCode.forbidden,
         userMessage: 'UGC_RULES_ACCEPTANCE_REQUIRED',

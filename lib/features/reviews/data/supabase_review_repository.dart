@@ -52,7 +52,7 @@ class SupabaseReviewRepository implements ReviewRepository {
         );
       }).toList();
     } on PostgrestException catch (error) {
-      throw _error(error, 'Reviews could not be loaded.');
+      throw parseError(error, 'Reviews could not be loaded.');
     }
   }
 
@@ -94,7 +94,7 @@ class SupabaseReviewRepository implements ReviewRepository {
         isOwnedByCurrentUser: true,
       );
     } on PostgrestException catch (error) {
-      throw _error(
+      throw parseError(
         error,
         error.code == '40001'
             ? 'Your review changed. Refresh and try again.'
@@ -114,7 +114,7 @@ class SupabaseReviewRepository implements ReviewRepository {
         'p_expected_version': expectedVersion,
       });
     } on PostgrestException catch (error) {
-      throw _error(error, 'The review could not be deleted.');
+      throw parseError(error, 'The review could not be deleted.');
     }
   }
 
@@ -140,7 +140,7 @@ class SupabaseReviewRepository implements ReviewRepository {
         version: (row['version'] as num).toInt(),
       );
     } on PostgrestException catch (error) {
-      throw _error(
+      throw parseError(
         error,
         error.code == '23505'
             ? 'You already have an active report for this review.'
@@ -149,8 +149,8 @@ class SupabaseReviewRepository implements ReviewRepository {
     }
   }
 
-  AppException _error(PostgrestException error, String message) {
-    if (error.message == 'UGC_RULES_ACCEPTANCE_REQUIRED') {
+  AppException parseError(PostgrestException error, String message) {
+    if (error.code == 'P0001' && error.message == 'UGC_RULES_ACCEPTANCE_REQUIRED') {
       return AppException(
         code: AppErrorCode.forbidden,
         userMessage: 'UGC_RULES_ACCEPTANCE_REQUIRED',
