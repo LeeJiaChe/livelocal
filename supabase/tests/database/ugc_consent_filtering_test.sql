@@ -39,11 +39,14 @@ select lives_ok(
 );
 
 -- Test: Acceptance verified
+set local role postgres;
 select results_eq(
   $$ select rule_version from public.user_ugc_rule_acceptances where user_id = 'c0000000-0000-0000-0000-000000000001'::uuid $$,
   $$ values ('test-v1') $$,
   'User acceptance is correctly recorded for current version'
 );
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000001", "role": "authenticated"}', true);
 
 -- Test: Historical acceptance preservation & stale acceptance rejection
 -- We simulate a version change
@@ -64,11 +67,14 @@ select throws_ok(
 set local role authenticated;
 select public.accept_current_ugc_rules();
 
+set local role postgres;
 select results_eq(
   $$ select rule_version from public.user_ugc_rule_acceptances where user_id = 'c0000000-0000-0000-0000-000000000001'::uuid order by rule_version $$,
   $$ values ('test-v1'), ('test-v2') $$,
   'Historical acceptance is preserved alongside new acceptance'
 );
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "c0000000-0000-0000-0000-000000000001", "role": "authenticated"}', true);
 
 -- Test: upsert_review rejects without current acceptance
 -- Set to a new user
