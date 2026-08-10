@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/errors/supabase_error_mapper.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../models/spot_model.dart';
 import '../domain/spot_repository.dart';
@@ -40,7 +41,7 @@ class SupabaseSpotRepository implements SpotRepository {
         ),
       );
     } on PostgrestException catch (error) {
-      throw parseError(error, 'Local spots could not be loaded.');
+      throw SupabaseErrorMapper.parseError(error, 'Local spots could not be loaded.');
     }
   }
 
@@ -79,7 +80,7 @@ class SupabaseSpotRepository implements SpotRepository {
         }),
       );
     } on PostgrestException catch (error) {
-      throw parseError(error, 'Pending spot submissions could not be loaded.');
+      throw SupabaseErrorMapper.parseError(error, 'Pending spot submissions could not be loaded.');
     }
   }
 
@@ -113,7 +114,7 @@ class SupabaseSpotRepository implements SpotRepository {
         );
       }));
     } on PostgrestException catch (error) {
-      throw parseError(error, 'Your spot submissions could not be loaded.');
+      throw SupabaseErrorMapper.parseError(error, 'Your spot submissions could not be loaded.');
     }
   }
 
@@ -181,7 +182,7 @@ class SupabaseSpotRepository implements SpotRepository {
           }
         }
       }
-      throw parseError(error, 'The spot draft could not be saved.');
+      throw SupabaseErrorMapper.parseError(error, 'The spot draft could not be saved.');
     }
   }
 
@@ -225,7 +226,7 @@ class SupabaseSpotRepository implements SpotRepository {
       if (uploadedPath != null) {
         await _removeFailedUpload(uploadedPath);
       }
-      throw parseError(error, 'The spot revision could not be saved.');
+      throw SupabaseErrorMapper.parseError(error, 'The spot revision could not be saved.');
     }
   }
 
@@ -240,7 +241,7 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw parseError(error, 'The spot draft could not be discarded.');
+      throw SupabaseErrorMapper.parseError(error, 'The spot draft could not be discarded.');
     }
   }
 
@@ -252,7 +253,7 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw parseError(error, 'The spot submission could not be withdrawn.');
+      throw SupabaseErrorMapper.parseError(error, 'The spot submission could not be withdrawn.');
     }
   }
 
@@ -267,7 +268,7 @@ class SupabaseSpotRepository implements SpotRepository {
         'p_duplicate_override_reason': duplicateOverrideReason,
       });
     } on PostgrestException catch (error) {
-      throw parseError(
+      throw SupabaseErrorMapper.parseError(
         error,
         error.code == '23505'
             ? 'A probable duplicate needs to be resolved before submission.'
@@ -284,7 +285,7 @@ class SupabaseSpotRepository implements SpotRepository {
         params: {'p_revision_id': revisionId},
       );
     } on PostgrestException catch (error) {
-      throw parseError(
+      throw SupabaseErrorMapper.parseError(
         error,
         'Photo rights could not be confirmed for this draft.',
       );
@@ -306,7 +307,7 @@ class SupabaseSpotRepository implements SpotRepository {
         'p_expected_version': expectedVersion,
       });
     } on PostgrestException catch (error) {
-      throw parseError(
+      throw SupabaseErrorMapper.parseError(
         error,
         error.code == '40001'
             ? 'This submission changed. Refresh and try again.'
@@ -423,32 +424,4 @@ class SupabaseSpotRepository implements SpotRepository {
     }
   }
 
-  AppException parseError(PostgrestException error, String message) {
-    if (error.code == 'P0001' &&
-        error.message == 'UGC_RULES_ACCEPTANCE_REQUIRED') {
-      return AppException(
-        code: AppErrorCode.forbidden,
-        userMessage: 'UGC_RULES_ACCEPTANCE_REQUIRED',
-        technicalMessage: error.message,
-        cause: error,
-      );
-    }
-    if (error.code == '22023' && error.message == 'UGC_CONTENT_RESTRICTED') {
-      return AppException(
-        code: AppErrorCode.validation,
-        userMessage:
-            'Your content contains restricted words. Please revise it and try again.',
-        technicalMessage: error.message,
-        cause: error,
-      );
-    }
-    return AppException(
-      code: error.code == '40001'
-          ? AppErrorCode.conflict
-          : AppErrorCode.unexpected,
-      userMessage: message,
-      technicalMessage: error.message,
-      cause: error,
-    );
-  }
 }
