@@ -275,38 +275,59 @@ void main() {
   test('P0001 + exact UGC_RULES_ACCEPTANCE_REQUIRED triggers consent flow', () {
     final parser = SupabaseReviewRepository(null as dynamic);
     final error = parser.parseError(
-      const PostgrestException(message: 'UGC_RULES_ACCEPTANCE_REQUIRED', code: 'P0001'),
+      const PostgrestException(
+        message: 'UGC_RULES_ACCEPTANCE_REQUIRED',
+        code: 'P0001',
+      ),
       'Fallback',
     );
     expect(error.userMessage, 'UGC_RULES_ACCEPTANCE_REQUIRED');
     expect(error.code, AppErrorCode.forbidden);
   });
 
-  test('same message with a different SQLSTATE does NOT trigger consent flow', () {
-    final parser = SupabaseReviewRepository(null as dynamic);
-    final error = parser.parseError(
-      const PostgrestException(message: 'UGC_RULES_ACCEPTANCE_REQUIRED', code: 'P0002'),
-      'Fallback',
-    );
-    expect(error.userMessage, 'Fallback');
-  });
+  test(
+    'same message with a different SQLSTATE does NOT trigger consent flow',
+    () {
+      final parser = SupabaseReviewRepository(null as dynamic);
+      final error = parser.parseError(
+        const PostgrestException(
+          message: 'UGC_RULES_ACCEPTANCE_REQUIRED',
+          code: 'P0002',
+        ),
+        'Fallback',
+      );
+      expect(error.userMessage, 'Fallback');
+    },
+  );
 
   test('unrelated P0001 does NOT trigger consent flow', () {
     final parser = SupabaseReviewRepository(null as dynamic);
     final error = parser.parseError(
-      const PostgrestException(message: 'OTHER_ERROR', code: 'P0001'),
+      const PostgrestException(
+        message: 'OTHER_ERROR',
+        code: 'P0001',
+      ),
       'Fallback',
     );
     expect(error.userMessage, 'Fallback');
   });
 
-  test('22023 + UGC_CONTENT_RESTRICTED still maps to restricted-content validation', () {
-    final parser = SupabaseReviewRepository(null as dynamic);
-    final error = parser.parseError(
-      const PostgrestException(message: 'UGC_CONTENT_RESTRICTED', code: '22023'),
-      'Fallback',
-    );
-    expect(error.code, AppErrorCode.validation);
-    expect(error.userMessage, 'Your content contains restricted words. Please revise it and try again.');
-  });
+  test(
+    '22023 + UGC_CONTENT_RESTRICTED still maps to restricted-content validation',
+    () {
+      final parser = SupabaseReviewRepository(null as dynamic);
+      final error = parser.parseError(
+        const PostgrestException(
+          message: 'UGC_CONTENT_RESTRICTED',
+          code: '22023',
+        ),
+        'Fallback',
+      );
+      expect(error.code, AppErrorCode.validation);
+      expect(
+        error.userMessage,
+        'Your content contains restricted words. Please revise it and try again.',
+      );
+    },
+  );
 }

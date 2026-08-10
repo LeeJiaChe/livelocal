@@ -167,7 +167,7 @@ set local role authenticated;
 
 -- Test: Filtering blocklist - whole word match rejects
 select throws_ok(
-  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is a badword.', 1) $$,
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is a badword.', 2) $$,
   '22023',
   'UGC_CONTENT_RESTRICTED',
   'Filtering rejects whole word match with punctuation'
@@ -183,7 +183,7 @@ select throws_ok(
 
 -- Test: Filtering blocklist - substring match succeeds
 select lives_ok(
-  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is notbadwordy!', 1) $$,
+  $$ select public.upsert_review('spot', 'c0000000-0000-0000-0000-000000000010'::uuid, 5, 'This is notbadwordy!', 2) $$,
   'Filtering ignores substring matches to avoid false positives'
 );
 

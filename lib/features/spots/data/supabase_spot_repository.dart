@@ -424,7 +424,8 @@ class SupabaseSpotRepository implements SpotRepository {
   }
 
   AppException parseError(PostgrestException error, String message) {
-    if (error.code == 'P0001' && error.message == 'UGC_RULES_ACCEPTANCE_REQUIRED') {
+    if (error.code == 'P0001' &&
+        error.message == 'UGC_RULES_ACCEPTANCE_REQUIRED') {
       return AppException(
         code: AppErrorCode.forbidden,
         userMessage: 'UGC_RULES_ACCEPTANCE_REQUIRED',
