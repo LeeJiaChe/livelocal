@@ -17,7 +17,6 @@ Before the workflow can succeed, the `supabase/functions/storage-cleanup` Edge F
 
 Production/staging secrets must be configured manually in GitHub Actions (via environment or repository secrets). The exact required secret names are:
 - `SUPABASE_FUNCTION_URL`: The full URL to the deployed Edge Function.
-- `SUPABASE_FUNCTION_AUTH_TOKEN`: A valid function invocation token/JWT used in the Authorization Bearer header.
 - `STORAGE_CLEANUP_CRON_SECRET`: Must exactly match the Edge Function's environment secret.
 
 **IMPORTANT:** `SUPABASE_SERVICE_ROLE_KEY` remains strictly inside the Edge Function environment. Do NOT put the service-role key in GitHub Actions.
