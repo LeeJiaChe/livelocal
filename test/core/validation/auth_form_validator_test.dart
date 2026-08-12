@@ -11,10 +11,7 @@ void main() {
     });
 
     test('returns required error when email is empty', () {
-      expect(
-        AuthFormValidator.validateEmail(''),
-        'Email address is required',
-      );
+      expect(AuthFormValidator.validateEmail(''), 'Email address is required');
     });
 
     test('returns required error when email contains only spaces', () {
@@ -47,36 +44,28 @@ void main() {
 
     test('rejects email with consecutive dots in local part', () {
       expect(
-        AuthFormValidator.validateEmail(
-          'user..name@example.com',
-        ),
+        AuthFormValidator.validateEmail('user..name@example.com'),
         'Enter a valid email address',
       );
     });
 
     test('rejects email starting with a dot', () {
       expect(
-        AuthFormValidator.validateEmail(
-          '.user@example.com',
-        ),
+        AuthFormValidator.validateEmail('.user@example.com'),
         'Enter a valid email address',
       );
     });
 
     test('rejects email ending local part with a dot', () {
       expect(
-        AuthFormValidator.validateEmail(
-          'user.@example.com',
-        ),
+        AuthFormValidator.validateEmail('user.@example.com'),
         'Enter a valid email address',
       );
     });
 
     test('rejects email with consecutive dots in domain', () {
       expect(
-        AuthFormValidator.validateEmail(
-          'user@example..com',
-        ),
+        AuthFormValidator.validateEmail('user@example..com'),
         'Enter a valid email address',
       );
     });
@@ -91,37 +80,20 @@ void main() {
     });
 
     test('accepts valid normal email', () {
-      expect(
-        AuthFormValidator.validateEmail(
-          'tourist@livelocal.com',
-        ),
-        isNull,
-      );
+      expect(AuthFormValidator.validateEmail('tourist@livelocal.com'), isNull);
     });
 
     test('accepts valid email with subdomain', () {
-      expect(
-        AuthFormValidator.validateEmail(
-          'user@mail.example.com',
-        ),
-        isNull,
-      );
+      expect(AuthFormValidator.validateEmail('user@mail.example.com'), isNull);
     });
 
     test('accepts valid email with plus addressing', () {
-      expect(
-        AuthFormValidator.validateEmail(
-          'user+test@example.com',
-        ),
-        isNull,
-      );
+      expect(AuthFormValidator.validateEmail('user+test@example.com'), isNull);
     });
 
     test('trims spaces around valid email', () {
       expect(
-        AuthFormValidator.validateEmail(
-          '  tourist@livelocal.com  ',
-        ),
+        AuthFormValidator.validateEmail('  tourist@livelocal.com  '),
         isNull,
       );
     });
@@ -143,17 +115,12 @@ void main() {
     });
 
     test('accepts demo login password', () {
-      expect(
-        AuthFormValidator.validateLoginPassword('123456'),
-        isNull,
-      );
+      expect(AuthFormValidator.validateLoginPassword('123456'), isNull);
     });
 
     test('accepts any non-empty existing password', () {
       expect(
-        AuthFormValidator.validateLoginPassword(
-          'ExistingPassword123!',
-        ),
+        AuthFormValidator.validateLoginPassword('ExistingPassword123!'),
         isNull,
       );
     });

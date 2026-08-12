@@ -30,21 +30,13 @@ class _LoginScreenState extends State<LoginScreen> {
     Widget? suffixIcon,
   }) {
     return InputDecoration(
-      prefixIcon: Icon(
-        prefixIcon,
-        color: AppColors.primary,
-      ),
+      prefixIcon: Icon(prefixIcon, color: AppColors.primary),
       labelText: labelText,
       suffixIcon: suffixIcon,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: AppColors.primary,
-          width: 2,
-        ),
+        borderSide: const BorderSide(color: AppColors.primary, width: 2),
       ),
     );
   }
@@ -102,24 +94,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final pending = context.read<ProtectedNavigation>().consumePending();
 
-      navigator.pushNamedAndRemoveUntil(
-        '/home',
-        (route) => false,
-      );
+      navigator.pushNamedAndRemoveUntil('/home', (route) => false);
 
       if (pending != null && authCtrl.canWrite) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          navigator.pushNamed(
-            pending.routeName,
-            arguments: pending.arguments,
-          );
+          navigator.pushNamed(pending.routeName, arguments: pending.arguments);
         });
       }
     } else {
       setState(() {
         _showError = true;
 
-        _errorMessage = authCtrl.errorMessage ??
+        _errorMessage =
+            authCtrl.errorMessage ??
             'Invalid email or password. Please try again.';
       });
     }
@@ -131,10 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    Navigator.pushReplacementNamed(
-      context,
-      '/welcome',
-    );
+    Navigator.pushReplacementNamed(context, '/welcome');
   }
 
   @override
@@ -150,9 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primary,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-          ),
+          icon: const Icon(Icons.arrow_back),
           onPressed: isSubmitting ? null : _goBack,
         ),
         title: const Text(
@@ -173,34 +155,22 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Text(
                   'Welcome back',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   'Log in to continue exploring',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
                 if (_showError) ...[
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(
-                      12,
-                    ),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppColors.errorBg,
-                      borderRadius: BorderRadius.circular(
-                        8,
-                      ),
-                      border: Border.all(
-                        color: Colors.red.shade200,
-                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
                     ),
                     child: Row(
                       children: [
@@ -209,9 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: AppColors.error,
                           size: 16,
                         ),
-                        const SizedBox(
-                          width: 8,
-                        ),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _errorMessage,
@@ -224,9 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
                 ],
                 Form(
                   key: _formKey,
@@ -238,9 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autocorrect: false,
-                        autofillHints: const [
-                          AutofillHints.email,
-                        ],
+                        autofillHints: const [AutofillHints.email],
                         onChanged: (_) => _clearError(),
                         decoration: _fieldDecoration(
                           prefixIcon: Icons.email_outlined,
@@ -250,17 +214,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         // LOGIN EMAIL VALIDATION
                         validator: AuthFormValidator.validateEmail,
                       ),
-                      const SizedBox(
-                        height: 16,
-                      ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _passwordController,
                         enabled: !isSubmitting,
                         obscureText: _obscurePassword,
                         textInputAction: TextInputAction.done,
-                        autofillHints: const [
-                          AutofillHints.password,
-                        ],
+                        autofillHints: const [AutofillHints.password],
                         onChanged: (_) => _clearError(),
                         onFieldSubmitted: (_) {
                           if (!isSubmitting) {
@@ -283,11 +243,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: isSubmitting
                                 ? null
                                 : () {
-                                    setState(
-                                      () {
-                                        _obscurePassword = !_obscurePassword;
-                                      },
-                                    );
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
                                   },
                           ),
                         ),
@@ -304,22 +262,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: TextButton(
                     onPressed: isSubmitting
                         ? null
-                        : () => Navigator.pushNamed(
-                              context,
-                              '/password-reset',
-                            ),
-                    child: const Text(
-                      'Forgot password?',
-                    ),
+                        : () => Navigator.pushNamed(context, '/password-reset'),
+                    child: const Text('Forgot password?'),
                   ),
                 ),
                 if (context.read<AppConfiguration>().isDemo) ...[
                   const Text(
                     'Demo mode uses the fixed password 123456 and does not contact production services.',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -333,43 +283,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          12,
-                        ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: isSubmitting
                         ? const SizedBox.square(
                             dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text(
-                            'Log In',
-                            style: TextStyle(
-                              fontSize: 16,
-                            ),
-                          ),
+                        : const Text('Log In', style: TextStyle(fontSize: 16)),
                   ),
                 ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      "Don't have an account? ",
-                    ),
+                    const Text("Don't have an account? "),
                     TextButton(
                       onPressed: isSubmitting
                           ? null
-                          : () => Navigator.pushNamed(
-                                context,
-                                '/register',
-                              ),
-                      child: const Text(
-                        'Sign up',
-                      ),
+                          : () => Navigator.pushNamed(context, '/register'),
+                      child: const Text('Sign up'),
                     ),
                   ],
                 ),

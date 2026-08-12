@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
 import '../core/routing/protected_navigation.dart';
+import '../core/validation/auth_form_validator.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -27,9 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       prefixIcon: Icon(prefixIcon, color: AppColors.primary),
       labelText: labelText,
       suffixIcon: suffixIcon,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: AppColors.primary, width: 2),
@@ -75,10 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       navigator.pushNamedAndRemoveUntil('/home', (route) => false);
       if (pending != null && authCtrl.canWrite) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          navigator.pushNamed(
-            pending.routeName,
-            arguments: pending.arguments,
-          );
+          navigator.pushNamed(pending.routeName, arguments: pending.arguments);
         });
       }
     } else {
@@ -133,18 +129,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const Text(
                   'Create your account',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   'Join thousands discovering authentic Malaysia',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
                 const Text(
@@ -190,19 +180,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: Icons.email_outlined,
                           labelText: 'Email Address',
                         ),
-                        validator: (value) {
-                          final email = value?.trim() ?? '';
-                          if (email.isEmpty) {
-                            return 'Email address is required';
-                          }
-                          final emailPattern = RegExp(
-                            r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
-                          );
-                          if (!emailPattern.hasMatch(email)) {
-                            return 'Enter a valid email address';
-                          }
-                          return null;
-                        },
+                        validator: AuthFormValidator.validateEmail,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -309,8 +287,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             dimension: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Create Account',
-                            style: TextStyle(fontSize: 16)),
+                        : const Text(
+                            'Create Account',
+                            style: TextStyle(fontSize: 16),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 16),
