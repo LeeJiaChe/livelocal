@@ -105,8 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _showError = true;
 
-        _errorMessage =
-            authCtrl.errorMessage ??
+        _errorMessage = authCtrl.errorMessage ??
             'Invalid email or password. Please try again.';
       });
     }
