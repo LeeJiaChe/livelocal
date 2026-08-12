@@ -68,6 +68,7 @@ void main() {
     expect(find.text('2 saved places'), findsOneWidget);
     expect(find.text(spot.name), findsOneWidget);
     expect(find.text(restaurant.name), findsOneWidget);
+    expect(find.textContaining('Suggested day ·'), findsWidgets);
 
     await tester.tap(find.text('Spots'));
     await tester.pumpAndSettle();

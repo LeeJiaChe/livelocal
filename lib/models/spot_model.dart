@@ -22,6 +22,8 @@ class SpotModel {
   final int moderationVersion;
   final String? decisionReason;
   final bool hasApprovedRevision;
+  final int upvoteCount;
+  final bool isUpvotedByCurrentUser;
 
   SpotModel({
     required this.id,
@@ -47,6 +49,8 @@ class SpotModel {
     this.moderationVersion = 1,
     this.decisionReason,
     this.hasApprovedRevision = false,
+    this.upvoteCount = 0,
+    this.isUpvotedByCurrentUser = false,
   });
 
   Map<String, dynamic> toMap() => {
@@ -73,6 +77,8 @@ class SpotModel {
         'moderation_version': moderationVersion,
         'decision_reason': decisionReason,
         'has_approved_revision': hasApprovedRevision,
+        'upvote_count': upvoteCount,
+        'is_upvoted_by_current_user': isUpvotedByCurrentUser,
       };
 
   factory SpotModel.fromMap(Map<String, dynamic> map) => SpotModel(
@@ -99,5 +105,7 @@ class SpotModel {
         moderationVersion: (map['moderation_version'] as num?)?.toInt() ?? 1,
         decisionReason: map['decision_reason'],
         hasApprovedRevision: map['has_approved_revision'] ?? false,
+        upvoteCount: (map['upvote_count'] as num?)?.toInt() ?? 0,
+        isUpvotedByCurrentUser: map['is_upvoted_by_current_user'] ?? false,
       );
 }

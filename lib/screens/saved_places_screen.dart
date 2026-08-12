@@ -276,33 +276,52 @@ class _SavedPlacesList extends StatelessWidget {
             ),
           )
         else
-          ...places.map(
-            (place) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Card(
-                margin: EdgeInsets.zero,
-                elevation: 0,
-                child: ListTile(
-                  minTileHeight: 72,
-                  leading: Icon(
-                    place.spot == null
-                        ? Icons.restaurant_outlined
-                        : Icons.place_outlined,
+          ..._groupByArea(places).entries.expand(
+                (entry) => [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                    child: Text(
+                      'Suggested day · ${entry.key}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
-                  title: Text(place.name),
-                  subtitle: Text(place.description),
-                  onTap: () => onOpen(place),
-                  trailing: IconButton(
-                    tooltip: 'Remove ${place.name} from saved',
-                    onPressed: () => onRemove(place),
-                    icon: const Icon(Icons.bookmark_remove_outlined),
+                  ...entry.value.map(
+                    (place) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        elevation: 0,
+                        child: ListTile(
+                          minTileHeight: 72,
+                          leading: Icon(
+                            place.spot == null
+                                ? Icons.restaurant_outlined
+                                : Icons.place_outlined,
+                          ),
+                          title: Text(place.name),
+                          subtitle: Text(place.description),
+                          onTap: () => onOpen(place),
+                          trailing: IconButton(
+                            tooltip: 'Remove ${place.name} from saved',
+                            onPressed: () => onRemove(place),
+                            icon: const Icon(Icons.bookmark_remove_outlined),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-          ),
       ],
     );
+  }
+
+  Map<String, List<_ResolvedPlace>> _groupByArea(List<_ResolvedPlace> places) {
+    final grouped = <String, List<_ResolvedPlace>>{};
+    for (final place in places) {
+      grouped.putIfAbsent(place.area, () => []).add(place);
+    }
+    return grouped;
   }
 }
 
@@ -317,6 +336,9 @@ class _ResolvedPlace {
   String get description => spot == null
       ? '${restaurant!.cuisineType} · ${restaurant!.city}'
       : '${spot!.category} · ${spot!.city}';
+  String get area => spot == null
+      ? '${restaurant!.city}, ${restaurant!.state}'
+      : '${spot!.city}, ${spot!.state}';
 }
 
 class _GuestState extends StatelessWidget {
