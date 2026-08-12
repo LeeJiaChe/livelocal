@@ -1,4 +1,5 @@
 import '../../../models/review_model.dart';
+import 'review.dart';
 
 class ModerationCaseReceipt {
   const ModerationCaseReceipt({
@@ -37,4 +38,9 @@ abstract interface class ReviewRepository {
     String? explanation,
     required bool hideForReporter,
   });
+
+  Future<void> voteReview({
+    required String reviewId,
+    required int? vote});
 }
+

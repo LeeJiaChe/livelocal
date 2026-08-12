@@ -6,9 +6,9 @@ import '../../../models/review_model.dart';
 import '../domain/review_repository.dart';
 
 class SupabaseReviewRepository implements ReviewRepository {
-  SupabaseReviewRepository(this._client);
-
   final SupabaseClient _client;
+
+  SupabaseReviewRepository(this._client);
 
   @override
   Future<List<ReviewModel>> fetchReviews({
@@ -26,7 +26,7 @@ class SupabaseReviewRepository implements ReviewRepository {
             .eq('target_id', restaurantId);
       }
       final publicRows =
-          await publicRequest.order('updated_at', ascending: false).limit(100);
+      await publicRequest.order('updated_at', ascending: false).limit(100);
       final ownRows = _client.auth.currentUser == null
           ? const <dynamic>[]
           : await _client.from('reviews').select().eq('status', 'published');
@@ -153,6 +153,28 @@ class SupabaseReviewRepository implements ReviewRepository {
             ? 'You already have an active report for this review.'
             : 'The report could not be submitted.',
       );
+    }
+  }
+
+  @override
+  Future<void> voteReview(
+      {required String reviewId, required int? vote}) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    if (vote == null) {
+      // Remove the vote
+      await _client.from('review_votes').delete().match({
+        'review_id': reviewId,
+        'user_id': userId,
+      });
+    } else {
+      // Upsert (Insert or Update) the vote
+      await _client.from('review_votes').upsert({
+        'review_id': reviewId,
+        'user_id': userId,
+        'vote': vote,
+      });
     }
   }
 }
