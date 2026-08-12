@@ -119,6 +119,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     final creatorName = widget.restaurant.influencerName.trim().isEmpty
         ? 'LiveLocal'
         : widget.restaurant.influencerName.trim();
+    final socialPlatform = SocialUrlValidator.platformLabel(
+      widget.restaurant.socialMediaUrl,
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5F0),
@@ -226,10 +229,17 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (widget.restaurant.socialLinkStatus == 'active') ...[
+                    _InfoCard(
+                      icon: Icons.video_library_outlined,
+                      title: '$socialPlatform review',
+                      body:
+                          'Open the original $socialPlatform restaurant review shared by $creatorName.',
+                    ),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: _openSocialPost,
-                      icon: const Icon(Icons.open_in_new),
-                      label: const Text('Open creator post'),
+                      icon: const Icon(Icons.play_circle_outline),
+                      label: Text('Open $socialPlatform review'),
                     ),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -338,8 +348,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   Future<void> _openSocialPost() async {
     final value = widget.restaurant.socialMediaUrl;
-    if (!SocialUrlValidator.isSupported(value)) {
-      _message('This creator link is invalid and cannot be opened.');
+    if (!SocialUrlValidator.isReviewPost(value)) {
+      _message('This creator review link is invalid and cannot be opened.');
       return;
     }
     final opened = await launchUrl(
