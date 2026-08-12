@@ -23,6 +23,7 @@ class LocalEatsController with ChangeNotifier {
   String? _errorMessage;
   String _selectedState = 'All';
   String _selectedCuisine = 'All';
+  String _selectedFoodType = 'All';
   String _selectedBudget = 'All';
   String _searchQuery = '';
 
@@ -41,6 +42,7 @@ class LocalEatsController with ChangeNotifier {
   String get selectedCuisine => _selectedCuisine;
   String get selectedBudget => _selectedBudget;
   String get searchQuery => _searchQuery;
+  String get selectedFoodType => _selectedFoodType;
 
   List<RestaurantModel> get filteredRestaurants =>
       _restaurants.where((restaurant) {
@@ -63,6 +65,13 @@ class LocalEatsController with ChangeNotifier {
                 .contains(_selectedCuisine.toLowerCase())) {
           return false;
         }
+
+        if (_selectedFoodType != 'All' &&
+    !restaurant.reviewedDishes
+        .toLowerCase()
+        .contains(_selectedFoodType.toLowerCase())) {
+  return false;
+}
         return _selectedBudget == 'All' ||
             restaurant.priceRange == _selectedBudget;
       }).toList();
@@ -142,7 +151,7 @@ class LocalEatsController with ChangeNotifier {
     }
   }
 
-  void setFilter({String? state, String? cuisine, String? budget}) {
+  void setFilter({String? state, String? cuisine, String? foodType, String? budget}) {
     if (state != null) _selectedState = state;
     if (cuisine != null) _selectedCuisine = cuisine;
     if (budget != null) _selectedBudget = budget;
@@ -157,6 +166,7 @@ class LocalEatsController with ChangeNotifier {
   void resetFilters() {
     _selectedState = 'All';
     _selectedCuisine = 'All';
+    _selectedFoodType = 'All';
     _selectedBudget = 'All';
     _searchQuery = '';
     notifyListeners();

@@ -254,6 +254,23 @@ class _Filters extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _Filter(
+  label: 'Food Type',
+  value: controller.selectedFoodType,
+  values: const [
+    'All',
+    'Sushi',
+    'Pizza',
+    'Beef Noodle',
+    'Roti Canai',
+    'Fried Rice',
+    'Nasi Lemak',
+  ],
+  onChanged: (value) =>
+      controller.setFilter(foodType: value),
+),
+
+const SizedBox(width: 8),
+          _Filter(
             label: 'Price',
             value: controller.selectedBudget,
             values: const ['All', r'$', r'$$', r'$$$', r'$$$$'],

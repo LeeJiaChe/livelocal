@@ -47,15 +47,19 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     'Selangor',
   ];
   static const _cuisines = [
-    'Malay',
-    'Chinese',
-    'Indian',
-    'Kopitiam',
-    'Hawker food',
-    'Western',
-    'Fusion',
-    'Other',
-  ];
+  'Malay',
+  'Chinese',
+  'Indian',
+  'Japanese',
+  'Korean',
+  'Thai',
+  'Italian',
+  'Kopitiam',
+  'Hawker Food',
+  'Western',
+  'Fusion',
+  'Other',
+];
 
   bool get _isRevision => widget.source != null;
 
