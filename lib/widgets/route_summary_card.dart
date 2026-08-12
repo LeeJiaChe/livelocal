@@ -4,7 +4,7 @@ import '../constants/app_styles.dart';
 
 class RouteSummaryCard extends StatelessWidget {
   final int stepCount;
-
+  
   const RouteSummaryCard({
     super.key,
     required this.stepCount,
@@ -18,8 +18,7 @@ class RouteSummaryCard extends StatelessWidget {
       builder: (context, val, child) {
         return Opacity(
           opacity: val,
-          child: Transform.translate(
-              offset: Offset(0, 20 * (1 - val)), child: child),
+          child: Transform.translate(offset: Offset(0, 20 * (1 - val)), child: child),
         );
       },
       child: Container(
@@ -53,10 +52,7 @@ class RouteSummaryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Optimised Travel Route',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16)),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: AppStyles.padXs),
                   Text(
                     '$stepCount stops • grouped by proximity',
