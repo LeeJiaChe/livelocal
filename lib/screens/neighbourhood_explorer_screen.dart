@@ -5,6 +5,7 @@ import '../controllers/guide_controller.dart';
 import '../models/guide_model.dart';
 import 'guide_detail_screen.dart';
 import '../shared/presentation/app_state_view.dart';
+import '../features/guides/presentation/submit_guide_screen.dart';
 
 class NeighbourhoodExplorerScreen extends StatelessWidget {
   const NeighbourhoodExplorerScreen({super.key});
@@ -118,6 +119,14 @@ class NeighbourhoodExplorerScreen extends StatelessWidget {
               ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(builder: (_) => const SubmitGuideScreen()),
+        ),
+        icon: const Icon(Icons.add_road_outlined),
+        label: const Text('Submit guide'),
       ),
     );
   }

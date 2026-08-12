@@ -14,6 +14,7 @@ import '../models/restaurant_model.dart';
 import '../controllers/guide_controller.dart';
 import '../features/guides/presentation/admin_guide_editor_screen.dart';
 import '../models/guide_model.dart';
+import 'guide_detail_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -218,9 +219,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             const SizedBox(height: 16),
             _Section(
-              title: 'Guide drafts',
+              title: 'Guide submissions and drafts',
               count: guides.adminDrafts.length,
-              emptyText: 'No guide drafts are awaiting publication.',
+              emptyText: 'No guide submissions are awaiting review.',
               children: guides.adminDrafts
                   .map(
                     (guide) => ListTile(
@@ -229,12 +230,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       leading: const Icon(Icons.route_outlined),
                       title: Text(guide.title),
                       subtitle: Text(
-                        '${guide.locationName}, ${guide.state} · ${guide.stops.length} stops',
+                        '${guide.locationName}, ${guide.state} · ${guide.stops.length} stops · ${guide.status.replaceAll('_', ' ')}',
                       ),
-                      trailing: FilledButton.tonal(
-                        onPressed: () => _publishGuide(guide),
-                        child: const Text('Publish'),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => GuideDetailScreen(guide: guide),
+                        ),
                       ),
+                      trailing: guide.status == 'draft'
+                          ? FilledButton.tonal(
+                              onPressed: () => _publishGuide(guide),
+                              child: const Text('Publish'),
+                            )
+                          : PopupMenuButton<String>(
+                              tooltip: 'Moderate guide submission',
+                              onSelected: (decision) =>
+                                  _moderateGuide(guide, decision),
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'approved',
+                                  child: Text('Approve'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'rejected',
+                                  child: Text('Reject'),
+                                ),
+                              ],
+                            ),
                     ),
                   )
                   .toList(),
@@ -605,6 +628,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           : context.read<GuideController>().errorMessage ??
               'The guide could not be published.',
     );
+  }
+
+  Future<void> _moderateGuide(GuideModel guide, String decision) async {
+    final reason = await _reasonDialog(
+      title:
+          decision == 'approved' ? 'Approve this guide?' : 'Reject this guide?',
+      prompt: decision == 'approved'
+          ? 'Confirm that every stop and route instruction is suitable for publication.'
+          : 'Explain what needs to change before a future submission.',
+      destructive: decision == 'rejected',
+    );
+    if (reason == null || !mounted) return;
+    final saved = await context
+        .read<GuideController>()
+        .moderateSubmission(guide, decision, reason);
+    if (!mounted) return;
+    _message(saved
+        ? 'Guide decision recorded.'
+        : context.read<GuideController>().errorMessage ??
+            'The guide decision could not be saved.');
   }
 
   Future<void> _archiveGuide(GuideModel guide) async {

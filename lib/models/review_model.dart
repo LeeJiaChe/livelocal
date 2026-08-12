@@ -13,6 +13,9 @@ class ReviewModel {
   final DateTime? updatedAt;
   final int version;
   final bool isOwnedByCurrentUser;
+  final int likesCount;
+  final int dislikesCount;
+  final int? userVote;
 
   ReviewModel({
     required this.id,
@@ -29,6 +32,9 @@ class ReviewModel {
     this.updatedAt,
     this.version = 1,
     this.isOwnedByCurrentUser = false,
+    this.likesCount = 0,
+    this.dislikesCount = 0,
+    this.userVote,
   });
 
   Map<String, dynamic> toMap() => {
@@ -45,6 +51,9 @@ class ReviewModel {
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
         'version': version,
+        'likes_count': likesCount,
+        'dislikes_count': dislikesCount,
+        'user_vote': userVote,
       };
 
   factory ReviewModel.fromMap(Map<String, dynamic> map) => ReviewModel(
@@ -65,5 +74,33 @@ class ReviewModel {
             : DateTime.parse(map['updated_at'] as String),
         version: (map['version'] as num?)?.toInt() ?? 1,
         isOwnedByCurrentUser: map['is_owned_by_current_user'] ?? false,
+        likesCount: (map['likes_count'] as num?)?.toInt() ?? 0,
+        dislikesCount: (map['dislikes_count'] as num?)?.toInt() ?? 0,
+        userVote: (map['user_vote'] as num?)?.toInt(),
+      );
+
+  ReviewModel copyWithReaction({
+    required int likesCount,
+    required int dislikesCount,
+    required int? userVote,
+  }) =>
+      ReviewModel(
+        id: id,
+        spotId: spotId,
+        restaurantId: restaurantId,
+        userId: userId,
+        userName: userName,
+        rating: rating,
+        comment: comment,
+        photoUrl: photoUrl,
+        isFlagged: isFlagged,
+        flagReason: flagReason,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        version: version,
+        isOwnedByCurrentUser: isOwnedByCurrentUser,
+        likesCount: likesCount,
+        dislikesCount: dislikesCount,
+        userVote: userVote,
       );
 }

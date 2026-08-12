@@ -5,7 +5,8 @@ import '../../auth/data/demo_auth_repository.dart';
 import '../../auth/domain/account_identity.dart';
 import '../domain/review_repository.dart';
 
-class DemoReviewRepository implements ReviewRepository {
+class DemoReviewRepository
+    implements ReviewRepository, ReviewReactionRepository {
   DemoReviewRepository(this._authRepository)
       : _reviews = List<ReviewModel>.of(SeedDataService.getInitialReviews());
 
@@ -13,6 +14,7 @@ class DemoReviewRepository implements ReviewRepository {
   final List<ReviewModel> _reviews;
   final Set<String> _hiddenReviewIds = {};
   final Set<String> _reportedReviewIds = {};
+  final Map<String, int> _votes = {};
 
   @override
   Future<List<ReviewModel>> fetchReviews({
@@ -34,6 +36,35 @@ class DemoReviewRepository implements ReviewRepository {
           ),
         )
         .toList();
+  }
+
+  @override
+  Future<ReviewReactionResult> setReaction(String reviewId, int? vote) async {
+    final account = _requireAccount();
+    final review = _reviews.where((item) => item.id == reviewId);
+    if (review.isEmpty) {
+      throw const AppException(
+        code: AppErrorCode.notFound,
+        userMessage: 'The review is no longer available.',
+      );
+    }
+    final key = '${account.id}:$reviewId';
+    if (vote == null) {
+      _votes.remove(key);
+    } else {
+      _votes[key] = vote;
+    }
+    final likes = _votes.entries
+        .where((entry) => entry.key.endsWith(':$reviewId') && entry.value == 1)
+        .length;
+    final dislikes = _votes.entries
+        .where((entry) => entry.key.endsWith(':$reviewId') && entry.value == -1)
+        .length;
+    return ReviewReactionResult(
+      likesCount: likes,
+      dislikesCount: dislikes,
+      userVote: vote,
+    );
   }
 
   @override
@@ -175,6 +206,10 @@ class DemoReviewRepository implements ReviewRepository {
       updatedAt: updatedAt ?? review.updatedAt,
       version: version ?? review.version,
       isOwnedByCurrentUser: isOwnedByCurrentUser ?? review.isOwnedByCurrentUser,
+      likesCount: review.likesCount,
+      dislikesCount: review.dislikesCount,
+      userVote:
+          _votes['${_authRepository.currentAccountForDemo?.id}:${review.id}'],
     );
   }
 }
