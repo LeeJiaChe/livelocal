@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
 import '../core/config/app_environment.dart';
 import '../core/routing/protected_navigation.dart';
+import '../core/validation/auth_form_validator.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+
   bool _showError = false;
   String _errorMessage = '';
   bool _obscurePassword = true;
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   InputDecoration _fieldDecoration({
     required IconData prefixIcon,
     required String labelText,
@@ -27,9 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
       prefixIcon: Icon(prefixIcon, color: AppColors.primary),
       labelText: labelText,
       suffixIcon: suffixIcon,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: AppColors.primary, width: 2),
@@ -38,7 +42,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _clearError() {
-    if (!_showError) return;
+    if (!_showError) {
+      return;
+    }
+
     setState(() {
       _showError = false;
       _errorMessage = '';
@@ -49,39 +56,55 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
     final currentForm = _formKey.currentState;
-    if (currentForm == null || !currentForm.validate()) return;
+
+    if (currentForm == null || !currentForm.validate()) {
+      return;
+    }
+
     final authCtrl = context.read<AuthController>();
-    if (authCtrl.isLoading) return;
+
+    if (authCtrl.isLoading) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
+
     setState(() {
       _showError = false;
       _errorMessage = '';
     });
+
     final success = await authCtrl.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
-    if (!mounted) return;
+
+    if (!mounted) {
+      return;
+    }
+
     if (success) {
       final navigator = Navigator.of(context);
+
       final pending = context.read<ProtectedNavigation>().consumePending();
+
       navigator.pushNamedAndRemoveUntil('/home', (route) => false);
+
       if (pending != null && authCtrl.canWrite) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          navigator.pushNamed(
-            pending.routeName,
-            arguments: pending.arguments,
-          );
+          navigator.pushNamed(pending.routeName, arguments: pending.arguments);
         });
       }
     } else {
       setState(() {
         _showError = true;
+
         _errorMessage = authCtrl.errorMessage ??
             'Invalid email or password. Please try again.';
       });
@@ -93,12 +116,14 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pop(context);
       return;
     }
+
     Navigator.pushReplacementNamed(context, '/welcome');
   }
 
   @override
   Widget build(BuildContext context) {
     final authController = context.watch<AuthController>();
+
     final isSubmitting = authController.isLoading;
 
     return Scaffold(
@@ -129,18 +154,12 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Text(
                   'Welcome back',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   'Log in to continue exploring',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
                 if (_showError) ...[
@@ -190,19 +209,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           prefixIcon: Icons.email_outlined,
                           labelText: 'Email Address',
                         ),
-                        validator: (value) {
-                          final email = value?.trim() ?? '';
-                          if (email.isEmpty) {
-                            return 'Email address is required';
-                          }
-                          final emailPattern = RegExp(
-                            r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
-                          );
-                          if (!emailPattern.hasMatch(email)) {
-                            return 'Enter a valid email address';
-                          }
-                          return null;
-                        },
+
+                        // LOGIN EMAIL VALIDATION
+                        validator: AuthFormValidator.validateEmail,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -213,7 +222,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         autofillHints: const [AutofillHints.password],
                         onChanged: (_) => _clearError(),
                         onFieldSubmitted: (_) {
-                          if (!isSubmitting) _handleLogin();
+                          if (!isSubmitting) {
+                            _handleLogin();
+                          }
                         },
                         decoration: _fieldDecoration(
                           prefixIcon: Icons.lock_outline,
@@ -237,12 +248,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   },
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Password is required';
-                          }
-                          return null;
-                        },
+
+                        // LOGIN PASSWORD VALIDATION
+                        validator: AuthFormValidator.validateLoginPassword,
                       ),
                     ],
                   ),
