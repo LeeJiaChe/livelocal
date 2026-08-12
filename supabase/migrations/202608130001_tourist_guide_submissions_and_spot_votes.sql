@@ -224,4 +224,63 @@ grant execute on function public.list_my_guide_submissions() to authenticated;
 grant execute on function public.admin_moderate_guide_revision(uuid,text,text,integer) to authenticated;
 grant execute on function public.toggle_spot_upvote(uuid) to authenticated;
 
+create table public.review_votes (
+  review_id uuid not null references public.reviews(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  vote smallint not null check (vote in (-1, 1)),
+  updated_at timestamptz not null default clock_timestamp(),
+  primary key (review_id, user_id)
+);
+alter table public.review_votes enable row level security;
+create policy review_votes_owner_select on public.review_votes
+  for select to authenticated using (user_id = (select auth.uid()));
+alter table public.public_reviews
+  add column likes_count integer not null default 0 check (likes_count >= 0),
+  add column dislikes_count integer not null default 0 check (dislikes_count >= 0);
+
+create or replace function public.set_review_vote(p_review_id uuid, p_vote integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public, private
+as $$
+declare likes integer;
+declare dislikes integer;
+begin
+  if not private.can_use_protected_features() then
+    raise exception using errcode = '42501', message = 'Account cannot react to reviews';
+  end if;
+  if p_vote not in (-1, 0, 1) then
+    raise exception using errcode = '22023', message = 'Invalid review vote';
+  end if;
+  if not exists (select 1 from public.public_reviews where id = p_review_id) then
+    raise exception using errcode = 'P0002', message = 'Published review not found';
+  end if;
+  if p_vote = 0 then
+    delete from public.review_votes
+    where review_id = p_review_id and user_id = auth.uid();
+  else
+    insert into public.review_votes (review_id, user_id, vote)
+    values (p_review_id, auth.uid(), p_vote)
+    on conflict (review_id, user_id) do update
+      set vote = excluded.vote, updated_at = clock_timestamp();
+  end if;
+  select count(*) filter (where vote = 1)::integer,
+    count(*) filter (where vote = -1)::integer
+  into likes, dislikes from public.review_votes where review_id = p_review_id;
+  update public.public_reviews set likes_count = likes, dislikes_count = dislikes
+  where id = p_review_id;
+  return jsonb_build_object(
+    'user_vote', nullif(p_vote, 0),
+    'likes_count', likes,
+    'dislikes_count', dislikes
+  );
+end;
+$$;
+
+revoke all on table public.review_votes from anon, authenticated;
+grant select on table public.review_votes to authenticated;
+revoke all on function public.set_review_vote(uuid, integer) from public;
+grant execute on function public.set_review_vote(uuid, integer) to authenticated;
+
 commit;

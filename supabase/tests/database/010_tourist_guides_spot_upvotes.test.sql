@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(22);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -143,6 +143,37 @@ select is((public.toggle_spot_upvote(
 select is((select count(*) from public.spot_upvotes where spot_id =
   'a1000000-0000-0000-0000-000000000010'), 0::bigint,
   'one-user-per-spot key prevents duplicate votes');
+
+reset role;
+insert into public.reviews (
+  id, target_type, target_id, user_id, author_display_name, rating, body
+) values (
+  'a1000000-0000-0000-0000-000000000020', 'spot',
+  'a1000000-0000-0000-0000-000000000010',
+  'a1000000-0000-0000-0000-000000000002', 'Guide Admin', 4,
+  'A useful published review for reaction testing.'
+);
+insert into public.public_reviews (
+  id, target_type, target_id, rating, body, author_display_name, version,
+  created_at, updated_at
+) select id, target_type, target_id, rating, body, author_display_name, version,
+  created_at, updated_at from public.reviews
+where id = 'a1000000-0000-0000-0000-000000000020';
+select set_config('request.jwt.claims',
+  '{"sub":"a1000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+set local role authenticated;
+select is((public.set_review_vote(
+  'a1000000-0000-0000-0000-000000000020', 1)->>'user_vote')::integer, 1,
+  'tourist can like another published review');
+select is((select likes_count from public.public_reviews where id =
+  'a1000000-0000-0000-0000-000000000020'), 1,
+  'review like count is persisted');
+select is((public.set_review_vote(
+  'a1000000-0000-0000-0000-000000000020', -1)->>'user_vote')::integer, -1,
+  'one reaction safely changes from like to dislike');
+select is((select count(*) from public.review_votes where review_id =
+  'a1000000-0000-0000-0000-000000000020'), 1::bigint,
+  'review reaction uniqueness prevents duplicate votes');
 
 select * from finish();
 rollback;

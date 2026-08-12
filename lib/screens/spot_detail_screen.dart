@@ -466,6 +466,29 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                   Text(r.comment,
                                       style: const TextStyle(
                                           fontSize: 13, height: 1.4)),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        tooltip: 'Like review',
+                                        onPressed: () =>
+                                            reviewCtrl.toggleReaction(r, 1),
+                                        icon: Icon(r.userVote == 1
+                                            ? Icons.thumb_up
+                                            : Icons.thumb_up_outlined),
+                                      ),
+                                      Text('${r.likesCount}'),
+                                      IconButton(
+                                        tooltip: 'Dislike review',
+                                        onPressed: () =>
+                                            reviewCtrl.toggleReaction(r, -1),
+                                        icon: Icon(r.userVote == -1
+                                            ? Icons.thumb_down
+                                            : Icons.thumb_down_outlined),
+                                      ),
+                                      Text('${r.dislikesCount}'),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),

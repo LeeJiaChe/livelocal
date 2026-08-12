@@ -335,6 +335,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                 !supportsUserBlocking
                             ? null
                             : () => _requestBlockAuthor('review', review.id),
+                        onLike: () =>
+                            reviewController.toggleReaction(review, 1),
+                        onDislike: () =>
+                            reviewController.toggleReaction(review, -1),
                       ),
                     ),
                 ],
@@ -804,6 +808,8 @@ class _ReviewCard extends StatelessWidget {
     this.onDelete,
     this.onReport,
     this.onBlock,
+    required this.onLike,
+    required this.onDislike,
   });
 
   final ReviewModel review;
@@ -811,6 +817,8 @@ class _ReviewCard extends StatelessWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onReport;
   final VoidCallback? onBlock;
+  final VoidCallback onLike;
+  final VoidCallback onDislike;
 
   @override
   Widget build(BuildContext context) {
@@ -871,6 +879,26 @@ class _ReviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(review.comment),
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Like review',
+                  onPressed: onLike,
+                  icon: Icon(review.userVote == 1
+                      ? Icons.thumb_up
+                      : Icons.thumb_up_outlined),
+                ),
+                Text('${review.likesCount}'),
+                IconButton(
+                  tooltip: 'Dislike review',
+                  onPressed: onDislike,
+                  icon: Icon(review.userVote == -1
+                      ? Icons.thumb_down
+                      : Icons.thumb_down_outlined),
+                ),
+                Text('${review.dislikesCount}'),
+              ],
+            ),
             if (review.updatedAt != null) ...[
               const SizedBox(height: 8),
               Text('Edited', style: Theme.of(context).textTheme.bodySmall),

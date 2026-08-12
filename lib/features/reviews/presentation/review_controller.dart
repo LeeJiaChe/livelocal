@@ -160,6 +160,33 @@ class ReviewController with ChangeNotifier {
     }
   }
 
+  Future<bool> toggleReaction(ReviewModel review, int vote) async {
+    final repository = _repository;
+    if (repository is! ReviewReactionRepository) return false;
+    final reactionRepository = repository as ReviewReactionRepository;
+    try {
+      final result = await reactionRepository.setReaction(
+        review.id,
+        review.userVote == vote ? null : vote,
+      );
+      final index = _reviews.indexWhere((item) => item.id == review.id);
+      if (index >= 0) {
+        _reviews[index] = _reviews[index].copyWithReaction(
+          likesCount: result.likesCount,
+          dislikesCount: result.dislikesCount,
+          userVote: result.userVote,
+        );
+      }
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _errorMessage = _message(error, 'Your reaction could not be saved.');
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> removeReview(String reviewId) async {
     final matches = _reviews.where((review) => review.id == reviewId);
     if (matches.isEmpty || !matches.single.isOwnedByCurrentUser) return false;
