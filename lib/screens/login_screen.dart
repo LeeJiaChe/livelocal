@@ -1,30 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
 import '../core/config/app_environment.dart';
 import '../core/routing/protected_navigation.dart';
+import '../core/validation/auth_form_validator.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+
   bool _showError = false;
   String _errorMessage = '';
   bool _obscurePassword = true;
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   InputDecoration _fieldDecoration({
     required IconData prefixIcon,
     required String labelText,
     Widget? suffixIcon,
   }) {
     return InputDecoration(
-      prefixIcon: Icon(prefixIcon, color: AppColors.primary),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: AppColors.primary,
+      ),
       labelText: labelText,
       suffixIcon: suffixIcon,
       border: OutlineInputBorder(
@@ -32,13 +41,19 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        borderSide: const BorderSide(
+          color: AppColors.primary,
+          width: 2,
+        ),
       ),
     );
   }
 
   void _clearError() {
-    if (!_showError) return;
+    if (!_showError) {
+      return;
+    }
+
     setState(() {
       _showError = false;
       _errorMessage = '';
@@ -49,28 +64,49 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
     final currentForm = _formKey.currentState;
-    if (currentForm == null || !currentForm.validate()) return;
+
+    if (currentForm == null || !currentForm.validate()) {
+      return;
+    }
+
     final authCtrl = context.read<AuthController>();
-    if (authCtrl.isLoading) return;
+
+    if (authCtrl.isLoading) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
+
     setState(() {
       _showError = false;
       _errorMessage = '';
     });
+
     final success = await authCtrl.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
-    if (!mounted) return;
+
+    if (!mounted) {
+      return;
+    }
+
     if (success) {
       final navigator = Navigator.of(context);
+
       final pending = context.read<ProtectedNavigation>().consumePending();
-      navigator.pushNamedAndRemoveUntil('/home', (route) => false);
+
+      navigator.pushNamedAndRemoveUntil(
+        '/home',
+        (route) => false,
+      );
+
       if (pending != null && authCtrl.canWrite) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           navigator.pushNamed(
@@ -82,6 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       setState(() {
         _showError = true;
+
         _errorMessage = authCtrl.errorMessage ??
             'Invalid email or password. Please try again.';
       });
@@ -93,12 +130,17 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pop(context);
       return;
     }
-    Navigator.pushReplacementNamed(context, '/welcome');
+
+    Navigator.pushReplacementNamed(
+      context,
+      '/welcome',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final authController = context.watch<AuthController>();
+
     final isSubmitting = authController.isLoading;
 
     return Scaffold(
@@ -108,7 +150,9 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primary,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(
+            Icons.arrow_back,
+          ),
           onPressed: isSubmitting ? null : _goBack,
         ),
         title: const Text(
@@ -146,11 +190,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (_showError) ...[
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(
+                      12,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.errorBg,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade200),
+                      borderRadius: BorderRadius.circular(
+                        8,
+                      ),
+                      border: Border.all(
+                        color: Colors.red.shade200,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -159,7 +209,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: AppColors.error,
                           size: 16,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(
+                          width: 8,
+                        ),
                         Expanded(
                           child: Text(
                             _errorMessage,
@@ -172,7 +224,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(
+                    height: 16,
+                  ),
                 ],
                 Form(
                   key: _formKey,
@@ -184,36 +238,34 @@ class _LoginScreenState extends State<LoginScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autocorrect: false,
-                        autofillHints: const [AutofillHints.email],
+                        autofillHints: const [
+                          AutofillHints.email,
+                        ],
                         onChanged: (_) => _clearError(),
                         decoration: _fieldDecoration(
                           prefixIcon: Icons.email_outlined,
                           labelText: 'Email Address',
                         ),
-                        validator: (value) {
-                          final email = value?.trim() ?? '';
-                          if (email.isEmpty) {
-                            return 'Email address is required';
-                          }
-                          final emailPattern = RegExp(
-                            r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
-                          );
-                          if (!emailPattern.hasMatch(email)) {
-                            return 'Enter a valid email address';
-                          }
-                          return null;
-                        },
+
+                        // LOGIN EMAIL VALIDATION
+                        validator: AuthFormValidator.validateEmail,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(
+                        height: 16,
+                      ),
                       TextFormField(
                         controller: _passwordController,
                         enabled: !isSubmitting,
                         obscureText: _obscurePassword,
                         textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.password],
+                        autofillHints: const [
+                          AutofillHints.password,
+                        ],
                         onChanged: (_) => _clearError(),
                         onFieldSubmitted: (_) {
-                          if (!isSubmitting) _handleLogin();
+                          if (!isSubmitting) {
+                            _handleLogin();
+                          }
                         },
                         decoration: _fieldDecoration(
                           prefixIcon: Icons.lock_outline,
@@ -231,18 +283,17 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: isSubmitting
                                 ? null
                                 : () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
+                                    setState(
+                                      () {
+                                        _obscurePassword = !_obscurePassword;
+                                      },
+                                    );
                                   },
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Password is required';
-                          }
-                          return null;
-                        },
+
+                        // LOGIN PASSWORD VALIDATION
+                        validator: AuthFormValidator.validateLoginPassword,
                       ),
                     ],
                   ),
@@ -253,14 +304,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: TextButton(
                     onPressed: isSubmitting
                         ? null
-                        : () => Navigator.pushNamed(context, '/password-reset'),
-                    child: const Text('Forgot password?'),
+                        : () => Navigator.pushNamed(
+                              context,
+                              '/password-reset',
+                            ),
+                    child: const Text(
+                      'Forgot password?',
+                    ),
                   ),
                 ),
                 if (context.read<AppConfiguration>().isDemo) ...[
                   const Text(
                     'Demo mode uses the fixed password 123456 and does not contact production services.',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -274,27 +333,43 @@ class _LoginScreenState extends State<LoginScreen> {
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(
+                          12,
+                        ),
                       ),
                     ),
                     child: isSubmitting
                         ? const SizedBox.square(
                             dimension: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
                           )
-                        : const Text('Log In', style: TextStyle(fontSize: 16)),
+                        : const Text(
+                            'Log In',
+                            style: TextStyle(
+                              fontSize: 16,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Don't have an account? "),
+                    const Text(
+                      "Don't have an account? ",
+                    ),
                     TextButton(
                       onPressed: isSubmitting
                           ? null
-                          : () => Navigator.pushNamed(context, '/register'),
-                      child: const Text('Sign up'),
+                          : () => Navigator.pushNamed(
+                                context,
+                                '/register',
+                              ),
+                      child: const Text(
+                        'Sign up',
+                      ),
                     ),
                   ],
                 ),
