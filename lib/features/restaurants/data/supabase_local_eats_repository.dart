@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../core/validation/social_url_validator.dart';
 import '../../../models/discount_code_model.dart';
 import '../../../models/restaurant_model.dart';
 import '../domain/local_eats_repository.dart';
@@ -136,6 +137,14 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     required Uint8List imageBytes,
     required String imageMimeType,
   }) async {
+    if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage:
+            'Use a valid TikTok video or Instagram post/reel URL.',
+      );
+    }
+
     late final String imagePath;
     try {
       imagePath = await _uploadImage(imageBytes, imageMimeType);
@@ -203,6 +212,14 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     Uint8List? imageBytes,
     String? imageMimeType,
   }) async {
+    if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage:
+            'Use a valid TikTok video or Instagram post/reel URL.',
+      );
+    }
+
     String? uploadedPath;
     try {
       if (imageBytes != null) {
