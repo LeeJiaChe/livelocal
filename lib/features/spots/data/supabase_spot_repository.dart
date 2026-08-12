@@ -338,6 +338,16 @@ class SupabaseSpotRepository implements SpotRepository {
   }
 
   Future<SpotModel> _mapPublicSpot(Map<String, dynamic> row) async {
+    final userId = _client.auth.currentUser?.id;
+    var isUpvoted = false;
+    if (userId != null) {
+      final votes = await _client
+          .from('spot_upvotes')
+          .select('spot_id')
+          .eq('spot_id', row['id'] as String)
+          .limit(1);
+      isUpvoted = votes.isNotEmpty;
+    }
     return SpotModel(
       id: row['id'] as String,
       revisionId: row['revision_id'] as String,
@@ -357,7 +367,27 @@ class SupabaseSpotRepository implements SpotRepository {
       status: 'approved',
       latitude: (row['latitude'] as num?)?.toDouble(),
       longitude: (row['longitude'] as num?)?.toDouble(),
+      upvoteCount: (row['upvote_count'] as num?)?.toInt() ?? 0,
+      isUpvotedByCurrentUser: isUpvoted,
     );
+  }
+
+  @override
+  Future<SpotUpvoteResult> toggleUpvote(String spotId) async {
+    try {
+      final response = await _client.rpc(
+        'toggle_spot_upvote',
+        params: {'p_spot_id': spotId},
+      );
+      final row = Map<String, dynamic>.from(response as Map);
+      return SpotUpvoteResult(
+        upvoted: row['upvoted'] as bool,
+        count: (row['upvote_count'] as num).toInt(),
+      );
+    } on PostgrestException catch (error) {
+      throw SupabaseErrorMapper.parseError(
+          error, 'Your vote could not be saved.');
+    }
   }
 
   Future<String> _signedImage(String? path) async {

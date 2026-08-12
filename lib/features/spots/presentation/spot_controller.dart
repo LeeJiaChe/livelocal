@@ -245,6 +245,47 @@ class SpotController with ChangeNotifier {
     }
   }
 
+  Future<bool> toggleUpvote(String spotId) async {
+    try {
+      final result = await _repository.toggleUpvote(spotId);
+      final index = _spots.indexWhere((spot) => spot.id == spotId);
+      if (index >= 0) {
+        final spot = _spots[index];
+        _spots[index] = SpotModel(
+          id: spot.id,
+          name: spot.name,
+          category: spot.category,
+          description: spot.description,
+          state: spot.state,
+          city: spot.city,
+          address: spot.address,
+          priceRange: spot.priceRange,
+          bestTime: spot.bestTime,
+          thingsToDo: spot.thingsToDo,
+          imageUrl: spot.imageUrl,
+          imagePath: spot.imagePath,
+          rating: spot.rating,
+          reviewCount: spot.reviewCount,
+          submittedBy: spot.submittedBy,
+          status: spot.status,
+          latitude: spot.latitude,
+          longitude: spot.longitude,
+          revisionId: spot.revisionId,
+          moderationVersion: spot.moderationVersion,
+          upvoteCount: result.count,
+          isUpvotedByCurrentUser: result.upvoted,
+        );
+      }
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _errorMessage = _message(error, 'Your vote could not be saved.');
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> submitExistingDraft(
     BuildContext context,
     String revisionId,

@@ -86,10 +86,10 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
   }) async {
     final account = _requireInfluencer();
     _validateImage(imageBytes, imageMimeType);
-    if (!SocialUrlValidator.isSupported(input.socialMediaUrl)) {
+    if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
-        userMessage: 'Use a supported TikTok or Instagram HTTPS URL.',
+        userMessage: 'Use a valid TikTok video or Instagram post/reel URL.',
       );
     }
     final id = 'demo-restaurant-${DateTime.now().microsecondsSinceEpoch}';
@@ -143,10 +143,10 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
     String? imageMimeType,
   }) async {
     final account = _requireInfluencer();
-    if (!SocialUrlValidator.isSupported(input.socialMediaUrl)) {
+    if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
-        userMessage: 'Use a supported TikTok or Instagram HTTPS URL.',
+        userMessage: 'Use a valid TikTok video or Instagram post/reel URL.',
       );
     }
     if (imageBytes != null) {
