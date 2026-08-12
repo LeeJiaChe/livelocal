@@ -119,6 +119,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     final creatorName = widget.restaurant.influencerName.trim().isEmpty
         ? 'LiveLocal'
         : widget.restaurant.influencerName.trim();
+    final socialPlatform = SocialUrlValidator.platformLabel(
+      widget.restaurant.socialMediaUrl,
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5F0),
@@ -226,10 +229,17 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (widget.restaurant.socialLinkStatus == 'active') ...[
+                    _InfoCard(
+                      icon: Icons.video_library_outlined,
+                      title: '$socialPlatform review',
+                      body:
+                          'Open the original $socialPlatform restaurant review shared by $creatorName.',
+                    ),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: _openSocialPost,
-                      icon: const Icon(Icons.open_in_new),
-                      label: const Text('Open creator post'),
+                      icon: const Icon(Icons.play_circle_outline),
+                      label: Text('Open $socialPlatform review'),
                     ),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -325,6 +335,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                 !supportsUserBlocking
                             ? null
                             : () => _requestBlockAuthor('review', review.id),
+                        onLike: () =>
+                            reviewController.toggleReaction(review, 1),
+                        onDislike: () =>
+                            reviewController.toggleReaction(review, -1),
                       ),
                     ),
                 ],
@@ -338,8 +352,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   Future<void> _openSocialPost() async {
     final value = widget.restaurant.socialMediaUrl;
-    if (!SocialUrlValidator.isSupported(value)) {
-      _message('This creator link is invalid and cannot be opened.');
+    if (!SocialUrlValidator.isReviewPost(value)) {
+      _message('This creator review link is invalid and cannot be opened.');
       return;
     }
     final opened = await launchUrl(
@@ -794,6 +808,8 @@ class _ReviewCard extends StatelessWidget {
     this.onDelete,
     this.onReport,
     this.onBlock,
+    required this.onLike,
+    required this.onDislike,
   });
 
   final ReviewModel review;
@@ -801,6 +817,8 @@ class _ReviewCard extends StatelessWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onReport;
   final VoidCallback? onBlock;
+  final VoidCallback onLike;
+  final VoidCallback onDislike;
 
   @override
   Widget build(BuildContext context) {
@@ -861,6 +879,26 @@ class _ReviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(review.comment),
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Like review',
+                  onPressed: onLike,
+                  icon: Icon(review.userVote == 1
+                      ? Icons.thumb_up
+                      : Icons.thumb_up_outlined),
+                ),
+                Text('${review.likesCount}'),
+                IconButton(
+                  tooltip: 'Dislike review',
+                  onPressed: onDislike,
+                  icon: Icon(review.userVote == -1
+                      ? Icons.thumb_down
+                      : Icons.thumb_down_outlined),
+                ),
+                Text('${review.dislikesCount}'),
+              ],
+            ),
             if (review.updatedAt != null) ...[
               const SizedBox(height: 8),
               Text('Edited', style: Theme.of(context).textTheme.bodySmall),

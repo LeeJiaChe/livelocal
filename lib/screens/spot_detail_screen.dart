@@ -26,6 +26,9 @@ class SpotPendingAction {
   const SpotPendingAction.review()
       : kind = 'review',
         reviewId = null;
+  const SpotPendingAction.upvote()
+      : kind = 'upvote',
+        reviewId = null;
   const SpotPendingAction.report(this.reviewId) : kind = 'report';
   const SpotPendingAction.reportSpot()
       : kind = 'report_spot',
@@ -74,6 +77,9 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         case 'review':
           _requestWriteReview();
           break;
+        case 'upvote':
+          await _requestUpvote();
+          break;
         case 'report':
           final reviewId = widget.pendingAction!.reviewId;
           if (reviewId != null) {
@@ -108,6 +114,13 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     final reviewCtrl = Provider.of<ReviewController>(context);
     final supportsUserBlocking =
         context.watch<ModerationController>().supportsUserBlocking;
+    final spotController = context.watch<SpotController>();
+    final matchingSpots =
+        spotController.spots.where((spot) => spot.id == widget.spot.id);
+    final currentSpot = matchingSpots.isEmpty ? null : matchingSpots.first;
+    final upvoteCount = currentSpot?.upvoteCount ?? widget.spot.upvoteCount;
+    final isUpvoted = currentSpot?.isUpvotedByCurrentUser ??
+        widget.spot.isUpvotedByCurrentUser;
 
     final isSaved = itineraryCtrl.isSaved(spotId: widget.spot.id);
     final spotReviews = reviewCtrl.getReviewsForSpot(widget.spot.id);
@@ -268,6 +281,18 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.tonalIcon(
+                      onPressed: _requestUpvote,
+                      icon: Icon(
+                        isUpvoted ? Icons.thumb_up : Icons.thumb_up_outlined,
+                      ),
+                      label: Text(
+                        isUpvoted
+                            ? 'Upvoted · $upvoteCount'
+                            : 'Upvote this spot · $upvoteCount',
+                      ),
                     ),
                     const SizedBox(height: 16),
                     const Divider(),
@@ -441,6 +466,29 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                   Text(r.comment,
                                       style: const TextStyle(
                                           fontSize: 13, height: 1.4)),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        tooltip: 'Like review',
+                                        onPressed: () =>
+                                            reviewCtrl.toggleReaction(r, 1),
+                                        icon: Icon(r.userVote == 1
+                                            ? Icons.thumb_up
+                                            : Icons.thumb_up_outlined),
+                                      ),
+                                      Text('${r.likesCount}'),
+                                      IconButton(
+                                        tooltip: 'Dislike review',
+                                        onPressed: () =>
+                                            reviewCtrl.toggleReaction(r, -1),
+                                        icon: Icon(r.userVote == -1
+                                            ? Icons.thumb_down
+                                            : Icons.thumb_down_outlined),
+                                      ),
+                                      Text('${r.dislikesCount}'),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
@@ -455,6 +503,27 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _requestUpvote() async {
+    final auth = context.read<AuthController>();
+    if (!auth.canWrite) {
+      context.read<ProtectedNavigation>().open(
+            context,
+            '/spot-detail',
+            arguments: SpotDetailArguments(
+              spot: widget.spot,
+              pendingAction: const SpotPendingAction.upvote(),
+            ),
+          );
+      return;
+    }
+    final controller = context.read<SpotController>();
+    final saved = await controller.toggleUpvote(widget.spot.id);
+    if (!mounted || saved) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(controller.errorMessage ?? 'Vote failed.')),
     );
   }
 

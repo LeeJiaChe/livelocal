@@ -114,6 +114,9 @@ class _GuideDetailScreenState extends State<GuideDetailScreen> {
           const SizedBox(height: AppSpacing.x3),
           Text('Route steps', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppSpacing.x1),
+          _GuideStopMap(stops: guide.stops),
+          const SizedBox(height: AppSpacing.x2),
+          const SizedBox(height: AppSpacing.x1),
           Text(
             'Follow the order below and check current local conditions before setting out.',
             style: Theme.of(context).textTheme.bodyMedium,
@@ -172,6 +175,75 @@ class _GuideDetailScreenState extends State<GuideDetailScreen> {
       targetId: widget.guide.id,
     );
   }
+}
+
+class _GuideStopMap extends StatelessWidget {
+  const _GuideStopMap({required this.stops});
+
+  final List<String> stops;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Route map with ${stops.length} ordered stop markers',
+      child: Container(
+        height: 190,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Stack(
+          children: [
+            const Positioned.fill(
+                child: CustomPaint(painter: _RouteMapPainter())),
+            ...List.generate(stops.length, (index) {
+              final usableWidth = MediaQuery.sizeOf(context).width - 80;
+              final step = stops.length == 1 ? 0.5 : index / (stops.length - 1);
+              return Positioned(
+                left: 16 + usableWidth * step,
+                top: index.isEven ? 42 : 112,
+                child: Tooltip(
+                  message: stops[index],
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    child: Text('${index + 1}'),
+                  ),
+                ),
+              );
+            }),
+            const Positioned(
+              left: 12,
+              bottom: 8,
+              child: Text('Ordered route overview'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteMapPainter extends CustomPainter {
+  const _RouteMapPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final road = Paint()
+      ..color = const Color(0xFFB7C8B4)
+      ..strokeWidth = 10
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final path = Path()
+      ..moveTo(28, 60)
+      ..cubicTo(
+          size.width * .32, 25, size.width * .56, 155, size.width - 28, 122);
+    canvas.drawPath(path, road);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _RouteStep extends StatelessWidget {

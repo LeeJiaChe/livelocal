@@ -24,6 +24,21 @@ void main() {
     await controller.loadSpots();
   });
 
+  test('spot upvote toggles once per tourist and updates the count', () async {
+    final spot = controller.approvedSpots.first;
+    expect(await controller.toggleUpvote(spot.id), isTrue);
+    var updated =
+        controller.approvedSpots.singleWhere((item) => item.id == spot.id);
+    expect(updated.isUpvotedByCurrentUser, isTrue);
+    expect(updated.upvoteCount, spot.upvoteCount + 1);
+
+    expect(await controller.toggleUpvote(spot.id), isTrue);
+    updated =
+        controller.approvedSpots.singleWhere((item) => item.id == spot.id);
+    expect(updated.isUpvotedByCurrentUser, isFalse);
+    expect(updated.upvoteCount, spot.upvoteCount);
+  });
+
   testWidgets('probable duplicate remains a draft until resolved',
       (tester) async {
     late BuildContext ctx;
