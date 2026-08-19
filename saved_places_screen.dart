@@ -1,0 +1,452 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../controllers/auth_controller.dart';
+import '../controllers/itinerary_controller.dart';
+import '../controllers/localeats_controller.dart';
+import '../controllers/spot_controller.dart';
+import '../core/routing/protected_navigation.dart';
+import '../models/restaurant_model.dart';
+import '../models/saved_place_model.dart';
+import '../models/spot_model.dart';
+import 'itinerary_screen.dart';
+import 'restaurant_detail_screen.dart';
+import 'spot_detail_screen.dart';
+import '../shared/presentation/app_state_view.dart';
+
+class SavedPlacesScreen extends StatefulWidget {
+  const SavedPlacesScreen({super.key});
+
+  @override
+  State<SavedPlacesScreen> createState() => _SavedPlacesScreenState();
+}
+
+class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
+  _SavedPlaceFilter _filter = _SavedPlaceFilter.all;
+  String? _selectedAlbum;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    if (!mounted || !context.read<AuthController>().canWrite) return;
+    await context.read<ItineraryController>().loadSavedPlaces();
+  }
+
+  List<_ResolvedPlace> _resolveWithAlbum(
+    List<SavedPlaceModel> saves,
+    List<SpotModel> spots,
+    List<RestaurantModel> restaurants,
+    String? album,
+  ) {
+    final filteredSaves = album == null || album == 'All'
+        ? saves
+        : saves.where((save) {
+            if (save.spotId != null) {
+              final spot = spots.firstWhere(
+                (s) => s.id == save.spotId,
+                orElse: () => SpotModel(
+                  id: '',
+                  name: '',
+                  category: '',
+                  description: '',
+                  state: '',
+                  city: album,
+                  address: '',
+                  priceRange: '',
+                  bestTime: '',
+                  thingsToDo: '',
+                  imageUrl: '',
+                  submittedBy: '',
+                ),
+              );
+              return spot.city == album;
+            }
+            if (save.restaurantId != null) {
+              final restaurant = restaurants.firstWhere(
+                (r) => r.id == save.restaurantId,
+                orElse: () => RestaurantModel(
+                  id: '',
+                  name: '',
+                  address: '',
+                  state: '',
+                  city: album,
+                  cuisineType: '',
+                  priceRange: '',
+                  reviewedDishes: '',
+                  influencerId: '',
+                  influencerName: '',
+                  socialMediaUrl: '',
+                  coverPhotoUrl: '',
+                ),
+              );
+              return restaurant.city == album;
+            }
+            return false;
+          }).toList();
+    return _resolve(filteredSaves, spots, restaurants);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthController>();
+    if (!auth.canWrite) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF7F5F0),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFF7F5F0),
+          title: const Text('Saved'),
+        ),
+        body: _GuestState(
+          onSignIn: () => context.read<ProtectedNavigation>().open(
+                context,
+                '/saved-places',
+              ),
+        ),
+      );
+    }
+
+    final controller = context.watch<ItineraryController>();
+    final spots = context.watch<SpotController>().spots;
+    final restaurants = context.watch<LocalEatsController>().restaurants;
+    final resolved = _resolveWithAlbum(controller.savedPlaces, spots, restaurants, _selectedAlbum);
+    final visiblePlaces = resolved.where((place) {
+      return switch (_filter) {
+        _SavedPlaceFilter.all => true,
+        _SavedPlaceFilter.spots => place.spot != null,
+        _SavedPlaceFilter.restaurants => place.restaurant != null,
+      };
+    }).toList();
+    
+    final albums = <String>{'All'};
+    for (final spot in spots) {
+      if (controller.savedPlaces.any((p) => p.spotId == spot.id)) {
+        albums.add(spot.city);
+      }
+    }
+    for (final restaurant in restaurants) {
+      if (controller.savedPlaces.any((p) => p.restaurantId == restaurant.id)) {
+        albums.add(restaurant.city);
+      }
+    }
+    
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F5F0),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF7F5F0),
+        title: const Text('Saved'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: controller.isLoading && controller.savedPlaces.isEmpty
+            ? const AppLoadingList()
+            : controller.errorMessage != null && controller.savedPlaces.isEmpty
+                ? AppStateView(
+                    icon: Icons.wifi_off_outlined,
+                    title: 'Saved places could not be loaded',
+                    message: controller.errorMessage!,
+                    actionLabel: 'Try again',
+                    onAction: _load,
+                    scrollable: true,
+                  )
+                : resolved.isEmpty
+                    ? const AppStateView(
+                        icon: Icons.bookmark_border,
+                        title: 'Nothing saved yet',
+                        message:
+                            'Save approved spots and restaurants to plan a day out.',
+                        scrollable: true,
+                      )
+                    : Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SegmentedButton<String>(
+                                showSelectedIcon: false,
+                                segments: albums.map((album) {
+                                  return ButtonSegment(
+                                    value: album,
+                                    label: Text(album),
+                                  );
+                                }).toList(),
+                                selected: {_selectedAlbum ?? 'All'},
+                                onSelectionChanged: (selection) {
+                                  setState(() {
+                                    _selectedAlbum = selection.single;
+                                    if (_selectedAlbum == 'All') {
+                                      _selectedAlbum = null;
+                                    }
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: _SavedPlacesList(
+                              places: visiblePlaces,
+                              totalCount: resolved.length,
+                              selectedFilter: _filter,
+                              onFilterChanged: (filter) {
+                                setState(() => _filter = filter);
+                              },
+                              onOpen: _open,
+                              onRemove: _confirmRemove,
+                            ),
+                          ),
+                        ],
+                      ),
+      ),
+      floatingActionButton: resolved.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const ItineraryScreen(),
+                ),
+              ),
+              icon: const Icon(Icons.route_outlined),
+              label: const Text('Plan a route'),
+            ),
+    );
+  }
+
+  List<_ResolvedPlace> _resolve(
+    List<SavedPlaceModel> saves,
+    List<SpotModel> spots,
+    List<RestaurantModel> restaurants,
+  ) {
+    final result = <_ResolvedPlace>[];
+    for (final save in saves) {
+      final spotMatches = spots.where((spot) => spot.id == save.spotId);
+      if (spotMatches.isNotEmpty) {
+        result.add(_ResolvedPlace(save: save, spot: spotMatches.first));
+        continue;
+      }
+      final restaurantMatches =
+          restaurants.where((item) => item.id == save.restaurantId);
+      if (restaurantMatches.isNotEmpty) {
+        result.add(
+          _ResolvedPlace(save: save, restaurant: restaurantMatches.first),
+        );
+      }
+    }
+    return result;
+  }
+
+  void _open(_ResolvedPlace place) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => place.spot != null
+            ? SpotDetailScreen(spot: place.spot!)
+            : RestaurantDetailScreen(restaurant: place.restaurant!),
+      ),
+    );
+  }
+
+  Future<void> _confirmRemove(_ResolvedPlace place) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Remove ${place.name}?'),
+        content: const Text(
+          'The place will also be unavailable for new itineraries. Existing saved itineraries are not changed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final controller = context.read<ItineraryController>();
+    final saved = await controller.toggleSave(
+      spotId: place.spot?.id,
+      restaurantId: place.restaurant?.id,
+    );
+    if (!mounted || saved) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          controller.errorMessage ?? 'The place could not be removed.',
+        ),
+      ),
+    );
+  }
+}
+
+enum _SavedPlaceFilter { all, spots, restaurants }
+
+class _SavedPlacesList extends StatelessWidget {
+  const _SavedPlacesList({
+    required this.places,
+    required this.totalCount,
+    required this.selectedFilter,
+    required this.onFilterChanged,
+    required this.onOpen,
+    required this.onRemove,
+  });
+
+  final List<_ResolvedPlace> places;
+  final int totalCount;
+  final _SavedPlaceFilter selectedFilter;
+  final ValueChanged<_SavedPlaceFilter> onFilterChanged;
+  final ValueChanged<_ResolvedPlace> onOpen;
+  final ValueChanged<_ResolvedPlace> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+      children: [
+        Semantics(
+          header: true,
+          child: Text(
+            '$totalCount saved ${totalCount == 1 ? 'place' : 'places'}',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<_SavedPlaceFilter>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(
+                value: _SavedPlaceFilter.all,
+                icon: Icon(Icons.bookmarks_outlined),
+                label: Text('All'),
+              ),
+              ButtonSegment(
+                value: _SavedPlaceFilter.spots,
+                icon: Icon(Icons.place_outlined),
+                label: Text('Spots'),
+              ),
+              ButtonSegment(
+                value: _SavedPlaceFilter.restaurants,
+                icon: Icon(Icons.restaurant_outlined),
+                label: Text('Restaurants'),
+              ),
+            ],
+            selected: {selectedFilter},
+            onSelectionChanged: (selection) {
+              onFilterChanged(selection.single);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (places.isEmpty)
+          Card(
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Icon(
+                    selectedFilter == _SavedPlaceFilter.spots
+                        ? Icons.place_outlined
+                        : Icons.restaurant_outlined,
+                    size: 40,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    selectedFilter == _SavedPlaceFilter.spots
+                        ? 'No saved spots yet'
+                        : 'No saved restaurants yet',
+                    style: Theme.of(context).textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ...places.map(
+            (place) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Card(
+                margin: EdgeInsets.zero,
+                elevation: 0,
+                child: ListTile(
+                  minTileHeight: 72,
+                  leading: Icon(
+                    place.spot == null
+                        ? Icons.restaurant_outlined
+                        : Icons.place_outlined,
+                  ),
+                  title: Text(place.name),
+                  subtitle: Text(place.description),
+                  onTap: () => onOpen(place),
+                  trailing: IconButton(
+                    tooltip: 'Remove ${place.name} from saved',
+                    onPressed: () => onRemove(place),
+                    icon: const Icon(Icons.bookmark_remove_outlined),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ResolvedPlace {
+  const _ResolvedPlace({required this.save, this.spot, this.restaurant});
+
+  final SavedPlaceModel save;
+  final SpotModel? spot;
+  final RestaurantModel? restaurant;
+
+  String get name => spot?.name ?? restaurant!.name;
+  String get description => spot == null
+      ? '${restaurant!.cuisineType} · ${restaurant!.city}'
+      : '${spot!.category} · ${spot!.city}';
+}
+
+class _GuestState extends StatelessWidget {
+  const _GuestState({required this.onSignIn});
+
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.bookmark_border, size: 56),
+            const SizedBox(height: 16),
+            Text(
+              'Keep your places together',
+              style: Theme.of(context).textTheme.headlineSmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Sign in to save places and create itineraries. Public browsing remains available without an account.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            FilledButton(onPressed: onSignIn, child: const Text('Sign in')),
+          ],
+        ),
+      ),
+    );
+  }
+}
