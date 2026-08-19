@@ -187,7 +187,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                     try {
                       if (_selectedImage != null) {
                         final ext = path.extension(_selectedImage!.path);
-                        final filename = 'spot_\${DateTime.now().millisecondsSinceEpoch}\$ext';
+                        final filename = 'spot_${DateTime.now().millisecondsSinceEpoch}$ext';
                         
                         await Supabase.instance.client.storage
                             .from('spot_images')
@@ -199,7 +199,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                       }
 
                       final updatedSpot = SpotModel(
-                        id: isEditing ? widget.existingSpot!.id : 'spot-\${DateTime.now().millisecondsSinceEpoch}',
+                        id: isEditing ? widget.existingSpot!.id : 'spot-${DateTime.now().millisecondsSinceEpoch}',
                         name: _nameCtrl.text.trim(),
                         category: _selectedCategory,
                         description: _descCtrl.text.trim(),
@@ -235,7 +235,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to upload image or submit spot: \$e'), backgroundColor: AppColors.error),
+                          SnackBar(content: Text('Failed to upload image or submit spot: $e'), backgroundColor: AppColors.error),
                         );
                       }
                     } finally {

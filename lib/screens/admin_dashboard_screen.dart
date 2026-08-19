@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../controllers/spot_controller.dart';
+import '../models/spot_model.dart';
 import '../controllers/review_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../controllers/auth_controller.dart';
@@ -205,22 +206,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             )
                           ]
                         : pendingSpots
-                            .take(5)
                             .map((spot) => _buildApprovalTile(
-                                  spot.name,
-                                  spot.category,
-                                  onApprove: () {
-                                    context
-                                        .read<SpotController>()
-                                        .approveSpot(spot.id, currentUserRole);
-                                    _showSnackbar('${spot.name} approved!',
-                                        success: true);
-                                  },
+                                  spot,
+                                  onApprove: () =>
+                                      _approveSpot(spot, currentUserRole),
                                   onReject: () => _showRejectDialog(
                                       spot.id, spot.name, currentUserRole),
                                 ))
                             .toList(),
                   ),
+
                   const SizedBox(height: 16),
                   _buildExpansionSection(
                     'User Reports Queue',
@@ -302,27 +297,181 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     );
   }
 
-  Widget _buildApprovalTile(String title, String subtitle,
+  Future<void> _approveSpot(SpotModel spot, String currentUserRole) async {
+    try {
+      await context.read<SpotController>().approveSpot(spot.id, currentUserRole);
+      if (!mounted) return;
+      _showSnackbar('${spot.name} approved and now live!', success: true);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackbar('Could not approve ${spot.name}: $e');
+    }
+  }
+
+  void _showSpotReviewSheet(SpotModel spot,
+      {required VoidCallback onApprove, required VoidCallback onReject}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          builder: (ctx, scrollController) => ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(20),
+            children: [
+              if (spot.imageUrl.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    spot.imageUrl,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 180,
+                      color: AppColors.backgroundGrey,
+                      child: const Icon(Icons.broken_image,
+                          size: 40, color: Colors.grey),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Text(spot.name,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('${spot.category} • ${spot.city}, ${spot.state}',
+                  style: const TextStyle(color: Colors.grey)),
+              const Divider(height: 28),
+              _buildDetailRow(Icons.location_on, 'Address', spot.address),
+              _buildDetailRow(Icons.attach_money, 'Price range', spot.priceRange),
+              _buildDetailRow(Icons.schedule, 'Best time', spot.bestTime),
+              _buildDetailRow(Icons.checklist, 'Things to do', spot.thingsToDo),
+              _buildDetailRow(Icons.notes, 'Description', spot.description),
+              _buildDetailRow(Icons.person, 'Submitted by', spot.submittedBy),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: const BorderSide(color: AppColors.error),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      icon: const Icon(Icons.cancel),
+                      label: const Text('Reject'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        onReject();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      icon: const Icon(Icons.check_circle),
+                      label: const Text('Approve'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        onApprove();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    if (value.trim().isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.error),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600)),
+                Text(value, style: const TextStyle(fontSize: 14)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApprovalTile(SpotModel spot,
       {required VoidCallback onApprove, required VoidCallback onReject}) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: spot.imageUrl.isNotEmpty
+            ? Image.network(spot.imageUrl,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported))
+            : Container(
+                width: 48,
+                height: 48,
+                color: AppColors.backgroundGrey,
+                child: const Icon(Icons.place, color: Colors.grey),
+              ),
+      ),
+      title:
+          Text(spot.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text('${spot.category} • ${spot.city}, ${spot.state}',
+          maxLines: 1, overflow: TextOverflow.ellipsis),
+      onTap: () => _showSpotReviewSheet(spot,
+          onApprove: onApprove,
+          onReject: () => _confirmAction(
+                title: 'Reject Submission',
+                content: 'Are you sure you want to reject "${spot.name}"?',
+                onConfirm: onReject,
+              )),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             icon: const Icon(Icons.check_circle, color: Colors.green, size: 28),
+            tooltip: 'Approve',
             onPressed: onApprove,
           ),
           IconButton(
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             icon: const Icon(Icons.cancel, color: AppColors.error, size: 28),
+            tooltip: 'Reject',
             onPressed: () {
               _confirmAction(
                 title: 'Reject Submission',
-                content: 'Are you sure you want to reject "$title"?',
+                content: 'Are you sure you want to reject "${spot.name}"?',
                 onConfirm: onReject,
               );
             },
