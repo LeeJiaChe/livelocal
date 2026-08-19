@@ -6,10 +6,29 @@ import '../domain/influencer_application_repository.dart';
 
 class DemoInfluencerApplicationRepository
     implements InfluencerApplicationRepository {
-  DemoInfluencerApplicationRepository(this._authRepository);
+  DemoInfluencerApplicationRepository(
+    this._authRepository, {
+    bool seedAdminWorkload = false,
+  }) : _applications = [
+          if (seedAdminWorkload)
+            const InfluencerApplication(
+              id: 'demo-app-1',
+              userId: 'usr-tourist-1',
+              status: 'submitted',
+              version: 1,
+              displayName: 'Sarah Travels KL',
+              socialPlatform: 'instagram',
+              profileUrl: 'https://instagram.com/sarahtravelskl',
+              followerCount: 25000,
+              contentCategory: 'Food & Heritage',
+              applicationMessage:
+                  'I create authentic local food guides across Malaysia and want to share genuine hidden spots with LiveLocal.',
+              rulesAgreed: true,
+            ),
+        ];
 
   final DemoAuthRepository _authRepository;
-  final List<InfluencerApplication> _applications = [];
+  final List<InfluencerApplication> _applications;
 
   @override
   Future<InfluencerApplication?> fetchMine() async {

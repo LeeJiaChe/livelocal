@@ -8,8 +8,29 @@ import '../../auth/domain/account_identity.dart';
 import '../domain/spot_repository.dart';
 
 class DemoSpotRepository implements SpotRepository {
-  DemoSpotRepository(this._authRepository)
-      : _spots = List<SpotModel>.of(SeedDataService.getInitialSpots()) {
+  DemoSpotRepository(this._authRepository, {bool seedAdminWorkload = false})
+      : _spots = List<SpotModel>.of([
+          ...SeedDataService.getInitialSpots(),
+          if (seedAdminWorkload)
+            SpotModel(
+              id: 'demo-spot-pending-1',
+              revisionId: 'demo-spot-rev-1',
+              name: 'Bukit Bintang Alley Roastery',
+              category: 'Cafe',
+              description:
+                  'Cozy hidden coffee spot tucked in a mural alley off Jalan Alor.',
+              state: 'Kuala Lumpur',
+              city: 'Kuala Lumpur',
+              address: '14 Jalan Alor',
+              priceRange: r'$$',
+              bestTime: 'Morning',
+              thingsToDo: 'Specialty pour-over coffee, artisan pastries',
+              imageUrl:
+                  'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80',
+              submittedBy: 'usr-tourist-1',
+              status: 'submitted',
+            ),
+        ]) {
     for (final spot in _spots) {
       _currentRevisionIds[spot.id] = spot.revisionId ?? spot.id;
     }

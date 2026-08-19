@@ -111,16 +111,21 @@ Future<void> main() async {
       authRepository = demoAuthRepository;
       final demoAccountRepository = DemoAccountRepository(demoAuthRepository);
       accountRepository = demoAccountRepository;
-      spotRepository = DemoSpotRepository(demoAuthRepository);
+      spotRepository =
+          DemoSpotRepository(demoAuthRepository, seedAdminWorkload: true);
       reviewRepository = DemoReviewRepository(demoAuthRepository);
       adminRepository =
           DemoAdminRepository(demoAuthRepository, demoAccountRepository);
-      influencerApplicationRepository =
-          DemoInfluencerApplicationRepository(demoAuthRepository);
-      localEatsRepository = DemoLocalEatsRepository(demoAuthRepository);
+      influencerApplicationRepository = DemoInfluencerApplicationRepository(
+        demoAuthRepository,
+        seedAdminWorkload: true,
+      );
+      localEatsRepository =
+          DemoLocalEatsRepository(demoAuthRepository, seedAdminWorkload: true);
       savedItineraryRepository =
           DemoSavedItineraryRepository(demoAuthRepository);
-      guideRepository = DemoGuideRepository(demoAuthRepository);
+      guideRepository =
+          DemoGuideRepository(demoAuthRepository, seedAdminWorkload: true);
       notificationRepository = DemoNotificationRepository(demoAuthRepository);
       moderationRepository = DemoModerationRepository(demoAuthRepository);
     } else {
