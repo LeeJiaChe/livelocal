@@ -22,6 +22,7 @@ class ItineraryController with ChangeNotifier {
   bool _isLoading = false;
   bool _isGeneratingItinerary = false;
   String? _errorMessage;
+  String? _selectedAlbum;
 
   List<SavedPlaceModel> get savedPlaces => List.unmodifiable(_savedPlaces);
   List<SavedItinerary> get savedItineraries =>
@@ -32,6 +33,12 @@ class ItineraryController with ChangeNotifier {
   bool get isGeneratingItinerary => _isGeneratingItinerary;
   String? get errorMessage => _errorMessage;
   String? get itineraryError => _errorMessage;
+  String? get selectedAlbum => _selectedAlbum;
+
+  void setAlbumFilter(String? album) {
+    _selectedAlbum = (album == null || album == 'All') ? null : album;
+    notifyListeners();
+  }
 
   Future<void> loadSavedPlaces() async {
     _isLoading = true;
@@ -116,11 +123,13 @@ class ItineraryController with ChangeNotifier {
     required RouteOrigin origin,
     required List<SpotModel> allSpots,
     required List<RestaurantModel> allRestaurants,
+    String? album,
   }) async {
     _isGeneratingItinerary = true;
     _errorMessage = null;
     notifyListeners();
     try {
+      final effectiveAlbum = album ?? _selectedAlbum;
       final savedSpots = _savedPlaces
           .where((saved) => saved.spotId != null)
           .map(
@@ -128,8 +137,14 @@ class ItineraryController with ChangeNotifier {
           )
           .where((matches) => matches.isNotEmpty)
           .map((matches) => matches.first)
-          .where((spot) => spot.latitude != null && spot.longitude != null)
-          .toList();
+          .where((spot) {
+        if (spot.latitude == null || spot.longitude == null) return false;
+        if (effectiveAlbum != null && effectiveAlbum != 'All') {
+          return spot.city.trim().toLowerCase() ==
+              effectiveAlbum.trim().toLowerCase();
+        }
+        return true;
+      }).toList();
       final savedRestaurants = _savedPlaces
           .where((saved) => saved.restaurantId != null)
           .map(
@@ -138,12 +153,19 @@ class ItineraryController with ChangeNotifier {
           )
           .where((matches) => matches.isNotEmpty)
           .map((matches) => matches.first)
-          .where(
-            (restaurant) =>
-                restaurant.latitude != null && restaurant.longitude != null,
-          )
-          .toList();
-      final savedCount = _savedPlaces.length;
+          .where((restaurant) {
+        if (restaurant.latitude == null || restaurant.longitude == null) {
+          return false;
+        }
+        if (effectiveAlbum != null && effectiveAlbum != 'All') {
+          return restaurant.city.trim().toLowerCase() ==
+              effectiveAlbum.trim().toLowerCase();
+        }
+        return true;
+      }).toList();
+      final savedCount = (effectiveAlbum != null && effectiveAlbum != 'All')
+          ? savedSpots.length + savedRestaurants.length
+          : _savedPlaces.length;
       if (savedSpots.isEmpty && savedRestaurants.isEmpty) {
         throw const AppException(
           code: AppErrorCode.validation,
@@ -206,6 +228,7 @@ class ItineraryController with ChangeNotifier {
           'step': 'Stop ${index + 1}',
           'lat': stop['lat'] as double,
           'lng': stop['lng'] as double,
+          'area': spot.city,
           if (index == 0) 'day_label': 'Route overview',
         };
       }
@@ -219,6 +242,7 @@ class ItineraryController with ChangeNotifier {
         'step': 'Stop ${index + 1}',
         'lat': stop['lat'] as double,
         'lng': stop['lng'] as double,
+        'area': restaurant.city,
         if (index == 0) 'day_label': 'Route overview',
       };
     });

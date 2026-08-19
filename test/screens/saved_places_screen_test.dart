@@ -14,7 +14,7 @@ import 'package:live_local/services/seed_data_service.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('saved-place filters use persisted spot and restaurant data',
+  testWidgets('saved-place filters and city albums combine with area grouping',
       (tester) async {
     final authRepository = DemoAuthRepository();
     await authRepository.signIn(
@@ -27,16 +27,34 @@ void main() {
     final spotRepository = DemoSpotRepository(authRepository);
     final restaurantRepository = DemoLocalEatsRepository(authRepository);
     final savedRepository = DemoSavedItineraryRepository(authRepository);
-    final spot = SeedDataService.getInitialSpots().first;
-    final restaurant = SeedDataService.getInitialRestaurants().first;
+
+    final spots = SeedDataService.getInitialSpots();
+    final restaurants = SeedDataService.getInitialRestaurants();
+
+    final penangSpot = spots.firstWhere((s) => s.city == 'George Town');
+    final ipohSpot = spots.firstWhere((s) => s.city == 'Ipoh');
+    final penangRestaurant =
+        restaurants.firstWhere((r) => r.city == 'George Town');
+    final ipohRestaurant = restaurants.firstWhere((r) => r.city == 'Ipoh');
+
     await savedRepository.setSaved(
       targetType: 'spot',
-      targetId: spot.id,
+      targetId: penangSpot.id,
+      saved: true,
+    );
+    await savedRepository.setSaved(
+      targetType: 'spot',
+      targetId: ipohSpot.id,
       saved: true,
     );
     await savedRepository.setSaved(
       targetType: 'restaurant',
-      targetId: restaurant.id,
+      targetId: penangRestaurant.id,
+      saved: true,
+    );
+    await savedRepository.setSaved(
+      targetType: 'restaurant',
+      targetId: ipohRestaurant.id,
       saved: true,
     );
 
@@ -65,19 +83,44 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('2 saved places'), findsOneWidget);
-    expect(find.text(spot.name), findsOneWidget);
-    expect(find.text(restaurant.name), findsOneWidget);
+    expect(find.text('4 saved places'), findsOneWidget);
+    expect(find.text(penangSpot.name), findsOneWidget);
+    expect(find.text(ipohSpot.name), findsOneWidget);
+    expect(find.text(penangRestaurant.name), findsOneWidget);
+    expect(find.text(ipohRestaurant.name), findsOneWidget);
     expect(find.textContaining('Suggested day ·'), findsWidgets);
 
-    await tester.tap(find.text('Spots'));
-    await tester.pumpAndSettle();
-    expect(find.text(spot.name), findsOneWidget);
-    expect(find.text(restaurant.name), findsNothing);
+    // City album buttons exist
+    expect(find.text('George Town'), findsWidgets);
+    expect(find.text('Ipoh'), findsWidgets);
 
+    // Filter by George Town album
+    await tester.tap(find.text('George Town').first);
+    await tester.pumpAndSettle();
+    expect(find.text(penangSpot.name), findsOneWidget);
+    expect(find.text(penangRestaurant.name), findsOneWidget);
+    expect(find.text(ipohSpot.name), findsNothing);
+    expect(find.text(ipohRestaurant.name), findsNothing);
+
+    // Combined filter: George Town + Restaurants only
     await tester.tap(find.text('Restaurants'));
     await tester.pumpAndSettle();
-    expect(find.text(spot.name), findsNothing);
-    expect(find.text(restaurant.name), findsOneWidget);
+    expect(find.text(penangRestaurant.name), findsOneWidget);
+    expect(find.text(penangSpot.name), findsNothing);
+    expect(find.text(ipohRestaurant.name), findsNothing);
+
+    // Reset album to All, keep Restaurants
+    await tester.tap(find.text('All').first);
+    await tester.pumpAndSettle();
+    expect(find.text(penangRestaurant.name), findsOneWidget);
+    expect(find.text(ipohRestaurant.name), findsOneWidget);
+    expect(find.text(penangSpot.name), findsNothing);
+
+    // Switch to Spots only
+    await tester.tap(find.text('Spots'));
+    await tester.pumpAndSettle();
+    expect(find.text(penangSpot.name), findsOneWidget);
+    expect(find.text(ipohSpot.name), findsOneWidget);
+    expect(find.text(penangRestaurant.name), findsNothing);
   });
 }

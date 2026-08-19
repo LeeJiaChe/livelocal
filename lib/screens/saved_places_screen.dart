@@ -23,6 +23,7 @@ class SavedPlacesScreen extends StatefulWidget {
 
 class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
   _SavedPlaceFilter _filter = _SavedPlaceFilter.all;
+  String? _selectedAlbum;
 
   @override
   void initState() {
@@ -58,13 +59,35 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
     final spots = context.watch<SpotController>().spots;
     final restaurants = context.watch<LocalEatsController>().restaurants;
     final resolved = _resolve(controller.savedPlaces, spots, restaurants);
+
+    final albums = <String>{'All'};
+    for (final place in resolved) {
+      final city = place.spot?.city ?? place.restaurant?.city;
+      if (city != null && city.trim().isNotEmpty) {
+        albums.add(city.trim());
+      }
+    }
+    final sortedAlbums = [
+      'All',
+      ...albums.where((a) => a != 'All').toList()..sort()
+    ];
+    if (_selectedAlbum != null && !albums.contains(_selectedAlbum)) {
+      _selectedAlbum = null;
+    }
+
     final visiblePlaces = resolved.where((place) {
+      final city = place.spot?.city ?? place.restaurant?.city;
+      final matchesAlbum = _selectedAlbum == null ||
+          _selectedAlbum == 'All' ||
+          city?.trim().toLowerCase() == _selectedAlbum?.trim().toLowerCase();
+      if (!matchesAlbum) return false;
       return switch (_filter) {
         _SavedPlaceFilter.all => true,
         _SavedPlaceFilter.spots => place.spot != null,
         _SavedPlaceFilter.restaurants => place.restaurant != null,
       };
     }).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
@@ -95,6 +118,14 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                     : _SavedPlacesList(
                         places: visiblePlaces,
                         totalCount: resolved.length,
+                        availableAlbums: sortedAlbums,
+                        selectedAlbum: _selectedAlbum,
+                        onAlbumChanged: (album) {
+                          setState(() => _selectedAlbum = album);
+                          context
+                              .read<ItineraryController>()
+                              .setAlbumFilter(album);
+                        },
                         selectedFilter: _filter,
                         onFilterChanged: (filter) {
                           setState(() => _filter = filter);
@@ -106,12 +137,17 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
       floatingActionButton: resolved.isEmpty
           ? null
           : FloatingActionButton.extended(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => const ItineraryScreen(),
-                ),
-              ),
+              onPressed: () {
+                context
+                    .read<ItineraryController>()
+                    .setAlbumFilter(_selectedAlbum);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ItineraryScreen(),
+                  ),
+                );
+              },
               icon: const Icon(Icons.route_outlined),
               label: const Text('Plan a route'),
             ),
@@ -195,6 +231,9 @@ class _SavedPlacesList extends StatelessWidget {
   const _SavedPlacesList({
     required this.places,
     required this.totalCount,
+    required this.availableAlbums,
+    required this.selectedAlbum,
+    required this.onAlbumChanged,
     required this.selectedFilter,
     required this.onFilterChanged,
     required this.onOpen,
@@ -203,6 +242,9 @@ class _SavedPlacesList extends StatelessWidget {
 
   final List<_ResolvedPlace> places;
   final int totalCount;
+  final List<String> availableAlbums;
+  final String? selectedAlbum;
+  final ValueChanged<String?> onAlbumChanged;
   final _SavedPlaceFilter selectedFilter;
   final ValueChanged<_SavedPlaceFilter> onFilterChanged;
   final ValueChanged<_ResolvedPlace> onOpen;
@@ -222,6 +264,26 @@ class _SavedPlacesList extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        if (availableAlbums.length > 1) ...[
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: availableAlbums.map((album) {
+                return ButtonSegment<String>(
+                  value: album,
+                  label: Text(album),
+                );
+              }).toList(),
+              selected: {selectedAlbum ?? 'All'},
+              onSelectionChanged: (selection) {
+                final chosen = selection.single;
+                onAlbumChanged(chosen == 'All' ? null : chosen);
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SegmentedButton<_SavedPlaceFilter>(
@@ -260,14 +322,18 @@ class _SavedPlacesList extends StatelessWidget {
                   Icon(
                     selectedFilter == _SavedPlaceFilter.spots
                         ? Icons.place_outlined
-                        : Icons.restaurant_outlined,
+                        : selectedFilter == _SavedPlaceFilter.restaurants
+                            ? Icons.restaurant_outlined
+                            : Icons.bookmark_border,
                     size: 40,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     selectedFilter == _SavedPlaceFilter.spots
                         ? 'No saved spots yet'
-                        : 'No saved restaurants yet',
+                        : selectedFilter == _SavedPlaceFilter.restaurants
+                            ? 'No saved restaurants yet'
+                            : 'No saved places in this area',
                     style: Theme.of(context).textTheme.titleMedium,
                     textAlign: TextAlign.center,
                   ),
