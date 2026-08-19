@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/itinerary_controller.dart';
@@ -28,11 +30,37 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   Widget build(BuildContext context) {
     final controller = context.watch<ItineraryController>();
     final steps = controller.itinerarySteps;
+
+    final groupedByDay = <String, List<Map<String, Object>>>{};
+    if (steps.isNotEmpty) {
+      String currentDay = 'Day 1';
+      int dayCounter = 1;
+      groupedByDay[currentDay] = [];
+
+      for (int i = 0; i < steps.length; i++) {
+        final step = steps[i];
+        if (i > 0 && i % 5 == 0) {
+          dayCounter++;
+          currentDay = 'Day $dayCounter';
+          groupedByDay[currentDay] = [];
+        }
+        groupedByDay[currentDay]!.add(step);
+      }
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF7F5F0),
         title: const Text('Itineraries'),
+        actions: [
+          if (steps.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.map_outlined),
+              onPressed: () => _showMapView(context, groupedByDay, steps),
+              tooltip: 'View on map',
+            ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
@@ -68,18 +96,36 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
               ),
             ),
           ],
-          if (steps.isNotEmpty) ...[
+          if (groupedByDay.isNotEmpty) ...[
             const SizedBox(height: 28),
             Text(
-              'New route',
+              'Suggested day itinerary',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-            ...List.generate(steps.length, (index) {
-              return TimelineStepCard(
-                step: steps[index],
-                index: index,
-                isLast: index == steps.length - 1,
+            ...groupedByDay.entries.map((entry) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Text(
+                    entry.key,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...List.generate(entry.value.length, (index) {
+                    final step = entry.value[index];
+                    final globalIndex = steps.indexOf(step);
+                    return TimelineStepCard(
+                      step: step,
+                      index: globalIndex >= 0 ? globalIndex : index,
+                      isLast: (globalIndex >= 0 ? globalIndex : index) ==
+                          steps.length - 1,
+                    );
+                  }),
+                ],
               );
             }),
           ],
@@ -114,6 +160,168 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  void _showMapView(
+    BuildContext context,
+    Map<String, List<Map<String, Object>>> groupedByDay,
+    List<Map<String, Object>> steps,
+  ) {
+    final validPoints = <LatLng>[];
+    final markers = <Marker>[];
+
+    for (int i = 0; i < steps.length; i++) {
+      final step = steps[i];
+      final lat = step['lat'];
+      final lng = step['lng'];
+      if (lat is double && lng is double) {
+        final point = LatLng(lat, lng);
+        validPoints.add(point);
+        markers.add(
+          Marker(
+            point: point,
+            width: 36,
+            height: 36,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${i + 1}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    final initialCenter = validPoints.isNotEmpty
+        ? validPoints.first
+        : const LatLng(3.1390, 101.6869);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ListView(
+            controller: scrollController,
+            children: [
+              Text(
+                'Itinerary on Map',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              if (validPoints.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    height: 260,
+                    child: FlutterMap(
+                      options: MapOptions(
+                        initialCenter: initialCenter,
+                        initialZoom: 12,
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.livelocal.app',
+                        ),
+                        if (validPoints.length > 1)
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: validPoints,
+                                color: Theme.of(context).colorScheme.primary,
+                                strokeWidth: 3.5,
+                              ),
+                            ],
+                          ),
+                        MarkerLayer(markers: markers),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                const Card(
+                  elevation: 0,
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'No verified coordinates available for this route.',
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Text(
+                'Day breakdown',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              ...groupedByDay.entries.map((entry) {
+                final dayName = entry.key;
+                final daySteps = entry.value;
+                final dayIndex = groupedByDay.keys.toList().indexOf(dayName);
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  elevation: 0,
+                  child: ExpansionTile(
+                    initiallyExpanded: true,
+                    leading: CircleAvatar(
+                      child: Text('${dayIndex + 1}'),
+                    ),
+                    title: Text(dayName),
+                    subtitle: Text(
+                      '${daySteps.length} ${daySteps.length == 1 ? 'stop' : 'stops'}',
+                    ),
+                    children: daySteps.asMap().entries.map((stepEntry) {
+                      final stepIndex = stepEntry.key;
+                      final step = stepEntry.value;
+                      final globalIndex = steps.indexOf(step);
+                      return ListTile(
+                        leading: CircleAvatar(
+                          radius: 14,
+                          child: Text(
+                            '${(globalIndex >= 0 ? globalIndex : stepIndex) + 1}',
+                          ),
+                        ),
+                        title: Text(step['title'] as String? ?? 'Stop'),
+                        subtitle: Text(step['location'] as String? ?? ''),
+                      );
+                    }).toList(),
+                  ),
+                );
+              }),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
       ),
     );
   }

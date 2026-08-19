@@ -45,6 +45,7 @@ void main() {
       );
       expect(created, isTrue);
       expect(controller.itinerarySteps, hasLength(1));
+      expect(controller.itinerarySteps.first['area'], 'George Town');
       expect(controller.savedItineraries, hasLength(1));
       expect(repository.locationPreferenceForDemo?.mode, 'manual');
 
@@ -55,6 +56,55 @@ void main() {
       );
       await controller.loadSavedPlaces();
       expect(controller.savedPlaces, isEmpty);
+    });
+
+    test('album filtering scopes itinerary generation to selected city',
+        () async {
+      final auth = DemoAuthRepository();
+      await auth.signIn(
+        email: 'tourist@livelocal.com',
+        password: SeedDataService.demoPassword,
+      );
+      final repository = DemoSavedItineraryRepository(auth);
+      final controller = ItineraryController(repository: repository);
+
+      final spots = SeedDataService.getInitialSpots();
+      final penangSpot = spots.firstWhere((s) => s.city == 'George Town');
+      final ipohSpot = spots.firstWhere((s) => s.city == 'Ipoh');
+
+      await repository.setSaved(
+        targetType: 'spot',
+        targetId: penangSpot.id,
+        saved: true,
+      );
+      await repository.setSaved(
+        targetType: 'spot',
+        targetId: ipohSpot.id,
+        saved: true,
+      );
+      await controller.loadSavedPlaces();
+      expect(controller.savedPlaces, hasLength(2));
+
+      controller.setAlbumFilter('George Town');
+      expect(controller.selectedAlbum, 'George Town');
+
+      const origin = RouteOrigin(
+        label: 'George Town, Penang',
+        latitude: 5.4141,
+        longitude: 100.3288,
+        mode: 'manual',
+      );
+      final created = await controller.generateAndSaveItinerary(
+        title: 'George Town Only',
+        origin: origin,
+        allSpots: spots,
+        allRestaurants: SeedDataService.getInitialRestaurants(),
+      );
+
+      expect(created, isTrue);
+      expect(controller.itinerarySteps, hasLength(1));
+      expect(controller.itinerarySteps.first['title'], penangSpot.name);
+      expect(controller.itinerarySteps.first['area'], 'George Town');
     });
 
     test('an itinerary cannot use a place the account has not saved', () async {
