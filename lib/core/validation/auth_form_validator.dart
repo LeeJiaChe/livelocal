@@ -5,6 +5,28 @@ class AuthFormValidator {
     r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
   );
 
+  // ============================================================
+  // FULL NAME VALIDATION
+  // ============================================================
+
+  static String? validateFullName(String? value) {
+    final String fullName = value?.trim() ?? '';
+
+    if (fullName.isEmpty) {
+      return 'Full name is required';
+    }
+
+    if (fullName.length < 2 || fullName.length > 80) {
+      return 'Use between 2 and 80 characters';
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // EMAIL VALIDATION
+  // ============================================================
+
   static String? validateEmail(String? value) {
     final String email = value?.trim() ?? '';
 
@@ -48,9 +70,56 @@ class AuthFormValidator {
     return null;
   }
 
+  // ============================================================
+  // LOGIN PASSWORD VALIDATION
+  // ============================================================
+
   static String? validateLoginPassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Password is required';
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // REGISTER PASSWORD VALIDATION
+  // ============================================================
+
+  static String? validateRegisterPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+
+    if (value.length < 10) {
+      return 'Use 10+ characters with a letter and number';
+    }
+
+    if (!RegExp(r'[A-Za-z]').hasMatch(value)) {
+      return 'Use 10+ characters with a letter and number';
+    }
+
+    if (!RegExp(r'[0-9]').hasMatch(value)) {
+      return 'Use 10+ characters with a letter and number';
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // CONFIRM PASSWORD VALIDATION
+  // ============================================================
+
+  static String? validateConfirmPassword(
+    String? value,
+    String password,
+  ) {
+    if (value == null || value.isEmpty) {
+      return 'Confirm password is required';
+    }
+
+    if (value != password) {
+      return 'Passwords do not match';
     }
 
     return null;
