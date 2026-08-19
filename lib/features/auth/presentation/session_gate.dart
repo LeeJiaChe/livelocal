@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../constants/app_colors.dart';
 import '../../../core/config/app_environment.dart';
 import '../../../screens/main_navigation_screen.dart';
+import '../../admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../profile/domain/account_repository.dart';
 import '../../profile/presentation/account_controller.dart';
 import 'auth_controller.dart';
@@ -29,7 +30,11 @@ class SessionGate extends StatelessWidget {
       case AuthStatus.deletionPending:
         return const RestrictedAccountScreen();
       case AuthStatus.guest:
+        return const MainNavigationScreen();
       case AuthStatus.authenticated:
+        if (auth.currentUser?.role == 'admin') {
+          return const AdminDashboardScreen();
+        }
         return const MainNavigationScreen();
     }
   }

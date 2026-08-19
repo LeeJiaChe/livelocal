@@ -13,23 +13,28 @@ class AdminController with ChangeNotifier {
   List<AdminAuditEvent> _auditEvents = [];
   List<AdminAppealCase> _appeals = [];
   AdminStatistics? _statistics;
-  bool _isLoading = false;
+  bool _isRefreshing = false;
+  bool _isMutating = false;
   String? _errorMessage;
+  DateTime? _lastUpdatedAt;
 
   List<AdminAccountSummary> get accounts => List.unmodifiable(_accounts);
   List<AdminModerationCase> get moderationCases => List.unmodifiable(_cases);
   List<AdminAuditEvent> get auditEvents => List.unmodifiable(_auditEvents);
   List<AdminAppealCase> get appeals => List.unmodifiable(_appeals);
   AdminStatistics? get statistics => _statistics;
-  bool get isLoading => _isLoading;
+  bool get isRefreshing => _isRefreshing;
+  bool get isMutating => _isMutating;
+  bool get isLoading => _isRefreshing || _isMutating;
   String? get errorMessage => _errorMessage;
+  DateTime? get lastUpdatedAt => _lastUpdatedAt;
   int get totalUsers => _statistics?.accountsTotal ?? _accounts.length;
   int get suspendedUsersCount =>
       _statistics?.accountsRestricted ??
       _accounts.where((account) => account.accessStatus != 'active').length;
 
   Future<void> loadDashboard() async {
-    _isLoading = true;
+    _isRefreshing = true;
     _errorMessage = null;
     notifyListeners();
     try {
@@ -45,10 +50,11 @@ class AdminController with ChangeNotifier {
       _statistics = results[2] as AdminStatistics;
       _auditEvents = results[3] as List<AdminAuditEvent>;
       _appeals = results[4] as List<AdminAppealCase>;
+      _lastUpdatedAt = DateTime.now();
     } catch (error) {
       _errorMessage = _message(error);
     } finally {
-      _isLoading = false;
+      _isRefreshing = false;
       notifyListeners();
     }
   }
@@ -60,7 +66,7 @@ class AdminController with ChangeNotifier {
     required String internalReason,
     DateTime? endsAt,
   }) async {
-    return _run(() => _repository.setAccountAccess(
+    return _runMutation(() => _repository.setAccountAccess(
           account: account,
           status: status,
           publicMessage: publicMessage,
@@ -74,7 +80,7 @@ class AdminController with ChangeNotifier {
     required String decision,
     required String reason,
   }) async {
-    return _run(() => _repository.decideModerationCase(
+    return _runMutation(() => _repository.decideModerationCase(
           moderationCase: moderationCase,
           decision: decision,
           reason: reason,
@@ -86,15 +92,15 @@ class AdminController with ChangeNotifier {
     required String decision,
     required String reason,
   }) {
-    return _run(() => _repository.decideAppeal(
+    return _runMutation(() => _repository.decideAppeal(
           appeal: appeal,
           decision: decision,
           reason: reason,
         ));
   }
 
-  Future<bool> _run(Future<void> Function() operation) async {
-    _isLoading = true;
+  Future<bool> _runMutation(Future<void> Function() operation) async {
+    _isMutating = true;
     _errorMessage = null;
     notifyListeners();
     try {
@@ -105,7 +111,7 @@ class AdminController with ChangeNotifier {
       _errorMessage = _message(error);
       return false;
     } finally {
-      _isLoading = false;
+      _isMutating = false;
       notifyListeners();
     }
   }

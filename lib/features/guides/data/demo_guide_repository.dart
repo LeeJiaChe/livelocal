@@ -6,8 +6,50 @@ import '../../auth/domain/account_identity.dart';
 import '../domain/guide_repository.dart';
 
 class DemoGuideRepository implements GuideRepository {
-  DemoGuideRepository(this._authRepository)
-      : _guides = List.of(SeedDataService.getInitialGuides());
+  DemoGuideRepository(
+    this._authRepository, {
+    bool seedAdminWorkload = false,
+  }) : _guides = List.of([
+          ...SeedDataService.getInitialGuides(),
+          if (seedAdminWorkload) ...[
+            GuideModel(
+              id: 'demo-guide-submitted-1',
+              revisionId: 'demo-rev-g1',
+              title: 'Jonker Street Evening Food Trail',
+              locationName: 'Jonker Walk',
+              state: 'Melaka',
+              routeOverview:
+                  'Evening walking food tour hitting the best roadside stalls in Jonker Street.',
+              stops: const [
+                'Cendol stall',
+                'Chicken rice ball',
+                'Night market snacks'
+              ],
+              walkingSequence: const [
+                'Start at entrance',
+                'Walk along main street'
+              ],
+              estimatedDuration: '1.5 hours',
+              status: 'submitted',
+            ),
+            GuideModel(
+              id: 'demo-guide-draft-1',
+              revisionId: 'demo-rev-g2',
+              title: 'George Town Heritage & Murals Draft',
+              locationName: 'George Town',
+              state: 'Penang',
+              routeOverview:
+                  'Curated draft exploring Armenian Street murals and hidden heritage shophouses.',
+              stops: const ['Street Art Alley', 'Clan Jetties'],
+              walkingSequence: const [
+                'Start at Armenian St',
+                'Walk to Clan Jetties'
+              ],
+              estimatedDuration: '2 hours',
+              status: 'draft',
+            ),
+          ],
+        ]);
 
   final DemoAuthRepository _authRepository;
   final List<GuideModel> _guides;

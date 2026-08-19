@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/itinerary_controller.dart';
 import '../features/notifications/presentation/notification_controller.dart';
-import 'admin_dashboard_screen.dart';
 import 'localeats_screen.dart';
 import 'neighbourhood_explorer_screen.dart';
 import 'notifications_screen.dart';
@@ -34,14 +33,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
-    final isAdmin = auth.currentUser?.role == 'admin';
-    final pages = <Widget>[
-      const SpotsDiscoveryScreen(),
-      const LocalEatsScreen(),
-      const SavedPlacesScreen(),
-      const NeighbourhoodExplorerScreen(),
-      isAdmin ? const AdminDashboardScreen() : const ProfileScreen(),
+    const pages = <Widget>[
+      SpotsDiscoveryScreen(),
+      LocalEatsScreen(),
+      SavedPlacesScreen(),
+      NeighbourhoodExplorerScreen(),
+      ProfileScreen(),
     ];
     return Scaffold(
       appBar: _currentIndex == 0
@@ -67,37 +64,31 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        destinations: [
-          const NavigationDestination(
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.explore_outlined),
             selectedIcon: Icon(Icons.explore),
             label: 'Spots',
           ),
-          const NavigationDestination(
+          NavigationDestination(
             icon: Icon(Icons.restaurant_outlined),
             selectedIcon: Icon(Icons.restaurant),
             label: 'Eats',
           ),
-          const NavigationDestination(
+          NavigationDestination(
             icon: Icon(Icons.bookmark_outline),
             selectedIcon: Icon(Icons.bookmark),
             label: 'Saved',
           ),
-          const NavigationDestination(
+          NavigationDestination(
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map),
             label: 'Guides',
           ),
           NavigationDestination(
-            icon: Icon(
-              isAdmin
-                  ? Icons.admin_panel_settings_outlined
-                  : Icons.person_outline,
-            ),
-            selectedIcon: Icon(
-              isAdmin ? Icons.admin_panel_settings : Icons.person,
-            ),
-            label: isAdmin ? 'Admin' : 'Profile',
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
       ),
