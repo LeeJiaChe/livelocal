@@ -7,9 +7,16 @@ import 'guide_detail_screen.dart';
 import '../shared/presentation/app_state_view.dart';
 import '../features/guides/presentation/submit_guide_screen.dart';
 
-class NeighbourhoodExplorerScreen extends StatelessWidget {
+class NeighbourhoodExplorerScreen extends StatefulWidget {
   const NeighbourhoodExplorerScreen({super.key});
 
+  @override
+  State<NeighbourhoodExplorerScreen> createState() =>
+      _NeighbourhoodExplorerScreenState();
+}
+
+class _NeighbourhoodExplorerScreenState
+    extends State<NeighbourhoodExplorerScreen> {
   static const _states = [
     'All',
     'Johor',
@@ -22,10 +29,34 @@ class NeighbourhoodExplorerScreen extends StatelessWidget {
     'Selangor',
   ];
 
+  late final TextEditingController _searchCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _clearFilters(GuideController controller) {
+    setState(() {
+      _searchCtrl.clear();
+    });
+    controller.resetFilters();
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<GuideController>();
     final guides = controller.approvedGuides;
+    final neighbourhoods = controller.availableNeighbourhoods;
+    final hasActiveFilters = controller.hasActiveFilters;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
@@ -52,11 +83,36 @@ class NeighbourhoodExplorerScreen extends StatelessWidget {
                       'Every published guide is curated and versioned by the LiveLocal team.',
                     ),
                     const SizedBox(height: 16),
+                    SearchBar(
+                      controller: _searchCtrl,
+                      hintText: 'Search guides or neighbourhoods',
+                      leading: const Icon(Icons.search),
+                      trailing: [
+                        if (_searchCtrl.text.isNotEmpty)
+                          IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(Icons.close),
+                            onPressed: () {
+                              setState(() {
+                                _searchCtrl.clear();
+                              });
+                              controller.setSearchQuery('');
+                            },
+                          ),
+                      ],
+                      onChanged: (val) {
+                        setState(() {});
+                        controller.setSearchQuery(val);
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
+                      key: ValueKey('state_${controller.selectedState}'),
                       initialValue: controller.selectedState,
                       decoration: const InputDecoration(
                         labelText: 'State or territory',
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.location_on_outlined),
                       ),
                       items: _states
                           .map(
@@ -69,6 +125,48 @@ class NeighbourhoodExplorerScreen extends StatelessWidget {
                       onChanged: (value) {
                         if (value != null) controller.setStateFilter(value);
                       },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(
+                        'nh_${controller.selectedState}_${controller.selectedNeighbourhood}',
+                      ),
+                      initialValue: controller.selectedNeighbourhood,
+                      decoration: const InputDecoration(
+                        labelText: 'Neighbourhood / area',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.holiday_village_outlined),
+                      ),
+                      items: neighbourhoods
+                          .map(
+                            (nh) => DropdownMenuItem(
+                              value: nh,
+                              child: Text(nh),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          controller.setNeighbourhoodFilter(value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${guides.length} ${guides.length == 1 ? 'guide' : 'guides'} found',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        if (hasActiveFilters)
+                          TextButton.icon(
+                            icon: const Icon(Icons.filter_alt_off_outlined,
+                                size: 18),
+                            label: const Text('Clear filters'),
+                            onPressed: () => _clearFilters(controller),
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -83,21 +181,40 @@ class NeighbourhoodExplorerScreen extends StatelessWidget {
                 controller.guides.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: AppStateView(
-                  icon: Icons.wifi_off_outlined,
-                  title: 'Guides could not be loaded',
-                  message: controller.errorMessage!,
-                  actionLabel: 'Try again',
-                  onAction: controller.loadGuides,
+                child: SingleChildScrollView(
+                  child: AppStateView(
+                    icon: Icons.wifi_off_outlined,
+                    title: 'Guides could not be loaded',
+                    message: controller.errorMessage!,
+                    actionLabel: 'Try again',
+                    onAction: controller.loadGuides,
+                  ),
+                ),
+              )
+            else if (controller.guides.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: SingleChildScrollView(
+                  child: AppStateView(
+                    icon: Icons.explore_off_outlined,
+                    title: 'No guides available',
+                    message:
+                        'Check back later for curated neighbourhood routes.',
+                  ),
                 ),
               )
             else if (guides.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: AppStateView(
-                  icon: Icons.explore_off_outlined,
-                  title: 'No guides for ${controller.selectedState}',
-                  message: 'Choose another state to see available routes.',
+                child: SingleChildScrollView(
+                  child: AppStateView(
+                    icon: Icons.explore_off_outlined,
+                    title: 'No matching guides',
+                    message: 'Try another search, state, or neighbourhood.',
+                    actionLabel: 'Clear filters',
+                    actionIcon: Icons.filter_alt_off_outlined,
+                    onAction: () => _clearFilters(controller),
+                  ),
                 ),
               )
             else
