@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
 import '../core/routing/protected_navigation.dart';
@@ -7,31 +8,43 @@ import '../core/validation/auth_form_validator.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
+
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
   InputDecoration _fieldDecoration({
     required IconData prefixIcon,
     required String labelText,
     Widget? suffixIcon,
   }) {
     return InputDecoration(
-      prefixIcon: Icon(prefixIcon, color: AppColors.primary),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: AppColors.primary,
+      ),
       labelText: labelText,
       suffixIcon: suffixIcon,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        borderSide: const BorderSide(
+          color: AppColors.primary,
+          width: 2,
+        ),
       ),
     );
   }
@@ -42,24 +55,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+
     super.dispose();
   }
 
   Future<void> _handleRegister() async {
     final currentForm = _formKey.currentState;
-    if (currentForm == null || !currentForm.validate()) return;
+
+    if (currentForm == null || !currentForm.validate()) {
+      return;
+    }
+
     final authCtrl = context.read<AuthController>();
-    if (authCtrl.isLoading) return;
+
+    if (authCtrl.isLoading) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
+
     final success = await authCtrl.register(
       _emailController.text.trim(),
       _passwordController.text,
       _fullNameController.text.trim(),
     );
-    if (!mounted) return;
+
+    if (!mounted) {
+      return;
+    }
+
     if (success) {
       final requiresVerification =
           authCtrl.status == AuthStatus.verificationRequired;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -69,12 +97,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       );
+
       final navigator = Navigator.of(context);
+
       final pending = context.read<ProtectedNavigation>().consumePending();
-      navigator.pushNamedAndRemoveUntil('/home', (route) => false);
+
+      navigator.pushNamedAndRemoveUntil(
+        '/home',
+        (route) => false,
+      );
+
       if (pending != null && authCtrl.canWrite) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          navigator.pushNamed(pending.routeName, arguments: pending.arguments);
+          navigator.pushNamed(
+            pending.routeName,
+            arguments: pending.arguments,
+          );
         });
       }
     } else {
@@ -94,7 +132,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       Navigator.pop(context);
       return;
     }
-    Navigator.pushReplacementNamed(context, '/welcome');
+
+    Navigator.pushReplacementNamed(
+      context,
+      '/welcome',
+    );
   }
 
   @override
@@ -129,66 +171,95 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const Text(
                   'Create your account',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+
                 const SizedBox(height: 4),
+
                 const Text(
                   'Join thousands discovering authentic Malaysia',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
                 ),
+
                 const SizedBox(height: 24),
+
                 const Text(
-                  'All new accounts start as tourists. Influencer applications '
-                  'are available from your profile after verification.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                  'All new accounts start as tourists. '
+                  'Influencer applications are available from your '
+                  'profile after verification.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
                 ),
+
                 const SizedBox(height: 24),
+
                 Form(
                   key: _formKey,
                   child: Column(
                     children: [
+                      // ==================================================
+                      // FULL NAME
+                      // ==================================================
+
                       TextFormField(
                         controller: _fullNameController,
                         enabled: !isSubmitting,
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
-                        autofillHints: const [AutofillHints.name],
+                        autofillHints: const [
+                          AutofillHints.name,
+                        ],
                         decoration: _fieldDecoration(
                           prefixIcon: Icons.person_outline,
                           labelText: 'Full Name',
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'This field is required';
-                          }
-                          if (value.trim().length < 2 ||
-                              value.trim().length > 80) {
-                            return 'Use between 2 and 80 characters';
-                          }
-                          return null;
-                        },
+                        validator: AuthFormValidator.validateFullName,
                       ),
+
                       const SizedBox(height: 16),
+
+                      // ==================================================
+                      // EMAIL
+                      // ==================================================
+
                       TextFormField(
                         controller: _emailController,
                         enabled: !isSubmitting,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autocorrect: false,
-                        autofillHints: const [AutofillHints.email],
+                        autofillHints: const [
+                          AutofillHints.email,
+                        ],
                         decoration: _fieldDecoration(
                           prefixIcon: Icons.email_outlined,
                           labelText: 'Email Address',
                         ),
                         validator: AuthFormValidator.validateEmail,
                       ),
+
                       const SizedBox(height: 16),
+
+                      // ==================================================
+                      // PASSWORD
+                      // ==================================================
+
                       TextFormField(
                         controller: _passwordController,
                         enabled: !isSubmitting,
                         obscureText: _obscurePassword,
                         textInputAction: TextInputAction.next,
-                        autofillHints: const [AutofillHints.newPassword],
+                        autofillHints: const [
+                          AutofillHints.newPassword,
+                        ],
                         decoration: _fieldDecoration(
                           prefixIcon: Icons.lock_outline,
                           labelText: 'Password',
@@ -211,27 +282,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   },
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'This field is required';
-                          }
-                          if (value.length < 10 ||
-                              !RegExp('[A-Za-z]').hasMatch(value) ||
-                              !RegExp('[0-9]').hasMatch(value)) {
-                            return 'Use 10+ characters with a letter and number';
-                          }
-                          return null;
-                        },
+                        validator: AuthFormValidator.validateRegisterPassword,
                       ),
+
                       const SizedBox(height: 16),
+
+                      // ==================================================
+                      // CONFIRM PASSWORD
+                      // ==================================================
+
                       TextFormField(
                         controller: _confirmPasswordController,
                         enabled: !isSubmitting,
                         obscureText: _obscureConfirm,
                         textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.newPassword],
+                        autofillHints: const [
+                          AutofillHints.newPassword,
+                        ],
                         onFieldSubmitted: (_) {
-                          if (!isSubmitting) _handleRegister();
+                          if (!isSubmitting) {
+                            _handleRegister();
+                          }
                         },
                         decoration: _fieldDecoration(
                           prefixIcon: Icons.lock_outline,
@@ -256,20 +327,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'This field is required';
-                          }
-                          if (value != _passwordController.text) {
-                            return 'Passwords do not match';
-                          }
-                          return null;
+                          return AuthFormValidator.validateConfirmPassword(
+                            value,
+                            _passwordController.text,
+                          );
                         },
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                const SizedBox(height: 24),
+
+                const SizedBox(height: 32),
+
+                // ======================================================
+                // CREATE ACCOUNT BUTTON
+                // ======================================================
+
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -285,24 +358,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: isSubmitting
                         ? const SizedBox.square(
                             dimension: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
                           )
                         : const Text(
                             'Create Account',
-                            style: TextStyle(fontSize: 16),
+                            style: TextStyle(
+                              fontSize: 16,
+                            ),
                           ),
                   ),
                 ),
+
                 const SizedBox(height: 16),
+
+                // ======================================================
+                // LOGIN LINK
+                // ======================================================
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('Already have an account? '),
+                    const Text(
+                      'Already have an account? ',
+                    ),
                     TextButton(
                       onPressed: isSubmitting
                           ? null
-                          : () => Navigator.pushNamed(context, '/login'),
-                      child: const Text('Log in'),
+                          : () => Navigator.pushNamed(
+                                context,
+                                '/login',
+                              ),
+                      child: const Text(
+                        'Log in',
+                      ),
                     ),
                   ],
                 ),
