@@ -98,4 +98,38 @@ void main() {
     );
     expect(controller.guides.where((guide) => guide.id == revised.id), isEmpty);
   });
+
+  test('tourist submission stays private until an admin decision', () async {
+    final authRepository = DemoAuthRepository();
+    final repository = DemoGuideRepository(authRepository);
+    final controller = GuideController(repository: repository);
+    await authRepository.signIn(
+      email: 'tourist@livelocal.com',
+      password: SeedDataService.demoPassword,
+    );
+
+    expect(await controller.submitGuide(draftInput), isTrue);
+    final submitted = controller.mySubmissions.single;
+    expect(submitted.status, 'submitted');
+    expect(
+        controller.guides.where((guide) => guide.id == submitted.id), isEmpty);
+
+    await authRepository.signIn(
+      email: 'admin@livelocal.com',
+      password: SeedDataService.demoPassword,
+    );
+    await controller.loadAdminDrafts();
+    expect(
+        await controller.moderateSubmission(
+          submitted,
+          'approved',
+          'Stops and route verified',
+        ),
+        isTrue);
+    expect(
+        controller.guides
+            .singleWhere((guide) => guide.id == submitted.id)
+            .status,
+        'approved');
+  });
 }

@@ -15,12 +15,14 @@ class GuideController with ChangeNotifier {
   final GuideRepository _repository;
   List<GuideModel> _guides = [];
   List<GuideModel> _adminDrafts = [];
+  List<GuideModel> _mySubmissions = [];
   bool _isLoading = false;
   String _selectedState = 'All';
   String? _errorMessage;
 
   List<GuideModel> get guides => List.unmodifiable(_guides);
   List<GuideModel> get adminDrafts => List.unmodifiable(_adminDrafts);
+  List<GuideModel> get mySubmissions => List.unmodifiable(_mySubmissions);
   bool get isLoading => _isLoading;
   String get selectedState => _selectedState;
   String? get errorMessage => _errorMessage;
@@ -38,6 +40,22 @@ class GuideController with ChangeNotifier {
 
   Future<void> loadAdminDrafts() async {
     await _run(() async => _adminDrafts = await _repository.fetchAdminDrafts());
+  }
+
+  Future<void> loadMySubmissions() async {
+    await _run(
+      () async => _mySubmissions = await _repository.fetchMySubmissions(),
+    );
+  }
+
+  Future<bool> submitGuide(GuideDraftInput input) async {
+    var saved = false;
+    await _run(() async {
+      await _repository.submitGuide(input);
+      _mySubmissions = await _repository.fetchMySubmissions();
+      saved = true;
+    });
+    return saved;
   }
 
   void setStateFilter(String state) {
@@ -72,6 +90,25 @@ class GuideController with ChangeNotifier {
     var saved = false;
     await _run(() async {
       await _repository.publishAdminDraft(draft, reason);
+      final results = await Future.wait([
+        _repository.fetchAdminDrafts(),
+        _repository.fetchPublishedGuides(),
+      ]);
+      _adminDrafts = results[0];
+      _guides = results[1];
+      saved = true;
+    });
+    return saved;
+  }
+
+  Future<bool> moderateSubmission(
+    GuideModel guide,
+    String decision,
+    String reason,
+  ) async {
+    var saved = false;
+    await _run(() async {
+      await _repository.moderateSubmission(guide, decision, reason);
       final results = await Future.wait([
         _repository.fetchAdminDrafts(),
         _repository.fetchPublishedGuides(),

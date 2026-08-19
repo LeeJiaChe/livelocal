@@ -20,7 +20,46 @@ class DemoGuideRepository implements GuideRepository {
   @override
   Future<List<GuideModel>> fetchAdminDrafts() async {
     _requireAdmin();
-    return _guides.where((guide) => guide.status == 'draft').toList();
+    return _guides
+        .where((guide) =>
+            {'draft', 'submitted', 'under_review'}.contains(guide.status))
+        .toList();
+  }
+
+  @override
+  Future<List<GuideModel>> fetchMySubmissions() async {
+    final account = _authRepository.currentAccountForDemo;
+    if (account == null) return const [];
+    return _guides
+        .where((guide) => guide.id.startsWith('${account.id}-'))
+        .toList();
+  }
+
+  @override
+  Future<GuideModel> submitGuide(GuideDraftInput input) async {
+    final account = _authRepository.currentAccountForDemo;
+    if (account == null || account.accessStatus != AccountAccessStatus.active) {
+      throw const AppException(
+        code: AppErrorCode.authentication,
+        userMessage: 'Sign in with an active account to submit a guide.',
+      );
+    }
+    _validate(input);
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final guide = GuideModel(
+      id: '${account.id}-guide-$now',
+      revisionId: 'demo-guide-revision-$now',
+      title: input.title.trim(),
+      locationName: input.locationName.trim(),
+      state: input.state.trim(),
+      routeOverview: input.routeOverview.trim(),
+      stops: input.stops,
+      walkingSequence: input.walkingSequence,
+      estimatedDuration: input.estimatedDuration.trim(),
+      status: 'submitted',
+    );
+    _guides.add(guide);
+    return guide;
   }
 
   @override
@@ -119,6 +158,30 @@ class DemoGuideRepository implements GuideRepository {
     );
   }
 
+  @override
+  Future<void> moderateSubmission(
+    GuideModel guide,
+    String decision,
+    String reason,
+  ) async {
+    _requireAdmin();
+    final index =
+        _guides.indexWhere((item) => item.revisionId == guide.revisionId);
+    if (index < 0 ||
+        !{'submitted', 'under_review'}.contains(_guides[index].status)) {
+      throw const AppException(
+        code: AppErrorCode.conflict,
+        userMessage: 'The guide submission changed. Refresh and try again.',
+      );
+    }
+    _guides[index] = _copy(
+      _guides[index],
+      status: decision,
+      version: guide.version + 1,
+      decisionReason: reason,
+    );
+  }
+
   void _requireAdmin() {
     final account = _authRepository.currentAccountForDemo;
     if (account?.appRole != AppRole.admin ||
@@ -148,6 +211,7 @@ class DemoGuideRepository implements GuideRepository {
     GuideModel value, {
     required String status,
     required int version,
+    String? decisionReason,
   }) {
     return GuideModel(
       id: value.id,
@@ -161,6 +225,7 @@ class DemoGuideRepository implements GuideRepository {
       walkingSequence: value.walkingSequence,
       estimatedDuration: value.estimatedDuration,
       status: status,
+      decisionReason: decisionReason,
     );
   }
 }
