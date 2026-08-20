@@ -73,7 +73,7 @@ values ('73000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-0000000
 insert into public.restaurant_revisions (
   id, restaurant_id, revision_number, author_id, status, name, cuisine_type,
   price_range, reviewed_dishes, address, state, city, latitude, longitude,
-  submitted_at, decided_at
+  social_media_url, submitted_at, decided_at
 )
 values (
   '74000000-0000-0000-0000-000000000001',
@@ -81,7 +81,7 @@ values (
   '70000000-0000-0000-0000-000000000001', 'approved',
   'Line Clear Nasi Kandar', 'Malaysian',
   '$$', 'Nasi Kandar with Fried Chicken', 'Penang Road', 'Pulau Pinang', 'George Town',
-  5.4188, 100.3328,
+  5.4188, 100.3328, 'https://instagram.com/lineclear',
   clock_timestamp(), clock_timestamp()
 );
 
@@ -111,6 +111,7 @@ select throws_ok(
 );
 
 -- Switch to User 1
+reset role;
 select set_config(
   'request.jwt.claims',
   '{"sub":"70000000-0000-0000-0000-000000000001","role":"authenticated"}',
@@ -190,6 +191,7 @@ select is(
 );
 
 -- Switch to User 2
+reset role;
 select set_config(
   'request.jwt.claims',
   '{"sub":"70000000-0000-0000-0000-000000000002","role":"authenticated"}',
