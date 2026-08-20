@@ -1,3 +1,15 @@
+enum SocialSourceType { post, profile, unsupported }
+
+class SocialSourceDetection {
+  const SocialSourceDetection({
+    required this.type,
+    this.platform,
+  });
+
+  final SocialSourceType type;
+  final String? platform;
+}
+
 class SocialUrlValidator {
   static const supportedPlatforms = {
     'tiktok',
@@ -8,99 +20,86 @@ class SocialUrlValidator {
     String value, {
     String? platform,
   }) {
-    final uri = Uri.tryParse(value.trim());
-
-    if (uri == null) {
-      return false;
-    }
-
-    if (uri.scheme.toLowerCase() != 'https') {
-      return false;
-    }
-
-    if (uri.hasPort) {
-      return false;
-    }
-
-    final detectedPlatform = detectPlatform(value);
-
-    if (detectedPlatform == null) {
-      return false;
-    }
-
-    if (platform != null &&
-        detectedPlatform != platform.trim().toLowerCase()) {
-      return false;
-    }
-
-    return true;
+    final detected = detectSource(value);
+    if (detected.type == SocialSourceType.unsupported) return false;
+    return platform == null ||
+        detected.platform == platform.trim().toLowerCase();
   }
 
-  static String? detectPlatform(String value) {
-    final uri = Uri.tryParse(value.trim());
+  static SocialSourceType detectSourceType(String value) =>
+      detectSource(value).type;
 
+  static SocialSourceDetection detectSource(String value) {
+    final uri = _safeUri(value);
     if (uri == null) {
-      return null;
+      return const SocialSourceDetection(type: SocialSourceType.unsupported);
     }
 
-    final host = uri.host.toLowerCase();
-
-    if (host == 'instagram.com' || host == 'www.instagram.com') {
-      return 'instagram';
+    final platform = _platformForHost(uri.host.toLowerCase());
+    if (platform == null) {
+      return const SocialSourceDetection(type: SocialSourceType.unsupported);
     }
 
-    if (host == 'tiktok.com' ||
-        host == 'www.tiktok.com' ||
-        host == 'vm.tiktok.com' ||
-        host == 'vt.tiktok.com') {
-      return 'tiktok';
-    }
-
-    return null;
-  }
-
-  static bool isReviewPost(String value) {
-    if (!isSupported(value)) {
-      return false;
-    }
-
-    final uri = Uri.tryParse(value.trim());
-
-    if (uri == null) {
-      return false;
-    }
-
-    final platform = detectPlatform(value);
     final segments = uri.pathSegments
         .where((segment) => segment.trim().isNotEmpty)
-        .toList();
+        .toList(growable: false);
 
     if (platform == 'instagram') {
-      if (segments.length < 2) {
-        return false;
+      if (segments.length == 2 &&
+          const {'p', 'reel', 'reels', 'tv'}.contains(segments.first)) {
+        return const SocialSourceDetection(
+          type: SocialSourceType.post,
+          platform: 'instagram',
+        );
       }
-
-      return segments.first == 'p' ||
-          segments.first == 'reel' ||
-          segments.first == 'reels' ||
-          segments.first == 'tv';
+      if (segments.length == 1 &&
+          !_instagramReserved.contains(segments[0].toLowerCase())) {
+        return const SocialSourceDetection(
+          type: SocialSourceType.profile,
+          platform: 'instagram',
+        );
+      }
     }
 
     if (platform == 'tiktok') {
       final host = uri.host.toLowerCase();
-
-      if (host == 'vm.tiktok.com' || host == 'vt.tiktok.com') {
-        return segments.isNotEmpty;
+      if ((host == 'vm.tiktok.com' || host == 'vt.tiktok.com') &&
+          segments.length == 1) {
+        return const SocialSourceDetection(
+          type: SocialSourceType.post,
+          platform: 'tiktok',
+        );
       }
-
-      return segments.length >= 3 &&
+      if (segments.length == 3 &&
           segments[0].startsWith('@') &&
+          segments[0].length > 1 &&
           segments[1] == 'video' &&
-          segments[2].isNotEmpty;
+          segments[2].isNotEmpty) {
+        return const SocialSourceDetection(
+          type: SocialSourceType.post,
+          platform: 'tiktok',
+        );
+      }
+      if (segments.length == 1 &&
+          segments.first.startsWith('@') &&
+          segments.first.length > 1) {
+        return const SocialSourceDetection(
+          type: SocialSourceType.profile,
+          platform: 'tiktok',
+        );
+      }
     }
 
-    return false;
+    return const SocialSourceDetection(type: SocialSourceType.unsupported);
   }
+
+  static String? detectPlatform(String value) {
+    final uri = _safeUri(value);
+    return uri == null ? null : _platformForHost(uri.host.toLowerCase());
+  }
+
+  static bool isReviewPost(String value) =>
+      detectSourceType(value) == SocialSourceType.post;
 
   static String platformLabel(String value) {
     switch (detectPlatform(value)) {
@@ -112,4 +111,45 @@ class SocialUrlValidator {
         return 'Social Media';
     }
   }
+
+  static Uri? _safeUri(String value) {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null ||
+        uri.scheme.toLowerCase() != 'https' ||
+        uri.host.isEmpty ||
+        uri.hasPort ||
+        uri.userInfo.isNotEmpty) {
+      return null;
+    }
+    return uri;
+  }
+
+  static String? _platformForHost(String host) {
+    if (host == 'instagram.com' || host == 'www.instagram.com') {
+      return 'instagram';
+    }
+    if (host == 'tiktok.com' ||
+        host == 'www.tiktok.com' ||
+        host == 'vm.tiktok.com' ||
+        host == 'vt.tiktok.com') {
+      return 'tiktok';
+    }
+    return null;
+  }
+
+  static const _instagramReserved = {
+    'about',
+    'accounts',
+    'developer',
+    'directory',
+    'explore',
+    'legal',
+    'p',
+    'privacy',
+    'reel',
+    'reels',
+    'stories',
+    'terms',
+    'tv',
+  };
 }

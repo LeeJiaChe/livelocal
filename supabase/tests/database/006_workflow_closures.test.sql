@@ -150,7 +150,7 @@ select lives_ok(
   $sql$select public.create_restaurant_draft(
     'Closure Test Kitchen', '12 Test Street', 'Penang', 'George Town',
     'Malaysian', '$$', 'Noodles and coffee',
-    'https://www.instagram.com/closuretest',
+    'https://www.instagram.com/reel/closuretest',
     '70000000-0000-0000-0000-000000000002/closure-kitchen.jpg',
     5.4141, 100.3288
   )$sql$,

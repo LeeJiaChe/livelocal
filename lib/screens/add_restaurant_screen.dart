@@ -3,10 +3,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../controllers/auth_controller.dart';
 import '../controllers/localeats_controller.dart';
 import '../core/validation/social_url_validator.dart';
+import '../features/restaurants/domain/generated_restaurant_listing.dart';
 import '../features/restaurants/domain/local_eats_repository.dart';
 import '../models/restaurant_model.dart';
 
@@ -21,14 +23,15 @@ class AddRestaurantScreen extends StatefulWidget {
 
 class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _sourceUrl = TextEditingController();
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _city = TextEditingController();
   final _dishes = TextEditingController();
   final _socialUrl = TextEditingController();
-  String _state = 'Kuala Lumpur';
-  String _cuisine = 'Malay';
-  String _price = r'$';
+  String? _state = 'Kuala Lumpur';
+  String? _cuisine = 'Malay';
+  String? _price = r'$';
   Uint8List? _imageBytes;
   String? _imageMimeType;
   bool _submitting = false;
@@ -47,25 +50,28 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     'Selangor',
   ];
   static const _cuisines = [
-  'Malay',
-  'Chinese',
-  'Indian',
-  'Japanese',
-  'Korean',
-  'Thai',
-  'Italian',
-  'Kopitiam',
-  'Hawker Food',
-  'Western',
-  'Fusion',
-  'Other',
-];
+    'Malay',
+    'Chinese',
+    'Indian',
+    'Japanese',
+    'Korean',
+    'Thai',
+    'Italian',
+    'Kopitiam',
+    'Hawker Food',
+    'Western',
+    'Fusion',
+    'Other',
+  ];
 
   bool get _isRevision => widget.source != null;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<LocalEatsController>().clearGeneratedResult();
+    });
     final source = widget.source;
     if (source == null) return;
     _name.text = source.name;
@@ -82,6 +88,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
 
   @override
   void dispose() {
+    _sourceUrl.dispose();
     _name.dispose();
     _address.dispose();
     _city.dispose();
@@ -107,6 +114,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       );
     }
 
+    final localEats = context.watch<LocalEatsController>();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -129,7 +138,126 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   : 'Add public business details and the TikTok or Instagram post that supports your recommendation. The listing is reviewed before publication.',
             ),
             const SizedBox(height: 24),
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Import from social media',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Generate an editable restaurant draft from one review post or your recent creator posts.',
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      key: const Key('ai_source_field'),
+                      controller: _sourceUrl,
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                      decoration: const InputDecoration(
+                        labelText: 'TikTok or Instagram source',
+                        helperText:
+                            'Paste a TikTok/Instagram review post or your creator profile.',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      key: const Key('ai_generate_button'),
+                      onPressed: localEats.isGeneratingListing
+                          ? null
+                          : _generateListing,
+                      icon: localEats.isGeneratingListing
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.auto_awesome_outlined),
+                      label: Text(
+                        localEats.isGeneratingListing
+                            ? 'Analysing social source…'
+                            : 'Generate Listing with AI',
+                      ),
+                    ),
+                    if (localEats.generationError != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        localEats.generationError!,
+                        key: const Key('ai_generation_error'),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      if (SocialUrlValidator.detectSourceType(
+                            _sourceUrl.text,
+                          ) ==
+                          SocialSourceType.profile) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: localEats.isConnectingSocialAccount
+                              ? null
+                              : _connectSocialAccount,
+                          icon: const Icon(Icons.link),
+                          label: Text(
+                            localEats.isConnectingSocialAccount
+                                ? 'Opening connection…'
+                                : 'Connect creator account',
+                          ),
+                        ),
+                      ],
+                    ],
+                    if (localEats.socialConnectionError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        localEats.socialConnectionError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                    if (localEats.generatedCandidates.length > 1) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Choose a restaurant review',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      ...localEats.generatedCandidates.map(
+                        (candidate) => _candidateCard(
+                          context,
+                          candidate,
+                          localEats.selectedGeneratedCandidate == candidate,
+                        ),
+                      ),
+                    ],
+                    if (localEats.selectedGeneratedCandidate != null) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'AI-generated draft — please verify the details before submitting.',
+                        key: Key('ai_draft_notice'),
+                      ),
+                      if (localEats
+                          .selectedGeneratedCandidate!.missingFields.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            'Still required: ${localEats.selectedGeneratedCandidate!.missingFields.map(_fieldLabel).join(', ')}.',
+                            key: const Key('ai_missing_fields'),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
             TextFormField(
+              key: const Key('restaurant_name_field'),
               controller: _name,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
@@ -140,6 +268,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
+              key: ValueKey('cuisine-$_cuisine'),
               initialValue: _cuisine,
               decoration: const InputDecoration(
                 labelText: 'Cuisine',
@@ -151,9 +280,11 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   .toList(),
               onChanged: (value) =>
                   setState(() => _cuisine = value ?? _cuisine),
+              validator: _required,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
+              key: ValueKey('state-$_state'),
               initialValue: _state,
               decoration: const InputDecoration(
                 labelText: 'State or territory',
@@ -164,9 +295,11 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       DropdownMenuItem(value: value, child: Text(value)))
                   .toList(),
               onChanged: (value) => setState(() => _state = value ?? _state),
+              validator: _required,
             ),
             const SizedBox(height: 16),
             TextFormField(
+              key: const Key('restaurant_city_field'),
               controller: _city,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
@@ -177,6 +310,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             ),
             const SizedBox(height: 16),
             TextFormField(
+              key: const Key('restaurant_address_field'),
               controller: _address,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
@@ -187,6 +321,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
+              key: ValueKey('price-$_price'),
               initialValue: _price,
               decoration: const InputDecoration(
                 labelText: 'Typical price range',
@@ -197,9 +332,11 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       DropdownMenuItem(value: value, child: Text(value)))
                   .toList(),
               onChanged: (value) => setState(() => _price = value ?? _price),
+              validator: _required,
             ),
             const SizedBox(height: 16),
             TextFormField(
+              key: const Key('restaurant_dishes_field'),
               controller: _dishes,
               minLines: 2,
               maxLines: 4,
@@ -213,6 +350,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             ),
             const SizedBox(height: 16),
             TextFormField(
+              key: const Key('social_review_url_field'),
               controller: _socialUrl,
               keyboardType: TextInputType.url,
               autocorrect: false,
@@ -223,8 +361,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 border: OutlineInputBorder(),
               ),
               validator: (value) {
-                if (!SocialUrlValidator.isSupported(value ?? '')) {
-                  return 'Enter a supported TikTok or Instagram HTTPS URL.';
+                if (!SocialUrlValidator.isReviewPost(value ?? '')) {
+                  return 'Enter a TikTok video or Instagram post/reel URL, not a profile URL.';
                 }
                 return null;
               },
@@ -251,6 +389,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton(
+              key: const Key('restaurant_submit_button'),
               onPressed: _submitting ? null : _submit,
               child: Text(_submitting ? 'Submitting…' : 'Submit for review'),
             ),
@@ -291,10 +430,10 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     final input = RestaurantDraftInput(
       name: _name.text.trim(),
       address: _address.text.trim(),
-      state: _state,
+      state: _state!,
       city: _city.text.trim(),
-      cuisineType: _cuisine,
-      priceRange: _price,
+      cuisineType: _cuisine!,
+      priceRange: _price!,
       reviewedDishes: _dishes.text.trim(),
       socialMediaUrl: _socialUrl.text.trim(),
     );
@@ -328,6 +467,129 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
           : 'Restaurant submitted for review.',
     );
     Navigator.pop(context);
+  }
+
+  Future<void> _generateListing() async {
+    final source = _sourceUrl.text.trim();
+    final controller = context.read<LocalEatsController>();
+    if (SocialUrlValidator.detectSourceType(source) ==
+        SocialSourceType.unsupported) {
+      controller.clearGeneratedResult();
+      _message(
+        'Paste a valid TikTok or Instagram post or creator profile URL.',
+      );
+      return;
+    }
+    final generated =
+        await controller.generateRestaurantListingFromSource(source);
+    if (!mounted || !generated) return;
+    final candidate = controller.selectedGeneratedCandidate;
+    if (candidate != null) _applyCandidate(candidate);
+  }
+
+  Future<void> _connectSocialAccount() async {
+    final platform = SocialUrlValidator.detectPlatform(_sourceUrl.text);
+    if (platform == null) return;
+    final controller = context.read<LocalEatsController>();
+    final authorizationUrl =
+        await controller.startSocialAccountConnection(platform);
+    if (!mounted || authorizationUrl == null) return;
+    final opened = await launchUrl(
+      authorizationUrl,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!mounted) return;
+    if (!opened) {
+      _message('Could not open the $platform connection page.');
+      return;
+    }
+    _message(
+      'Complete the $platform connection, then return and tap Generate Listing with AI again.',
+    );
+  }
+
+  Widget _candidateCard(
+    BuildContext context,
+    GeneratedRestaurantListing candidate,
+    bool selected,
+  ) {
+    return Card(
+      key: ValueKey('generated-candidate-${candidate.sourcePostUrl}'),
+      color: selected
+          ? Theme.of(context).colorScheme.secondaryContainer
+          : null,
+      child: InkWell(
+        onTap: () => _applyCandidate(candidate),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                candidate.restaurantName ?? 'Restaurant name not identified',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(candidate.reviewedDishes ?? 'Dishes not identified'),
+              const SizedBox(height: 4),
+              Text(
+                '${SocialUrlValidator.platformLabel(candidate.sourcePostUrl)} · ${(candidate.confidence * 100).round()}% confidence',
+              ),
+              const SizedBox(height: 4),
+              Text(
+                candidate.sourcePostUrl,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _applyCandidate(GeneratedRestaurantListing candidate) {
+    if (!SocialUrlValidator.isReviewPost(candidate.sourcePostUrl)) {
+      _message('The generated candidate did not contain a valid review post.');
+      return;
+    }
+    context.read<LocalEatsController>().selectGeneratedCandidate(candidate);
+    setState(() {
+      _name.text = candidate.restaurantName ?? '';
+      _address.text = candidate.address ?? '';
+      _city.text = candidate.city ?? '';
+      _dishes.text = candidate.reviewedDishes ?? '';
+      _socialUrl.text = candidate.sourcePostUrl;
+      _state = _matchingValue(_states, candidate.state);
+      _cuisine = _matchingValue(_cuisines, candidate.cuisineType) ??
+          (candidate.cuisineType == null ? null : 'Other');
+      _price = const [r'$', r'$$', r'$$$', r'$$$$']
+              .contains(candidate.priceRange)
+          ? candidate.priceRange
+          : null;
+    });
+  }
+
+  String? _matchingValue(List<String> values, String? candidate) {
+    if (candidate == null) return null;
+    final normalized = candidate.trim().toLowerCase();
+    for (final value in values) {
+      if (value.toLowerCase() == normalized) return value;
+    }
+    return null;
+  }
+
+  static String _fieldLabel(String value) {
+    const labels = {
+      'restaurantName': 'restaurant name',
+      'address': 'address',
+      'state': 'state',
+      'city': 'city',
+      'cuisineType': 'cuisine',
+      'priceRange': 'price range',
+      'reviewedDishes': 'reviewed dishes',
+    };
+    return labels[value] ?? value;
   }
 
   Future<bool> _resolveDuplicates(RestaurantDraftResult draft) async {

@@ -7,6 +7,7 @@ import '../../../models/restaurant_model.dart';
 import '../../../services/seed_data_service.dart';
 import '../../auth/data/demo_auth_repository.dart';
 import '../../auth/domain/account_identity.dart';
+import '../domain/generated_restaurant_listing.dart';
 import '../domain/local_eats_repository.dart';
 
 class DemoLocalEatsRepository implements LocalEatsRepository {
@@ -23,6 +24,59 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
   final List<RestaurantModel> _restaurants;
   final List<DiscountCodeModel> _discounts;
   final Map<String, String> _currentRevisionIds = {};
+
+  @override
+  Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
+    String sourceUrl,
+  ) async {
+    _requireInfluencer();
+    final detection = SocialUrlValidator.detectSource(sourceUrl);
+    if (detection.type == SocialSourceType.unsupported) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage:
+            'Paste a valid TikTok or Instagram post or creator profile URL.',
+      );
+    }
+    if (detection.type == SocialSourceType.profile) {
+      throw const AppException(
+        code: AppErrorCode.unavailable,
+        userMessage:
+            'Connect your TikTok/Instagram creator account before importing from a profile.',
+      );
+    }
+    const missing = [
+      'restaurantName',
+      'address',
+      'state',
+      'city',
+      'cuisineType',
+      'priceRange',
+      'reviewedDishes',
+    ];
+    return SocialSourceAnalysisResult(
+      sourceType: 'post',
+      platform: detection.platform!,
+      candidates: [
+        GeneratedRestaurantListing(
+          sourcePlatform: detection.platform!,
+          sourcePostUrl: sourceUrl.trim(),
+          confidence: 0,
+          missingFields: missing,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<Uri> startSocialAccountConnection(String platform) async {
+    _requireInfluencer();
+    throw const AppException(
+      code: AppErrorCode.unavailable,
+      userMessage:
+          'Social account connection is available with the Supabase backend.',
+    );
+  }
 
   @override
   Future<List<RestaurantModel>> fetchPublicRestaurants() async {
