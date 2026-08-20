@@ -2,9 +2,9 @@ name: LiveLocal verification
 
 on:
   push:
-    branches: [master]
+    branches: [master, develop]
   pull_request:
-    branches: [master]
+    branches: [master, develop]
   workflow_dispatch:
 
 permissions:
@@ -73,9 +73,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
       - name: Set up Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: 2.114.0
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:

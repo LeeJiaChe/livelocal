@@ -1,10 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../core/errors/supabase_error_mapper.dart';
 import '../../../models/review_model.dart';
 import '../domain/review_repository.dart';
 
-class SupabaseReviewRepository implements ReviewRepository {
+class SupabaseReviewRepository
+    implements ReviewRepository, ReviewReactionRepository {
   SupabaseReviewRepository(this._client);
 
   final SupabaseClient _client;
@@ -33,6 +35,13 @@ class SupabaseReviewRepository implements ReviewRepository {
         for (final raw in ownRows)
           (raw as Map)['id'] as String: Map<String, dynamic>.from(raw),
       };
+      final voteRows = _client.auth.currentUser == null
+          ? const <dynamic>[]
+          : await _client.from('review_votes').select('review_id, vote');
+      final votesByReview = <String, int>{
+        for (final raw in voteRows)
+          (raw as Map)['review_id'] as String: (raw['vote'] as num).toInt(),
+      };
       return (publicRows as List<dynamic>).map((raw) {
         final row = Map<String, dynamic>.from(raw as Map);
         final own = ownById[row['id']];
@@ -49,10 +58,35 @@ class SupabaseReviewRepository implements ReviewRepository {
           updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
           version: (row['version'] as num).toInt(),
           isOwnedByCurrentUser: own != null,
+          likesCount: (row['likes_count'] as num?)?.toInt() ?? 0,
+          dislikesCount: (row['dislikes_count'] as num?)?.toInt() ?? 0,
+          userVote: votesByReview[row['id']],
         );
       }).toList();
     } on PostgrestException catch (error) {
-      throw _error(error, 'Reviews could not be loaded.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Reviews could not be loaded.',
+      );
+    }
+  }
+
+  @override
+  Future<ReviewReactionResult> setReaction(String reviewId, int? vote) async {
+    try {
+      final response = await _client.rpc('set_review_vote', params: {
+        'p_review_id': reviewId,
+        'p_vote': vote ?? 0,
+      });
+      final row = Map<String, dynamic>.from(response as Map);
+      return ReviewReactionResult(
+        likesCount: (row['likes_count'] as num).toInt(),
+        dislikesCount: (row['dislikes_count'] as num).toInt(),
+        userVote: (row['user_vote'] as num?)?.toInt(),
+      );
+    } on PostgrestException catch (error) {
+      throw SupabaseErrorMapper.parseError(
+          error, 'Your reaction could not be saved.');
     }
   }
 
@@ -94,7 +128,7 @@ class SupabaseReviewRepository implements ReviewRepository {
         isOwnedByCurrentUser: true,
       );
     } on PostgrestException catch (error) {
-      throw _error(
+      throw SupabaseErrorMapper.parseError(
         error,
         error.code == '40001'
             ? 'Your review changed. Refresh and try again.'
@@ -114,7 +148,10 @@ class SupabaseReviewRepository implements ReviewRepository {
         'p_expected_version': expectedVersion,
       });
     } on PostgrestException catch (error) {
-      throw _error(error, 'The review could not be deleted.');
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'The review could not be deleted.',
+      );
     }
   }
 
@@ -140,26 +177,12 @@ class SupabaseReviewRepository implements ReviewRepository {
         version: (row['version'] as num).toInt(),
       );
     } on PostgrestException catch (error) {
-      throw _error(
+      throw SupabaseErrorMapper.parseError(
         error,
         error.code == '23505'
             ? 'You already have an active report for this review.'
             : 'The report could not be submitted.',
       );
     }
-  }
-
-  AppException _error(PostgrestException error, String message) {
-    return AppException(
-      code: switch (error.code) {
-        '23505' => AppErrorCode.conflict,
-        '40001' => AppErrorCode.conflict,
-        '42501' => AppErrorCode.forbidden,
-        _ => AppErrorCode.unexpected,
-      },
-      userMessage: message,
-      technicalMessage: error.message,
-      cause: error,
-    );
   }
 }

@@ -19,6 +19,7 @@ class DemoSpotRepository implements SpotRepository {
   final List<SpotModel> _spots;
   final Set<String> _rightsConfirmedRevisions = {};
   final Map<String, String> _currentRevisionIds = {};
+  final Set<String> _upvotedSpotIds = {};
 
   @override
   Future<List<SpotModel>> fetchPublicSpots({
@@ -377,6 +378,48 @@ class DemoSpotRepository implements SpotRepository {
         _spots[index].revisionId ?? _spots[index].id;
   }
 
+  @override
+  Future<SpotUpvoteResult> toggleUpvote(String spotId) async {
+    _requireActiveAccount();
+    final index = _spots.indexWhere(
+      (spot) => spot.id == spotId && spot.status == 'approved',
+    );
+    if (index < 0) {
+      throw const AppException(
+        code: AppErrorCode.notFound,
+        userMessage: 'The published spot is no longer available.',
+      );
+    }
+    final upvoted = _upvotedSpotIds.add(spotId);
+    if (!upvoted) _upvotedSpotIds.remove(spotId);
+    final spot = _spots[index];
+    _spots[index] = SpotModel(
+      id: spot.id,
+      name: spot.name,
+      category: spot.category,
+      description: spot.description,
+      state: spot.state,
+      city: spot.city,
+      address: spot.address,
+      priceRange: spot.priceRange,
+      bestTime: spot.bestTime,
+      thingsToDo: spot.thingsToDo,
+      imageUrl: spot.imageUrl,
+      imagePath: spot.imagePath,
+      rating: spot.rating,
+      reviewCount: spot.reviewCount,
+      submittedBy: spot.submittedBy,
+      status: spot.status,
+      latitude: spot.latitude,
+      longitude: spot.longitude,
+      revisionId: spot.revisionId,
+      moderationVersion: spot.moderationVersion,
+      upvoteCount: (spot.upvoteCount + (upvoted ? 1 : -1)).clamp(0, 1 << 30),
+      isUpvotedByCurrentUser: upvoted,
+    );
+    return SpotUpvoteResult(upvoted: upvoted, count: _spots[index].upvoteCount);
+  }
+
   void _requireActiveAccount() {
     final account = _authRepository.currentAccountForDemo;
     if (account == null || account.accessStatus != AccountAccessStatus.active) {
@@ -417,6 +460,8 @@ class DemoSpotRepository implements SpotRepository {
       hasApprovedRevision: spot.hasApprovedRevision,
       latitude: spot.latitude,
       longitude: spot.longitude,
+      upvoteCount: spot.upvoteCount,
+      isUpvotedByCurrentUser: spot.isUpvotedByCurrentUser,
     );
   }
 }

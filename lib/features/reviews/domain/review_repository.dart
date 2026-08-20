@@ -12,6 +12,21 @@ class ModerationCaseReceipt {
   final int version;
 }
 
+class ReviewReactionResult {
+  const ReviewReactionResult({
+    required this.likesCount,
+    required this.dislikesCount,
+    required this.userVote,
+  });
+  final int likesCount;
+  final int dislikesCount;
+  final int? userVote;
+}
+
+abstract interface class ReviewReactionRepository {
+  Future<ReviewReactionResult> setReaction(String reviewId, int? vote);
+}
+
 abstract interface class ReviewRepository {
   Future<List<ReviewModel>> fetchReviews({
     String? spotId,

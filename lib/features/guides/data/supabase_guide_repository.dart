@@ -28,8 +28,9 @@ class SupabaseGuideRepository implements GuideRepository {
       final rows = await _client
           .from('guide_revisions')
           .select('*, guides!inner(id, version)')
-          .eq('status', 'draft')
-          .order('updated_at', ascending: false);
+          .inFilter('status', ['draft', 'submitted', 'under_review']).order(
+              'updated_at',
+              ascending: false);
       return rows.map((row) {
         final guide = Map<String, dynamic>.from(row['guides'] as Map);
         return _map(
@@ -39,11 +40,55 @@ class SupabaseGuideRepository implements GuideRepository {
             'revision_id': row['id'],
             'version': guide['version'],
           },
-          status: 'draft',
+          status: row['status'] as String,
         );
       }).toList();
     } on PostgrestException catch (error) {
       throw _error(error, 'Guide drafts could not be loaded.');
+    }
+  }
+
+  @override
+  Future<List<GuideModel>> fetchMySubmissions() async {
+    try {
+      final rows = await _client.rpc('list_my_guide_submissions');
+      return (rows as List<dynamic>)
+          .map((row) => _map(Map<String, dynamic>.from(row as Map),
+              status: row['status'] as String))
+          .toList();
+    } on PostgrestException catch (error) {
+      throw _error(error, 'Your guide submissions could not be loaded.');
+    }
+  }
+
+  @override
+  Future<GuideModel> submitGuide(GuideDraftInput input) async {
+    try {
+      final response = await _client.rpc('submit_guide', params: {
+        'p_title': input.title,
+        'p_location_name': input.locationName,
+        'p_state': input.state,
+        'p_route_overview': input.routeOverview,
+        'p_stops': input.stops,
+        'p_walking_sequence': input.walkingSequence,
+        'p_estimated_duration': input.estimatedDuration,
+      });
+      final result = Map<String, dynamic>.from(response as Map);
+      return GuideModel(
+        id: result['guide_id'] as String,
+        revisionId: result['revision_id'] as String,
+        version: (result['version'] as num).toInt(),
+        title: input.title,
+        locationName: input.locationName,
+        state: input.state,
+        routeOverview: input.routeOverview,
+        stops: input.stops,
+        walkingSequence: input.walkingSequence,
+        estimatedDuration: input.estimatedDuration,
+        status: 'submitted',
+      );
+    } on PostgrestException catch (error) {
+      throw _error(error, 'The guide could not be submitted.');
     }
   }
 
@@ -109,6 +154,24 @@ class SupabaseGuideRepository implements GuideRepository {
     }
   }
 
+  @override
+  Future<void> moderateSubmission(
+    GuideModel guide,
+    String decision,
+    String reason,
+  ) async {
+    try {
+      await _client.rpc('admin_moderate_guide_revision', params: {
+        'p_revision_id': guide.revisionId,
+        'p_decision': decision,
+        'p_reason': reason,
+        'p_expected_version': guide.version,
+      });
+    } on PostgrestException catch (error) {
+      throw _error(error, 'The guide decision could not be saved.');
+    }
+  }
+
   GuideModel _map(Map<String, dynamic> row, {required String status}) {
     return GuideModel(
       id: row['id'] as String,
@@ -124,10 +187,19 @@ class SupabaseGuideRepository implements GuideRepository {
       walkingSequence: List<String>.from(row['walking_sequence'] as List),
       estimatedDuration: row['estimated_duration'] as String,
       status: status,
+      decisionReason: row['decision_reason'] as String?,
     );
   }
 
   AppException _error(PostgrestException error, String fallback) {
+    if (error.message == 'UGC_RULES_ACCEPTANCE_REQUIRED') {
+      return AppException(
+        code: AppErrorCode.forbidden,
+        userMessage: 'UGC_RULES_ACCEPTANCE_REQUIRED',
+        technicalMessage: error.message,
+        cause: error,
+      );
+    }
     return AppException(
       code: error.code == '40001'
           ? AppErrorCode.conflict

@@ -60,6 +60,12 @@ class SpotDraftResult {
   final String? imagePath;
 }
 
+class SpotUpvoteResult {
+  const SpotUpvoteResult({required this.upvoted, required this.count});
+  final bool upvoted;
+  final int count;
+}
+
 abstract interface class SpotRepository {
   Future<List<SpotModel>> fetchPublicSpots({
     String? query,
@@ -106,4 +112,6 @@ abstract interface class SpotRepository {
     required String reason,
     required int expectedVersion,
   });
+
+  Future<SpotUpvoteResult> toggleUpvote(String spotId);
 }
