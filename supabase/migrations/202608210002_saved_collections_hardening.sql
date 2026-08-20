@@ -259,9 +259,127 @@ begin
 end;
 $$;
 
--- 6. Permissions & Grants
+-- 6. RPC: set_place_collections (Hardened with cardinality check for empty arrays)
+create or replace function public.set_place_collections(
+  p_target_type text,
+  p_target_id uuid,
+  p_collection_ids uuid[]
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public, private
+as $$
+declare
+  actor uuid := auth.uid();
+  place_id uuid;
+  cid uuid;
+  valid_collection_count integer := 0;
+  total_memberships integer := 0;
+begin
+  if not private.can_use_protected_features() then
+    raise exception using errcode = '42501', message = 'Account cannot manage saved collections';
+  end if;
+
+  if p_target_type = 'spot' then
+    if not exists (select 1 from public.published_spots where id = p_target_id) then
+      raise exception using errcode = 'P0002', message = 'Spot is unavailable';
+    end if;
+  elsif p_target_type = 'restaurant' then
+    if not exists (select 1 from public.published_restaurants where id = p_target_id) then
+      raise exception using errcode = 'P0002', message = 'Restaurant is unavailable';
+    end if;
+  else
+    raise exception using errcode = '22023', message = 'Unsupported saved-place target';
+  end if;
+
+  -- Verify all requested collection_ids belong to the current user
+  if p_collection_ids is not null and coalesce(cardinality(p_collection_ids), 0) > 0 then
+    select count(*) into valid_collection_count
+    from public.saved_collections
+    where user_id = actor and id = any(p_collection_ids);
+
+    if valid_collection_count <> cardinality(p_collection_ids) then
+      raise exception using errcode = '42501', message = 'One or more invalid or unauthorized collections';
+    end if;
+  end if;
+
+  -- If collection_ids is empty, remove all memberships and the saved_place row
+  if p_collection_ids is null or coalesce(cardinality(p_collection_ids), 0) = 0 then
+    -- Find existing saved_place
+    select id into place_id
+    from public.saved_places
+    where user_id = actor
+      and (
+        (p_target_type = 'spot' and spot_id = p_target_id)
+        or (p_target_type = 'restaurant' and restaurant_id = p_target_id)
+      );
+
+    if place_id is not null then
+      delete from public.saved_collection_items where saved_place_id = place_id;
+      delete from public.saved_places where id = place_id;
+    end if;
+
+    return jsonb_build_object(
+      'target_type', p_target_type,
+      'target_id', p_target_id,
+      'saved', false,
+      'collection_ids', '[]'::jsonb
+    );
+  end if;
+
+  -- Otherwise, ensure saved_places row exists
+  insert into public.saved_places (user_id, spot_id, restaurant_id)
+  values (
+    actor,
+    case when p_target_type = 'spot' then p_target_id else null end,
+    case when p_target_type = 'restaurant' then p_target_id else null end
+  )
+  on conflict do nothing;
+
+  select id into place_id
+  from public.saved_places
+  where user_id = actor
+    and (
+      (p_target_type = 'spot' and spot_id = p_target_id)
+      or (p_target_type = 'restaurant' and restaurant_id = p_target_id)
+    );
+
+  -- Remove memberships from user collections NOT in p_collection_ids
+  delete from public.saved_collection_items sci
+  where sci.saved_place_id = place_id
+    and exists (
+      select 1 from public.saved_collections c
+      where c.id = sci.collection_id and c.user_id = actor
+    )
+    and sci.collection_id <> all(p_collection_ids);
+
+  -- Insert memberships for collections in p_collection_ids
+  foreach cid in array p_collection_ids loop
+    insert into public.saved_collection_items (collection_id, saved_place_id)
+    values (cid, place_id)
+    on conflict do nothing;
+  end loop;
+
+  select count(*) into total_memberships
+  from public.saved_collection_items sci
+  where sci.saved_place_id = place_id;
+
+  return jsonb_build_object(
+    'target_type', p_target_type,
+    'target_id', p_target_id,
+    'saved', total_memberships > 0,
+    'collection_ids', to_jsonb(p_collection_ids)
+  );
+end;
+$$;
+
+-- 7. Permissions & Grants
 revoke all on function public.fetch_collection_places(uuid) from public;
 grant execute on function public.fetch_collection_places(uuid) to authenticated;
+
+revoke all on function public.set_place_collections(text, uuid, uuid[]) from public;
+grant execute on function public.set_place_collections(text, uuid, uuid[]) to authenticated;
 
 revoke all on table public.saved_collections from anon, authenticated;
 revoke all on table public.saved_collection_items from anon, authenticated;
