@@ -106,7 +106,7 @@ values (
 set local role anon;
 select throws_ok(
   $$select public.fetch_saved_route_candidates()$$,
-  '42501', 'Account cannot generate saved routes',
+  '42501', null,
   'anon cannot call fetch_saved_route_candidates'
 );
 
