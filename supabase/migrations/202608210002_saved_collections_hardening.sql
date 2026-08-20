@@ -241,9 +241,9 @@ begin
       'state', coalesce(ps.state, pr.state, ''),
       'city', coalesce(ps.city, pr.city, ''),
       'category_or_cuisine', coalesce(ps.category, pr.cuisine_type, ''),
-      'price_range', pr.price_range,
+      'price_range', coalesce(ps.price_range, pr.price_range, ''),
       'image_url', coalesce(ps.image_path, pr.cover_image_path),
-      'rating', coalesce(ps.rating, pr.rating, 0.0),
+      'rating', coalesce(ps.rating_average, pr.rating_average, 0.0),
       'review_count', coalesce(ps.review_count, pr.review_count, 0),
       'added_at', sci.added_at
     ) order by sci.added_at desc
