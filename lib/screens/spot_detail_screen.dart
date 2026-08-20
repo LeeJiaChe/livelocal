@@ -151,7 +151,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     final spotReviews = reviewCtrl.getReviewsForSpot(widget.spot.id);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       floatingActionButton: _showScrollToTop
           ? FloatingActionButton.small(
               tooltip: 'Back to top',

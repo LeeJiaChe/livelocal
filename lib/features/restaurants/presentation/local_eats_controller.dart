@@ -69,8 +69,17 @@ class LocalEatsController with ChangeNotifier {
     return ['All', ...sorted];
   }
 
-  List<String> get availablePriceRanges =>
-      const ['All', r'$', r'$$', r'$$$', r'$$$$'];
+  List<String> get availablePriceRanges {
+    final present = <String>{};
+    for (final r in _restaurants) {
+      if (r.priceRange.trim().isNotEmpty) {
+        present.add(r.priceRange.trim());
+      }
+    }
+    const order = [r'$', r'$$', r'$$$', r'$$$$'];
+    final sorted = order.where((p) => present.contains(p)).toList();
+    return ['All', ...sorted];
+  }
 
   String get selectedStateDisplayName {
     if (_selectedState == 'All') return 'All Malaysia';
@@ -135,6 +144,18 @@ class LocalEatsController with ChangeNotifier {
       ]);
       _restaurants = values[0] as List<RestaurantModel>;
       _discountCodes = values[1] as List<DiscountCodeModel>;
+      if (_selectedBudget != 'All' &&
+          !availablePriceRanges.contains(_selectedBudget)) {
+        _selectedBudget = 'All';
+      }
+      if (_selectedCuisine != 'All' &&
+          !availableCuisines.contains(_selectedCuisine)) {
+        _selectedCuisine = 'All';
+      }
+      if (_selectedState != 'All' &&
+          !availableStates.contains(_selectedState)) {
+        _selectedState = 'All';
+      }
     } catch (error) {
       _errorMessage = _message(error, 'LocalEats could not be loaded.');
     } finally {

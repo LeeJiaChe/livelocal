@@ -60,18 +60,7 @@ class SpotController with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      final results = await Future.wait([
-        _repository.fetchPublicSpots(
-          query: _searchQuery,
-          state: _selectedState,
-          category: _selectedCategory,
-          offset: 0,
-          limit: _pageSize,
-        ),
-        _repository.fetchFilterOptions(),
-      ]);
-      final loaded = results[0] as List<SpotModel>;
-      _filterOptions = results[1] as SpotFilterOptions;
+      _filterOptions = await _repository.fetchFilterOptions();
 
       // Validate selectedState and selectedCategory still exist in options
       if (_selectedState != 'All' &&
@@ -82,6 +71,14 @@ class SpotController with ChangeNotifier {
           !_filterOptions.categories.contains(_selectedCategory)) {
         _selectedCategory = 'All';
       }
+
+      final loaded = await _repository.fetchPublicSpots(
+        query: _searchQuery,
+        state: _selectedState,
+        category: _selectedCategory,
+        offset: 0,
+        limit: _pageSize,
+      );
 
       _spots
         ..clear()

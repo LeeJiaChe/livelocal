@@ -18,21 +18,6 @@ class NeighbourhoodExplorerScreen extends StatefulWidget {
 
 class _NeighbourhoodExplorerScreenState
     extends State<NeighbourhoodExplorerScreen> {
-  static const _states = [
-    'All',
-    'Johor',
-    'Kedah',
-    'Kuala Lumpur',
-    'Melaka',
-    'Pahang',
-    'Penang',
-    'Perak',
-    'Sabah',
-    'Sarawak',
-    'Selangor',
-    'Terengganu',
-  ];
-
   late final TextEditingController _searchCtrl;
 
   @override
@@ -58,6 +43,7 @@ class _NeighbourhoodExplorerScreenState
   Widget build(BuildContext context) {
     final controller = context.watch<GuideController>();
     final guides = controller.approvedGuides;
+    final availableStates = controller.availableStates;
     final neighbourhoods = controller.availableNeighbourhoods;
     final hasActiveFilters = controller.hasActiveFilters;
 
@@ -114,17 +100,19 @@ class _NeighbourhoodExplorerScreenState
                     const SizedBox(height: AppSpacing.x2),
                     DropdownButtonFormField<String>(
                       key: ValueKey('state_${controller.selectedState}'),
-                      initialValue: controller.selectedState,
+                      initialValue: availableStates.any(
+                              (s) => s.rawValue == controller.selectedState)
+                          ? controller.selectedState
+                          : 'All',
                       decoration: const InputDecoration(
                         labelText: 'State or territory',
                         prefixIcon: Icon(Icons.location_on_outlined),
                       ),
-                      items: _states
+                      items: availableStates
                           .map(
-                            (state) => DropdownMenuItem(
-                              value: state,
-                              child:
-                                  Text(state == 'All' ? 'All Malaysia' : state),
+                            (stateOption) => DropdownMenuItem(
+                              value: stateOption.rawValue,
+                              child: Text(stateOption.displayName),
                             ),
                           )
                           .toList(),
@@ -137,7 +125,10 @@ class _NeighbourhoodExplorerScreenState
                       key: ValueKey(
                         'nh_${controller.selectedState}_${controller.selectedNeighbourhood}',
                       ),
-                      initialValue: controller.selectedNeighbourhood,
+                      initialValue: neighbourhoods
+                              .contains(controller.selectedNeighbourhood)
+                          ? controller.selectedNeighbourhood
+                          : 'All',
                       decoration: const InputDecoration(
                         labelText: 'Neighbourhood / area',
                         prefixIcon: Icon(Icons.holiday_village_outlined),
@@ -199,18 +190,6 @@ class _NeighbourhoodExplorerScreenState
                   onAction: controller.loadGuides,
                 ),
               )
-            else if (controller.guides.isEmpty)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: SingleChildScrollView(
-                  child: AppStateView(
-                    icon: Icons.explore_off_outlined,
-                    title: 'No guides available',
-                    message:
-                        'Check back soon for curated neighbourhood routes.',
-                  ),
-                ),
-              )
             else if (guides.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -219,8 +198,16 @@ class _NeighbourhoodExplorerScreenState
                     icon: Icons.explore_off_outlined,
                     title: 'No matching guides',
                     message: 'Try another search, state, or neighbourhood.',
-                    actionLabel: 'Clear filters',
-                    onAction: () => _clearFilters(controller),
+                    actionLabel:
+                        hasActiveFilters ? 'Clear filters' : 'Submit guide',
+                    onAction: hasActiveFilters
+                        ? () => _clearFilters(controller)
+                        : () => Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => const SubmitGuideScreen(),
+                              ),
+                            ),
                   ),
                 ),
               )
@@ -236,27 +223,24 @@ class _NeighbourhoodExplorerScreenState
                   itemCount: guides.length,
                   separatorBuilder: (_, __) =>
                       const SizedBox(height: AppSpacing.x2),
-                  itemBuilder: (context, index) => _GuideCard(
-                    guide: guides[index],
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => GuideDetailScreen(guide: guides[index]),
-                      ),
-                    ),
-                  ),
+                  itemBuilder: (context, index) {
+                    final guide = guides[index];
+                    return _GuideCard(guide: guide);
+                  },
                 ),
               ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'neighbourhood_explorer_fab',
+        heroTag: 'submit_guide_fab',
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute<void>(builder: (_) => const SubmitGuideScreen()),
+          MaterialPageRoute<void>(
+            builder: (_) => const SubmitGuideScreen(),
+          ),
         ),
-        icon: const Icon(Icons.add_road_outlined),
+        icon: const Icon(Icons.add_location_alt_outlined),
         label: const Text('Submit guide'),
       ),
     );
@@ -264,85 +248,109 @@ class _NeighbourhoodExplorerScreenState
 }
 
 class _GuideCard extends StatelessWidget {
-  const _GuideCard({required this.guide, required this.onTap});
+  const _GuideCard({required this.guide});
 
   final GuideModel guide;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final stateDisplay = guide.state == 'Pulau Pinang' ? 'Penang' : guide.state;
+
     return Card(
       clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
       child: InkWell(
-        onTap: onTap,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            settings: const RouteSettings(name: '/guide-detail'),
+            builder: (_) => GuideDetailScreen(guide: guide),
+          ),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.x2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(10),
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(
-                      Icons.route_outlined,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.x2),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          guide.title,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${guide.locationName}, ${guide.state}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                        ),
-                      ],
+                    child: Text(
+                      guide.locationName,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  const Icon(Icons.chevron_right),
+                  const SizedBox(width: AppSpacing.x1),
+                  Text(
+                    stateDisplay,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.x2),
+              const SizedBox(height: AppSpacing.x1),
+              Text(
+                guide.title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.x1),
               Text(
                 guide.routeOverview,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: AppSpacing.x2),
-              Wrap(
-                spacing: AppSpacing.x2,
-                runSpacing: AppSpacing.x1,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _Meta(
-                    icon: Icons.schedule_outlined,
-                    text: guide.estimatedDuration,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.pin_drop_outlined,
+                        size: 16,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${guide.stops.length} stops',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                  _Meta(
-                    icon: Icons.pin_drop_outlined,
-                    text: '${guide.stops.length} stops',
+                  Text(
+                    guide.estimatedDuration,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ],
               ),
@@ -354,44 +362,58 @@ class _GuideCard extends StatelessWidget {
   }
 }
 
-class _Meta extends StatelessWidget {
-  const _Meta({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon,
-            size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-      ],
-    );
-  }
-}
-
 class _GuideLoadingSliver extends StatelessWidget {
   const _GuideLoadingSliver();
 
   @override
   Widget build(BuildContext context) {
     return SliverList.separated(
-      itemCount: 3,
+      itemCount: 4,
       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.x2),
-      itemBuilder: (_, __) => Container(
-        height: 140,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      itemBuilder: (context, _) => Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.3),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.x2),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 100,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.x1),
+              Container(
+                width: double.infinity,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.x1),
+              Container(
+                width: 200,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

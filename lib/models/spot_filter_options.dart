@@ -7,6 +7,22 @@ class SpotStateOption {
   final String rawValue;
   final String displayName;
 
+  factory SpotStateOption.fromRaw(String raw) {
+    if (raw == 'All') {
+      return const SpotStateOption(
+        rawValue: 'All',
+        displayName: 'All States',
+      );
+    }
+    if (raw == 'Pulau Pinang') {
+      return const SpotStateOption(
+        rawValue: 'Pulau Pinang',
+        displayName: 'Penang',
+      );
+    }
+    return SpotStateOption(rawValue: raw, displayName: raw);
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
