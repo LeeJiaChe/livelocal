@@ -98,23 +98,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
 
-      final navigator = Navigator.of(context);
-
-      final pending = context.read<ProtectedNavigation>().consumePending();
-
-      navigator.pushNamedAndRemoveUntil(
+      Navigator.of(context).pushNamedAndRemoveUntil(
         '/home',
         (route) => false,
       );
-
-      if (pending != null && authCtrl.canWrite) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          navigator.pushNamed(
-            pending.routeName,
-            arguments: pending.arguments,
-          );
-        });
-      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -128,6 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _goBack() {
+    context.read<ProtectedNavigation>().clearPending();
     if (Navigator.canPop(context)) {
       Navigator.pop(context);
       return;
@@ -135,7 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     Navigator.pushReplacementNamed(
       context,
-      '/welcome',
+      '/home',
     );
   }
 
@@ -386,7 +374,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextButton(
                       onPressed: isSubmitting
                           ? null
-                          : () => Navigator.pushNamed(
+                          : () => Navigator.pushReplacementNamed(
                                 context,
                                 '/login',
                               ),

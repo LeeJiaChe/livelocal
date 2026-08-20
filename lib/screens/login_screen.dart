@@ -90,17 +90,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (success) {
-      final navigator = Navigator.of(context);
-
-      final pending = context.read<ProtectedNavigation>().consumePending();
-
-      navigator.pushNamedAndRemoveUntil('/home', (route) => false);
-
-      if (pending != null && authCtrl.canWrite) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          navigator.pushNamed(pending.routeName, arguments: pending.arguments);
-        });
-      }
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        (route) => false,
+      );
     } else {
       setState(() {
         _showError = true;
@@ -112,12 +105,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _goBack() {
+    context.read<ProtectedNavigation>().clearPending();
     if (Navigator.canPop(context)) {
       Navigator.pop(context);
       return;
     }
 
-    Navigator.pushReplacementNamed(context, '/welcome');
+    Navigator.pushReplacementNamed(context, '/home');
   }
 
   @override
@@ -301,7 +295,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextButton(
                       onPressed: isSubmitting
                           ? null
-                          : () => Navigator.pushNamed(context, '/register'),
+                          : () => Navigator.pushReplacementNamed(
+                                context,
+                                '/register',
+                              ),
                       child: const Text('Sign up'),
                     ),
                   ],

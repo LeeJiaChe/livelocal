@@ -137,6 +137,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
       floatingActionButton: resolved.isEmpty
           ? null
           : FloatingActionButton.extended(
+              heroTag: 'saved_places_fab',
               onPressed: () {
                 context
                     .read<ItineraryController>()

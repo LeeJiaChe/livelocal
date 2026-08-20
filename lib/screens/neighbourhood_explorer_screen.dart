@@ -238,6 +238,7 @@ class _NeighbourhoodExplorerScreenState
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'neighbourhood_explorer_fab',
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute<void>(builder: (_) => const SubmitGuideScreen()),
