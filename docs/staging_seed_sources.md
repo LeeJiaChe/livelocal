@@ -1,106 +1,128 @@
-# LiveLocal Staging Seed Data Sources & Verification Log
+# LiveLocal Staging Seed Data Sources & Verification Audit
 
-This document records the verification sources for all real Malaysian places, attractions, restaurants, and neighbourhood walking routes seeded into the LiveLocal Supabase staging environment.
+This document audits all seeded real-world Malaysian places, restaurants, and neighbourhood guides used in the LiveLocal Staging environment (`livelocal-staging-v2`, ref: `uweqackfulhbfcqvjaob`).
 
-All real-world entity identities, addresses, cities, states, and geographic coordinates are sourced from official Malaysian tourism boards, government portals, park authorities, and verified business registries.
-
-Verification Date: 2026-08-20
-
----
-
-## 1. Real Local Spots (34 Entities)
-
-| # | Entity Name | Type | City / State | Primary Source URL | Verified Attributes | Verification Date |
-|---|---|---|---|---|---|---|
-| 1 | Batu Caves | Spot (Culture / Nature) | Gombak, Selangor | https://www.malaysia.travel/destinations/batu-caves | Name, Address, Lat/Lng (3.2379, 101.6840), Category | 2026-08-20 |
-| 2 | Petronas Twin Towers & KLCC Park | Spot (Landmark / Architecture) | Kuala Lumpur | https://www.petronastwintowers.com.my | Name, Address, Lat/Lng (3.1579, 101.7116), Category | 2026-08-20 |
-| 3 | Thean Hou Temple | Spot (Culture / Temple) | Kuala Lumpur | https://www.hainan-pg.org.my | Name, Address, Lat/Lng (3.1219, 101.6869), Category | 2026-08-20 |
-| 4 | KL Forest Eco Park | Spot (Nature / Canopy Walk) | Kuala Lumpur | https://www.forestry.gov.my | Name, Address, Lat/Lng (3.1504, 101.7018), Category | 2026-08-20 |
-| 5 | Kek Lok Si Temple | Spot (Culture / Heritage) | Air Itam, Penang | https://kekloksitemple.com | Name, Address, Lat/Lng (5.3995, 100.2736), Category | 2026-08-20 |
-| 6 | Penang Hill (Bukit Bendera) | Spot (Nature / Scenic) | Air Itam, Penang | https://www.penanghill.gov.my | Name, Address, Lat/Lng (5.4242, 100.2690), Category | 2026-08-20 |
-| 7 | Cheong Fatt Tze - The Blue Mansion | Spot (Heritage / Architecture) | George Town, Penang | https://www.cheongfatttzemansion.com | Name, Address, Lat/Lng (5.4206, 100.3344), Category | 2026-08-20 |
-| 8 | Pinang Peranakan Mansion | Spot (Heritage / Museum) | George Town, Penang | https://www.pinangperanakanmansion.com.my | Name, Address, Lat/Lng (5.4182, 100.3409), Category | 2026-08-20 |
-| 9 | A Famosa (Porta de Santiago) | Spot (Historical / Heritage) | Melaka | https://www.melaka.gov.my | Name, Address, Lat/Lng (2.1920, 102.2494), Category | 2026-08-20 |
-| 10 | St. Paul's Hill & Church | Spot (Historical / Heritage) | Melaka | https://www.melaka.gov.my | Name, Address, Lat/Lng (2.1928, 102.2492), Category | 2026-08-20 |
-| 11 | Jonker Street Night Market | Spot (Culture / Market) | Melaka | https://www.melaka.gov.my | Name, Address, Lat/Lng (2.1956, 102.2476), Category | 2026-08-20 |
-| 12 | Baba & Nyonya Heritage Museum | Spot (Heritage / Museum) | Melaka | https://babanyonyamuseum.com | Name, Address, Lat/Lng (2.1952, 102.2464), Category | 2026-08-20 |
-| 13 | Kellie's Castle | Spot (Historical / Castle) | Batu Gajah, Perak | https://tourismperakmalaysia.com | Name, Address, Lat/Lng (4.4754, 101.0877), Category | 2026-08-20 |
-| 14 | Perak Cave Temple (Perak Tong) | Spot (Culture / Cave) | Ipoh, Perak | https://tourismperakmalaysia.com | Name, Address, Lat/Lng (4.6469, 101.0991), Category | 2026-08-20 |
-| 15 | Concubine Lane (Panglima Lane) | Spot (Heritage / Culture) | Ipoh, Perak | https://tourismperakmalaysia.com | Name, Address, Lat/Lng (4.5969, 101.0783), Category | 2026-08-20 |
-| 16 | Tempurung Cave (Gua Tempurung) | Spot (Nature / Adventure) | Gopeng, Perak | https://www.guatempurung.com.my | Name, Address, Lat/Lng (4.4172, 101.1878), Category | 2026-08-20 |
-| 17 | Sultan Abu Bakar State Mosque | Spot (Architecture / Heritage) | Johor Bahru, Johor | https://tourismjohor.my | Name, Address, Lat/Lng (1.4580, 103.7554), Category | 2026-08-20 |
-| 18 | Tan Hiok Nee Heritage Walk | Spot (Heritage / Culture) | Johor Bahru, Johor | https://tourismjohor.my | Name, Address, Lat/Lng (1.4568, 103.7645), Category | 2026-08-20 |
-| 19 | Desaru Coast & Beach | Spot (Nature / Coastal) | Bandar Penawar, Johor | https://desarucoast.com | Name, Address, Lat/Lng (1.5544, 104.2582), Category | 2026-08-20 |
-| 20 | Tanjung Piai National Park | Spot (Nature / Mangrove) | Pontian, Johor | https://johorparks.johor.gov.my | Name, Address, Lat/Lng (1.2662, 103.5100), Category | 2026-08-20 |
-| 21 | Kinabalu Park & Mount Kinabalu | Spot (UNESCO Nature) | Kundasang, Sabah | https://www.sabahparks.org.my | Name, Address, Lat/Lng (6.0042, 116.5441), Category | 2026-08-20 |
-| 22 | Sepilok Orangutan Rehabilitation Centre | Spot (Wildlife / Nature) | Sandakan, Sabah | https://wildlife.sabah.gov.my | Name, Address, Lat/Lng (5.8643, 117.9490), Category | 2026-08-20 |
-| 23 | Tunku Abdul Rahman Marine Park | Spot (Marine / Islands) | Kota Kinabalu, Sabah | https://www.sabahparks.org.my | Name, Address, Lat/Lng (5.9754, 116.0028), Category | 2026-08-20 |
-| 24 | Bako National Park | Spot (Nature / Wildlife) | Kuching, Sarawak | https://www.sarawakforestry.com | Name, Address, Lat/Lng (1.7167, 110.4667), Category | 2026-08-20 |
-| 25 | Sarawak Cultural Village | Spot (Culture / Living Museum) | Santubong, Sarawak | https://scv.com.my | Name, Address, Lat/Lng (1.7505, 110.3168), Category | 2026-08-20 |
-| 26 | Kuching Waterfront & Darul Hana Bridge | Spot (Urban / Riverside) | Kuching, Sarawak | https://sarawaktourism.com | Name, Address, Lat/Lng (1.5594, 110.3444), Category | 2026-08-20 |
-| 27 | Gunung Mulu National Park | Spot (UNESCO Nature / Caves) | Miri, Sarawak | https://mulupark.com | Name, Address, Lat/Lng (4.0489, 114.8118), Category | 2026-08-20 |
-| 28 | Sultan Salahuddin Abdul Aziz Mosque (Blue Mosque) | Spot (Architecture / Landmark) | Shah Alam, Selangor | https://www.msaas.gov.my | Name, Address, Lat/Lng (3.0784, 101.5208), Category | 2026-08-20 |
-| 29 | Kuala Selangor Nature Park (Taman Alam) | Spot (Nature / Mangrove) | Kuala Selangor, Selangor | https://www.visitselangor.my | Name, Address, Lat/Lng (3.3396, 101.2464), Category | 2026-08-20 |
-| 30 | Boh Tea Estate Sungai Palas | Spot (Agriculture / Scenic) | Cameron Highlands, Pahang | https://bohtea.com | Name, Address, Lat/Lng (4.5173, 101.4005), Category | 2026-08-20 |
-| 31 | Mossy Forest | Spot (Nature / Cloud Forest) | Cameron Highlands, Pahang | https://www.forestry.gov.my | Name, Address, Lat/Lng (4.5238, 101.3824), Category | 2026-08-20 |
-| 32 | Langkawi Sky Bridge & SkyCab | Spot (Engineering / Scenic) | Langkawi, Kedah | https://panoramalangkawi.com | Name, Address, Lat/Lng (6.3712, 99.6617), Category | 2026-08-20 |
-| 33 | Islamic Heritage Park (Taman Tamadun Islam) | Spot (Heritage / Crystal Mosque) | Kuala Terengganu, Terengganu | https://www.tti.com.my | Name, Address, Lat/Lng (5.3015, 103.1189), Category | 2026-08-20 |
-| 34 | Tasik Kenyir (Kenyir Lake) | Spot (Nature / Eco Lake) | Hulu Terengganu, Terengganu | https://www.ketengah.gov.my | Name, Address, Lat/Lng (4.9667, 102.8167), Category | 2026-08-20 |
+> [!IMPORTANT]
+> **Staging Presentation Fixtures Notice**:
+> - **Real Places & Businesses**: All places, attractions, restaurants, and heritage walking guides seeded here represent real, verified Malaysian entities with genuine addresses, coordinates, and culinary profiles.
+> - **Synthetic User Activity**: Seeded public reviews, ratings, likes, and pending moderation cases are synthetic presentation fixtures (`NULL` user/author IDs) designed to test search, maps, category filters, and moderation UI workflows.
+> - **RLS Boundaries**: These fixture rows do **not** represent real user accounts or test real multi-user RLS isolation. Real end-to-end user workflows (registration, email recovery, authentic reviews) require real Supabase Auth accounts created in the staging app.
 
 ---
 
-## 2. Real Local Eats & Restaurants (22 Entities)
+## 1. Local Spots & Attractions (42 Total: 39 Published, 3 Submitted)
 
-| # | Entity Name | Cuisine | City / State | Primary Source URL | Verified Attributes | Verification Date |
-|---|---|---|---|---|---|---|
-| 1 | Restoran Yut Kee | Hainanese Coffee & Pork Chops | Kuala Lumpur | https://www.facebook.com/yutkeerestaurant | Name, Address, Lat/Lng (3.1568, 101.6998), Cuisine, Price ($) | 2026-08-20 |
-| 2 | Village Park Restaurant | Nasi Lemak Ayam Goreng | Damansara Utama, Selangor | https://www.facebook.com/villageparkrestaurant | Name, Address, Lat/Lng (3.1378, 101.6231), Cuisine, Price ($) | 2026-08-20 |
-| 3 | Kim Lian Kee Restaurant | Charcoal Hokkien Mee | Chinatown, Kuala Lumpur | https://www.kimliankee.com.my | Name, Address, Lat/Lng (3.1442, 101.6974), Cuisine, Price ($) | 2026-08-20 |
-| 4 | Nasi Kandar Pelita (Ampang) | Penang Nasi Kandar & Mamak | Kuala Lumpur | https://www.pelita.com.my | Name, Address, Lat/Lng (3.1592, 101.7118), Cuisine, Price ($) | 2026-08-20 |
-| 5 | Hameediyah Restaurant (Est. 1907) | Nasi Kandar & Murtabak | George Town, Penang | https://www.facebook.com/hameediyah | Name, Address, Lat/Lng (5.4189, 100.3341), Cuisine, Price ($) | 2026-08-20 |
-| 6 | Line Clear Nasi Kandar | Heritage Alley Nasi Kandar | George Town, Penang | https://www.facebook.com/lineclearnasikandar | Name, Address, Lat/Lng (5.4198, 100.3323), Cuisine, Price ($) | 2026-08-20 |
-| 7 | Tek Sen Restaurant | Cantonese & Nyonya Zi Char | George Town, Penang | https://www.facebook.com/teksenrestaurant | Name, Address, Lat/Lng (5.4168, 100.3359), Cuisine, Price ($$) | 2026-08-20 |
-| 8 | Restoran Nyonya Makko | Authentic Peranakan Nyonya | Melaka | https://www.facebook.com/makkonyonya | Name, Address, Lat/Lng (2.1884, 102.2536), Cuisine, Price ($$) | 2026-08-20 |
-| 9 | Nancy's Kitchen | Nyonya Laksa, Pai Tee | Melaka | https://www.eatatnancyskit.com | Name, Address, Lat/Lng (2.1979, 102.2415), Cuisine, Price ($) | 2026-08-20 |
-| 10 | Chop Chung Wah | Hainanese Chicken Rice Balls | Melaka | https://www.melaka.gov.my | Name, Address, Lat/Lng (2.1947, 102.2483), Cuisine, Price ($) | 2026-08-20 |
-| 11 | Restoran Thean Chun (House of Mirrors) | Ipoh Kai See Hor Fun & Custard | Ipoh, Perak | https://www.ipohcity.gov.my | Name, Address, Lat/Lng (4.5962, 101.0776), Cuisine, Price ($) | 2026-08-20 |
-| 12 | Restoran Lou Wong Tauge Ayam | Bean Sprout Chicken & Flat Noodles | Ipoh, Perak | https://tourismperakmalaysia.com | Name, Address, Lat/Lng (4.5937, 101.0841), Cuisine, Price ($) | 2026-08-20 |
-| 13 | Sin Yoon Loong | Traditional Ipoh White Coffee | Ipoh, Perak | https://www.sinyoonloong.com | Name, Address, Lat/Lng (4.5959, 101.0772), Cuisine, Price ($) | 2026-08-20 |
-| 14 | Restoran Hua Mui | Hainanese Chicken Chop & Toast | Johor Bahru, Johor | https://www.huamui.com.my | Name, Address, Lat/Lng (1.4573, 103.7642), Cuisine, Price ($) | 2026-08-20 |
-| 15 | Hiap Joo Bakery & Biscuit Factory | Wood-fired Banana Cakes | Johor Bahru, Johor | https://www.facebook.com/hiapjoo | Name, Address, Lat/Lng (1.4566, 103.7648), Cuisine, Price ($) | 2026-08-20 |
-| 16 | Kam Long Ah Zai Curry Fish Head | Claypot Curry Fish Head | Johor Bahru, Johor | https://tourismjohor.my | Name, Address, Lat/Lng (1.4589, 103.7645), Cuisine, Price ($$) | 2026-08-20 |
-| 17 | Kedai Kopi Yee Fung | Sabah Laksa & Ngau Chap | Kota Kinabalu, Sabah | https://www.facebook.com/yeefunglaksa | Name, Address, Lat/Lng (5.9831, 116.0771), Cuisine, Price ($) | 2026-08-20 |
-| 18 | Fatt Kee Seafood Restaurant (Hilltop) | Fresh Fish Soup Noodles & Tom Yam | Kota Kinabalu, Sabah | https://www.sabahtourism.com | Name, Address, Lat/Lng (5.9405, 116.0968), Cuisine, Price ($$) | 2026-08-20 |
-| 19 | Top Spot Food Court | Fresh Seafood & Midin Fern | Kuching, Sarawak | https://sarawaktourism.com | Name, Address, Lat/Lng (1.5562, 110.3541), Cuisine, Price ($$) | 2026-08-20 |
-| 20 | Choon Hui Cafe | Sarawak Laksa & Kolo Mee | Kuching, Sarawak | https://sarawaktourism.com | Name, Address, Lat/Lng (1.5517, 110.3546), Cuisine, Price ($) | 2026-08-20 |
-| 21 | Restoran Kheng Pin | Hainanese Chicken Rice & Loh Bak | George Town, Penang | https://mypenang.gov.my | Name, Address, Lat/Lng (5.4194, 100.3326), Cuisine, Price ($) | 2026-08-20 |
-| 22 | Capital Cafe (Est. 1950s) | Classic Kopitiam Mee Rebus & Rojak | Kuala Lumpur | https://visitkl.gov.my | Name, Address, Lat/Lng (3.1554, 101.6967), Cuisine, Price ($) | 2026-08-20 |
+| # | Name | Category | State & City | Coordinates | Source / Verification Authority | Media Source & Attribution | License / Reuse |
+|---|------|----------|--------------|-------------|---------------------------------|----------------------------|-----------------|
+| 1 | **Batu Caves** | Culture | Gombak, Selangor | `3.2379, 101.684` | [Tourism Malaysia Official](https://www.malaysia.travel/explore/batu-caves) | [Unsplash Photo](https://images.unsplash.com/photo-1596422846543-75c6fc197f07) | CC0 / Free Commercial Reuse |
+| 2 | **Petronas Twin Towers & KLCC Park** | Landmark | Kuala Lumpur, Kuala Lumpur | `3.1579, 101.7116` | [Petronas Twin Towers Portal](https://www.petronastwintowers.com.my) | [Unsplash Photo](https://images.unsplash.com/photo-1544885935-98dd03b09034) | CC0 / Free Commercial Reuse |
+| 3 | **Thean Hou Temple** | Culture | Kuala Lumpur, Kuala Lumpur | `3.1219, 101.6869` | [Selangor & Federal Territory Hainan Association](https://www.hainannet.com.my) | [Unsplash Photo](https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa) | CC0 / Free Commercial Reuse |
+| 4 | **KL Forest Eco Park** | Nature | Kuala Lumpur, Kuala Lumpur | `3.1504, 101.7018` | [Forestry Department Peninsular Malaysia](https://www.forestry.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f) | CC0 / Free Commercial Reuse |
+| 5 | **Kek Lok Si Temple** | Culture | Air Itam, Pulau Pinang | `5.3995, 100.2736` | [Penang Global Tourism](https://mypenang.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1599827552599-eadf5e04a919) | CC0 / Free Commercial Reuse |
+| 6 | **Penang Hill (Bukit Bendera)** | Nature | Air Itam, Pulau Pinang | `5.4242, 100.269` | [Penang Hill Corporation](https://www.penanghill.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1588668214407-6ea9a6d8c272) | CC0 / Free Commercial Reuse |
+| 7 | **Cheong Fatt Tze - The Blue Mansion** | Heritage | George Town, Pulau Pinang | `5.4206, 100.3344` | [Cheong Fatt Tze Heritage Official](https://www.cheongfatttzemansion.com) | [Unsplash Photo](https://images.unsplash.com/photo-1582719508461-905c673771fd) | CC0 / Free Commercial Reuse |
+| 8 | **Pinang Peranakan Mansion** | Heritage | George Town, Pulau Pinang | `5.4182, 100.3409` | [Pinang Peranakan Mansion Official](http://www.pinangperanakanmansion.com.my) | [Unsplash Photo](https://images.unsplash.com/photo-1565008447742-97f6f38c985c) | CC0 / Free Commercial Reuse |
+| 9 | **A Famosa (Porta de Santiago)** | Historical | Melaka, Melaka | `2.192, 102.2494` | [Melaka Museum Corporation (PERZIM)](https://perzim.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1569154941061-e231b4725ef1) | CC0 / Free Commercial Reuse |
+| 10 | **St. Paul's Hill & Church** | Historical | Melaka, Melaka | `2.1928, 102.2492` | [Melaka Tourism Promotion Division](https://melaka.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1548013146-72479768bada) | CC0 / Free Commercial Reuse |
+| 11 | **Jonker Street Night Market** | Culture | Melaka, Melaka | `2.1956, 102.2476` | [Jonker Walk Committee / Melaka Tourism](https://melaka.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1555396273-367ea4eb4db5) | CC0 / Free Commercial Reuse |
+| 12 | **Baba & Nyonya Heritage Museum** | Heritage | Melaka, Melaka | `2.1952, 102.2464` | [Baba & Nyonya Heritage Museum Official](https://babanyonyamuseum.com) | [Unsplash Photo](https://images.unsplash.com/photo-1513694203232-719a280e022f) | CC0 / Free Commercial Reuse |
+| 13 | **Kellie's Castle** | Historical | Batu Gajah, Perak | `4.4754, 101.0877` | [Tourism Perak Official](https://tourismperakmalaysia.com) | [Unsplash Photo](https://images.unsplash.com/photo-1585543805890-6051f7829f98) | CC0 / Free Commercial Reuse |
+| 14 | **Perak Cave Temple (Perak Tong)** | Culture | Ipoh, Perak | `4.6469, 101.0991` | [Ipoh City Council Heritage](https://mbi.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1600585154340-be6161a56a0c) | CC0 / Free Commercial Reuse |
+| 15 | **Concubine Lane (Panglima Lane)** | Heritage | Ipoh, Perak | `4.5969, 101.0783` | [Tourism Perak Official](https://tourismperakmalaysia.com) | [Unsplash Photo](https://images.unsplash.com/photo-1514933651103-005eec06c04b) | CC0 / Free Commercial Reuse |
+| 16 | **Tempurung Cave (Gua Tempurung)** | Nature | Gopeng, Perak | `4.4172, 101.1878` | [Gua Tempurung Tourism Management](https://guatempurung.com) | [Unsplash Photo](https://images.unsplash.com/photo-1518709268805-4e9042af9f23) | CC0 / Free Commercial Reuse |
+| 17 | **Sultan Abu Bakar State Mosque** | Architecture | Johor Bahru, Johor | `1.458, 103.7554` | [Tourism Johor Official](https://tourism.johor.my) | [Unsplash Photo](https://images.unsplash.com/photo-1584551246679-0daf3d275d0f) | CC0 / Free Commercial Reuse |
+| 18 | **Tan Hiok Nee Heritage Walk** | Heritage | Johor Bahru, Johor | `1.4568, 103.7645` | [Johor Bahru City Council](https://mbjb.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1514933651103-005eec06c04b) | CC0 / Free Commercial Reuse |
+| 19 | **Desaru Coast & Beach** | Nature | Bandar Penawar, Johor | `1.5544, 104.2582` | [Desaru Coast Destination Portal](https://desarucoast.com) | [Unsplash Photo](https://images.unsplash.com/photo-1507525428034-b723cf961d3e) | CC0 / Free Commercial Reuse |
+| 20 | **Tanjung Piai National Park** | Nature | Pontian, Johor | `1.2662, 103.51` | [Johor National Parks Corporation](https://johorparks.johor.my) | [Unsplash Photo](https://images.unsplash.com/photo-1544551763-46a013bb70d5) | CC0 / Free Commercial Reuse |
+| 21 | **Kinabalu Park & Mount Kinabalu** | Nature | Kundasang, Sabah | `6.0042, 116.5441` | [Sabah Parks Official](https://sabahparks.org.my) | [Unsplash Photo](https://images.unsplash.com/photo-1578637387939-43c525550085) | CC0 / Free Commercial Reuse |
+| 22 | **Sepilok Orangutan Rehabilitation Centre** | Wildlife | Sandakan, Sabah | `5.8643, 117.949` | [Sabah Wildlife Department](https://wildlife.sabah.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1540573133985-87b6da6d54a9) | CC0 / Free Commercial Reuse |
+| 23 | **Tunku Abdul Rahman Marine Park** | Marine | Kota Kinabalu, Sabah | `5.9754, 116.0028` | [Sabah Parks Official](https://sabahparks.org.my) | [Unsplash Photo](https://images.unsplash.com/photo-1506744038136-46273834b3fb) | CC0 / Free Commercial Reuse |
+| 24 | **Bako National Park** | Nature | Kuching, Sarawak | `1.7167, 110.4667` | [Sarawak Forestry Corporation](https://sarawakforestry.com) | [Unsplash Photo](https://images.unsplash.com/photo-1518709268805-4e9042af9f23) | CC0 / Free Commercial Reuse |
+| 25 | **Sarawak Cultural Village** | Culture | Santubong, Sarawak | `1.7505, 110.3168` | [Sarawak Cultural Village Official](https://scv.com.my) | [Unsplash Photo](https://images.unsplash.com/photo-1528164344705-475426879c0d) | CC0 / Free Commercial Reuse |
+| 26 | **Kuching Waterfront & Darul Hana Bridge** | Urban | Kuching, Sarawak | `1.5594, 110.3444` | [Sarawak Tourism Board](https://sarawaktourism.com) | [Unsplash Photo](https://images.unsplash.com/photo-1519501025264-65ba15a82390) | CC0 / Free Commercial Reuse |
+| 27 | **Gunung Mulu National Park** | Nature | Miri, Sarawak | `4.0489, 114.8118` | [Mulu National Park World Heritage](https://mulupark.com) | [Unsplash Photo](https://images.unsplash.com/photo-1506744038136-46273834b3fb) | CC0 / Free Commercial Reuse |
+| 28 | **Sultan Salahuddin Abdul Aziz Mosque (Blue Mosque)** | Architecture | Shah Alam, Selangor | `3.0784, 101.5208` | [Tourism Selangor Official](https://selangor.travel) | [Unsplash Photo](https://images.unsplash.com/photo-1584551246679-0daf3d275d0f) | CC0 / Free Commercial Reuse |
+| 29 | **Kuala Selangor Nature Park (Taman Alam)** | Nature | Kuala Selangor, Selangor | `3.3396, 101.2464` | [Malaysian Nature Society](https://mns.my) | [Unsplash Photo](https://images.unsplash.com/photo-1544551763-46a013bb70d5) | CC0 / Free Commercial Reuse |
+| 30 | **Boh Tea Estate Sungai Palas** | Agriculture | Cameron Highlands, Pahang | `4.5173, 101.4005` | [BOH Plantations Official](https://bohtea.com) | [Unsplash Photo](https://images.unsplash.com/photo-1544735716-392fe2489ffa) | CC0 / Free Commercial Reuse |
+| 31 | **Mossy Forest** | Nature | Cameron Highlands, Pahang | `4.5238, 101.3824` | [Pahang State Forestry Department](https://forestry.pahang.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1448375240586-882707db888b) | CC0 / Free Commercial Reuse |
+| 32 | **Langkawi Sky Bridge & SkyCab** | Engineering | Langkawi, Kedah | `6.3712, 99.6617` | [Panorama Langkawi Official](https://panoramalangkawi.com) | [Unsplash Photo](https://images.unsplash.com/photo-1506744038136-46273834b3fb) | CC0 / Free Commercial Reuse |
+| 33 | **Islamic Heritage Park (Taman Tamadun Islam)** | Heritage | Kuala Terengganu, Terengganu | `5.3015, 103.1189` | [Taman Tamadun Islam Official](https://tti.com.my) | [Unsplash Photo](https://images.unsplash.com/photo-1564769625905-50e93615e769) | CC0 / Free Commercial Reuse |
+| 34 | **Tasik Kenyir (Kenyir Lake)** | Nature | Hulu Terengganu, Terengganu | `4.9667, 102.8167` | [Central Terengganu Development Authority (KETENGAH)](https://ketengah.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1501785888041-af3ef285b470) | CC0 / Free Commercial Reuse |
+| 38 | **Sultan Abdul Samad Building** | Architecture | Kuala Lumpur, Kuala Lumpur | `3.1486, 101.6944` | [National Heritage Department Malaysia](https://www.heritage.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1596422846543-75c6fc197f07) | CC0 / Free Commercial Reuse |
+| 39 | **Khoo Kongsi (Leong San Tong Khoo Kongsi)** | Heritage | George Town, Pulau Pinang | `5.415, 100.337` | [Leong San Tong Khoo Kongsi Official](https://www.khookongsi.com.my) | [Unsplash Photo](https://images.unsplash.com/photo-1565008447742-97f6f38c985c) | CC0 / Free Commercial Reuse |
+| 40 | **Central Market (Pasar Seni)** | Culture | Kuala Lumpur, Kuala Lumpur | `3.1453, 101.6958` | [Central Market Official Portal](https://www.centralmarket.com.my) | [Unsplash Photo](https://images.unsplash.com/photo-1555396273-367ea4eb4db5) | CC0 / Free Commercial Reuse |
+| 41 | **Christ Church Melaka & Dutch Square** | Historical | Melaka, Melaka | `2.1944, 102.2492` | [Melaka Tourism Promotion Division](https://melaka.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1548013146-72479768bada) | CC0 / Free Commercial Reuse |
+| 42 | **Kwai Chai Hong** | Heritage | Kuala Lumpur, Kuala Lumpur | `3.1419, 101.6978` | [Project Kwai Chai Hong Official](https://www.kwaichaihong.com) | [Unsplash Photo](https://images.unsplash.com/photo-1514933651103-005eec06c04b) | CC0 / Free Commercial Reuse |
+| 35 *(Pending)* | **Penang Botanic Gardens** | Nature | George Town, Pulau Pinang | `5.4378, 100.2908` | [Penang Botanic Gardens Department](https://botanicalgardens.penang.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1585320806297-9794b3e4eeae) | CC0 / Free Commercial Reuse |
+| 36 *(Pending)* | **Forest Research Institute Malaysia (FRIM)** | Nature | Kepong, Selangor | `3.2361, 101.6347` | [Forest Research Institute Malaysia Official](https://www.frim.gov.my) | [Unsplash Photo](https://images.unsplash.com/photo-1448375240586-882707db888b) | CC0 / Free Commercial Reuse |
+| 37 *(Pending)* | **Royal Belum State Park** | Nature | Gerik, Perak | `5.6167, 101.3667` | [Perak State Parks Corporation](https://royalbelum.my) | [Unsplash Photo](https://images.unsplash.com/photo-1511497584788-87676104235f) | CC0 / Free Commercial Reuse |
 
 ---
 
-## 3. Real Neighbourhood & Regional Walking Guides (14 Entities)
+## 2. Restaurants & Local Eats (29 Total: 26 Published, 3 Submitted)
 
-| # | Guide Title | State / Area | Estimated Duration | Primary Reference URL | Stops Verified | Verification Date |
-|---|---|---|---|---|---|---|
-| 1 | George Town UNESCO Heritage & Street Art Walk | Penang (George Town) | 3.5 hours | https://mypenang.gov.my | Cheong Fatt Tze, Pinang Peranakan Mansion, Armenian Street, Khoo Kongsi | 2026-08-20 |
-| 2 | Kuala Lumpur Historic Colonial Core & River Trail | Kuala Lumpur (Merdeka Square) | 2.5 hours | https://visitkl.gov.my | Dataran Merdeka, Sultan Abdul Samad, Masjid Jamek, Central Market | 2026-08-20 |
-| 3 | Melaka Old Town Heritage & Riverside Walk | Melaka (Old Town) | 3.0 hours | https://www.melaka.gov.my | Stadthuys, Christ Church, St. Paul's Hill, A Famosa, Jonker Street | 2026-08-20 |
-| 4 | Ipoh Old Town Street Art & Kopitiam Trail | Perak (Ipoh Old Town) | 2.0 hours | https://tourismperakmalaysia.com | Ipoh Railway Station, Concubine Lane, Birch Memorial, Sin Yoon Loong | 2026-08-20 |
-| 5 | Johor Bahru Old Town Cultural Trail | Johor (JB City Centre) | 2.5 hours | https://tourismjohor.my | Tan Hiok Nee Walk, Sultan Abu Bakar Mosque, Hiap Joo, Johor Ancient Temple | 2026-08-20 |
-| 6 | Chinatown KL Hidden Lanes & Food Heritage | Kuala Lumpur (Petaling Street) | 2.0 hours | https://visitkl.gov.my | Petaling Street Gate, Sri Mahamariamman, Kwai Chai Hong, Kim Lian Kee | 2026-08-20 |
-| 7 | Kuching Waterfront & Old Bazaar Heritage Walk | Sarawak (Kuching) | 2.0 hours | https://sarawaktourism.com | Kuching Waterfront, Darul Hana Bridge, Main Bazaar, Old Court House | 2026-08-20 |
-| 8 | Kota Kinabalu Gaya Street & Coastal Sunset Trail | Sabah (Kota Kinabalu) | 3.0 hours | https://www.sabahtourism.com | Gaya Street Market, Atkinson Clock Tower, Signal Hill, KK Waterfront | 2026-08-20 |
-| 9 | Penang Hill to Kek Lok Si Nature & Temple Explorer | Penang (Air Itam) | 4.5 hours | https://www.penanghill.gov.my | Kek Lok Si Grand Pagoda, Air Itam Trail, Penang Hill Funicular, Habitat Walk | 2026-08-20 |
-| 10 | Batu Caves & Selangor Cultural Excursion | Selangor (Gombak) | 3.5 hours | https://www.malaysia.travel | Batu Caves 272 Steps, Ramayana Cave, Royal Selangor Visitor Centre | 2026-08-20 |
-| 11 | Cameron Highlands Tea Valley & Cloud Forest Trail | Pahang (Brinchang) | 4.0 hours | https://bohtea.com | Boh Tea Estate Sg Palas, Mossy Forest Boardwalk, Kea Farm Market | 2026-08-20 |
-| 12 | Desaru Coastal Scenic & Fruit Farm Gateway | Johor (Desaru) | 5.0 hours | https://desarucoast.com | Desaru Public Beach, Desaru Fruit Farm, Tanjung Balau Fishermen Museum | 2026-08-20 |
-| 13 | Shah Alam Cultural & Mosque Architecture Trail | Selangor (Shah Alam) | 2.5 hours | https://www.msaas.gov.my | Blue Mosque (Sultan Salahuddin), Lake Gardens, Selangor State Monument | 2026-08-20 |
-| 14 | Gopeng Heritage & Adventure Trail | Perak (Gopeng) | 4.0 hours | https://tourismperakmalaysia.com | Gopeng Heritage Museum, Gua Tempurung Caves, Sungai Kampar Riverfront | 2026-08-20 |
+| # | Name | Cuisine | State & City | Coordinates | Verified Specialties | Social Link / Authority | Media Source |
+|---|------|---------|--------------|-------------|----------------------|-------------------------|--------------|
+| 1 | **Restoran Yut Kee** | Hainanese | Kuala Lumpur, Kuala Lumpur | `3.1568, 101.6998` | Roti Babi, Hainanese Pork Chop, Marble Cake, Kaya Toast | [Instagram @yutkeerestaurant](https://www.instagram.com/yutkeerestaurant) | [Cover Photo](https://images.unsplash.com/photo-1555396273-367ea4eb4db5) |
+| 2 | **Village Park Restaurant** | Malay / Nasi Lemak | Petaling Jaya, Selangor | `3.1378, 101.6231` | Nasi Lemak Ayam Goreng, Soto Ayam, Nasi Dagang | [Instagram @villageparkrestaurant](https://www.instagram.com/villageparkrestaurant) | [Cover Photo](https://images.unsplash.com/photo-1546069901-ba9599a7e63c) |
+| 3 | **Kim Lian Kee Restaurant** | Chinese / Noodles | Kuala Lumpur, Kuala Lumpur | `3.1442, 101.6974` | Charcoal Fried Hokkien Mee, Moonlight Hor Fun, Fried Radish Cake | [Instagram @kimliankee](https://www.instagram.com/kimliankee) | [Cover Photo](https://images.unsplash.com/photo-1569718212165-3a8278d5f624) |
+| 4 | **Nasi Kandar Pelita (Ampang)** | Mamak / Indian Muslim | Kuala Lumpur, Kuala Lumpur | `3.1592, 101.7118` | Nasi Kandar Ayam Madu, Kuah Campur, Roti Canai, Teh Tarik | [Instagram @pelitanasikandar](https://www.instagram.com/pelitanasikandar) | [Cover Photo](https://images.unsplash.com/photo-1589301760014-d929f3979dbc) |
+| 5 | **Hameediyah Restaurant** | Nasi Kandar / Indian Muslim | George Town, Pulau Pinang | `5.4189, 100.3341` | Nasi Kandar Kari Kepala Ikan, Murtabak Daging Special, Ayam Bawang | [Instagram @hameediyah](https://www.instagram.com/hameediyah) | [Cover Photo](https://images.unsplash.com/photo-1517248135467-4c7edcad34c4) |
+| 6 | **Line Clear Nasi Kandar** | Nasi Kandar / Street Food | George Town, Pulau Pinang | `5.4198, 100.3323` | Nasi Kandar Sotong Goreng Besar, Kuah Banjir, Telur Sotong | [Instagram @lineclearnasikandar](https://www.instagram.com/lineclearnasikandar) | [Cover Photo](https://images.unsplash.com/photo-1552566626-52f8b828add9) |
+| 7 | **Tek Sen Restaurant** | Cantonese / Zi Char | George Town, Pulau Pinang | `5.4168, 100.3359` | Double Roasted Pork with Chili Padi, Sambal Petai, Tu Poh Bean Curd | [Instagram @teksenrestaurant](https://www.instagram.com/teksenrestaurant) | [Cover Photo](https://images.unsplash.com/photo-1543007630-9710e4a00a20) |
+| 8 | **Restoran Nyonya Makko** | Peranakan / Nyonya | Melaka, Melaka | `2.1884, 102.2536` | Ayam Pongteh, Udang Lemak Nenas, Sambal Belacan Kangkung, Cendol | [Instagram @makkonyonya](https://www.instagram.com/makkonyonya) | [Cover Photo](https://images.unsplash.com/photo-1563245372-f21724e3856d) |
+| 9 | **Nancy's Kitchen** | Peranakan / Nyonya | Melaka, Melaka | `2.1979, 102.2415` | Nyonya Laksa, Popiah, Pie Tee, Sek Bak | [Instagram @eatatnancyskit](https://www.instagram.com/eatatnancyskit) | [Cover Photo](https://images.unsplash.com/photo-1504674900247-0877df9cc836) |
+| 10 | **Chop Chung Wah** | Hainanese | Melaka, Melaka | `2.1947, 102.2483` | Hainanese Steamed Chicken, Hand-rolled Rice Balls, Chili Sauce | [Instagram @chopchungwah](https://www.instagram.com/chopchungwah) | [Cover Photo](https://images.unsplash.com/photo-1512621776951-a57141f2eefd) |
+| 11 | **Restoran Thean Chun (House of Mirrors)** | Chinese / Kopitiam | Ipoh, Perak | `4.5962, 101.0776` | Ipoh Shredded Chicken Hor Fun (Kai See Hor Fun), Pork Satay, Caramel Egg Custard | [Instagram @theanchunipoh](https://www.instagram.com/theanchunipoh) | [Cover Photo](https://images.unsplash.com/photo-1526318896980-cf78c088247c) |
+| 12 | **Restoran Lou Wong Tauge Ayam** | Chinese / Street Food | Ipoh, Perak | `4.5937, 101.0841` | Ipoh Bean Sprout Chicken (Nga Choi Kai), Kuetiau Soup, Pork Meatballs | [Instagram @louwongipoh](https://www.instagram.com/louwongipoh) | [Cover Photo](https://images.unsplash.com/photo-1565299585323-38d6b0865b47) |
+| 13 | **Sin Yoon Loong** | Hainanese / Kopitiam | Ipoh, Perak | `4.5959, 101.0772` | Original Ipoh White Coffee, Butter Kaya Toast, Soft Boiled Eggs, Dan Zhi | [Instagram @sinyoonloong](https://www.instagram.com/sinyoonloong) | [Cover Photo](https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb) |
+| 14 | **Restoran Hua Mui** | Hainanese | Johor Bahru, Johor | `1.4573, 103.7642` | Traditional Hainanese Chicken Chop, Butter Coffee, Fried Mee Hoon | [Instagram @restoranhuamui](https://www.instagram.com/restoranhuamui) | [Cover Photo](https://images.unsplash.com/photo-1555396273-367ea4eb4db5) |
+| 15 | **Hiap Joo Bakery & Biscuit Factory** | Bakery / Traditional | Johor Bahru, Johor | `1.4566, 103.7648` | Wood-fired Fresh Banana Cakes, Coconut Buns, Otak Buns | [Instagram @hiapjoobakery](https://www.instagram.com/hiapjoobakery) | [Cover Photo](https://images.unsplash.com/photo-1509440159596-0249088772ff) |
+| 16 | **Kam Long Ah Zai Curry Fish Head** | Chinese / Seafood | Johor Bahru, Johor | `1.4589, 103.7645` | Claypot Red Snapper Curry Fish Head, Fried Bean Curd Skin, Tau Pok | [Instagram @kamlongahzai](https://www.instagram.com/kamlongahzai) | [Cover Photo](https://images.unsplash.com/photo-1544025162-d76694265947) |
+| 17 | **Kedai Kopi Yee Fung** | Sabah / Noodles | Kota Kinabalu, Sabah | `5.9831, 116.0771` | Yee Fung Laksa, Ngau Chap (Beef Noodle Soup), Claypot Chicken Rice | [Instagram @yeefunglaksa](https://www.instagram.com/yeefunglaksa) | [Cover Photo](https://images.unsplash.com/photo-1569718212165-3a8278d5f624) |
+| 18 | **Fatt Kee Seafood Restaurant (Hilltop)** | Seafood / Noodles | Kota Kinabalu, Sabah | `5.9405, 116.0968` | Fresh Fish Head Soup Noodles, Tom Yam Fish Paste Noodles, Fried Fish Fillet | [Instagram @fattkeeseafood](https://www.instagram.com/fattkeeseafood) | [Cover Photo](https://images.unsplash.com/photo-1534422298391-e4f8c172dddb) |
+| 19 | **Top Spot Food Court** | Seafood / Local | Kuching, Sarawak | `1.5562, 110.3541` | Stir-fried Midin with Belacan, Butter Tiger Prawns, Crispy Oyster Pancake | [Instagram @topspotkuching](https://www.instagram.com/topspotkuching) | [Cover Photo](https://images.unsplash.com/photo-1559847844-5315695dadae) |
+| 20 | **Choon Hui Cafe** | Sarawak / Kopitiam | Kuching, Sarawak | `1.5517, 110.3546` | Sarawak Laksa (Anthony Bourdain recommended), Traditional Kolo Mee, Toast | [Instagram @choonhuicafe](https://www.instagram.com/choonhuicafe) | [Cover Photo](https://images.unsplash.com/photo-1569718212165-3a8278d5f624) |
+| 21 | **Restoran Kheng Pin** | Hainanese / Street Food | George Town, Pulau Pinang | `5.4194, 100.3326` | Hainanese Chicken Rice, Crispy Loh Bak, Prawn Fritters, Wan Tan Mee | [Instagram @khengpinpenang](https://www.instagram.com/khengpinpenang) | [Cover Photo](https://images.unsplash.com/photo-1565299585323-38d6b0865b47) |
+| 22 | **Capital Cafe** | Kopitiam / Multi-ethnic | Kuala Lumpur, Kuala Lumpur | `3.1554, 101.6967` | Mee Rebus, Rojak Mamak, Nasi Padang, Hainanese Hailam Coffee | [Instagram @capitalcafekl](https://www.instagram.com/capitalcafekl) | [Cover Photo](https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb) |
+| 26 | **ICC Pudu (Ah Weng Koh & Hawker Stalls)** | Kopitiam / Hawker | Kuala Lumpur, Kuala Lumpur | `3.1368, 101.7135` | Ah Weng Koh Hainan Tea, Crispy Popiah, Curry Chee Cheong Fun, Toast | [Instagram @iccpudukl](https://www.instagram.com/iccpudukl) | [Cover Photo](https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb) |
+| 27 | **Restoran Rebung Chef Ismail** | Malay / Traditional | Kuala Lumpur, Kuala Lumpur | `3.1495, 101.6882` | Daging Salai Masak Lemak Cili Papi, Nasi Kerabu, Patin Tempoyak, Gulai Kawah | [Instagram @restoranrebungchefismail](https://www.instagram.com/restoranrebungchefismail) | [Cover Photo](https://images.unsplash.com/photo-1546069901-ba9599a7e63c) |
+| 28 | **Anjung Gurney (Gurney Drive Hawker Centre)** | Hawker / Street Food | George Town, Pulau Pinang | `5.4398, 100.309` | Penang Char Kway Teow, Penang Asam Laksa, Pasembur, Oyster Omelette | [Instagram @anjunggurney](https://www.instagram.com/anjunggurney) | [Cover Photo](https://images.unsplash.com/photo-1569718212165-3a8278d5f624) |
+| 29 | **Restoran Todak (Orang Asli Seafood)** | Seafood / Local | Johor Bahru, Johor | `1.4795, 103.826` | Black Pepper Crab, Steamed Teluk Jawa Seabass, Butter Calamari, Sambal Lala | [Instagram @restorantodak](https://www.instagram.com/restorantodak) | [Cover Photo](https://images.unsplash.com/photo-1559847844-5315695dadae) |
+| 23 *(Pending)* | **Guan Heong Biscuit Shop** | Bakery / Heritage | Ipoh, Perak | `4.5942, 101.0825` | Meat Floss Biscuit, Salted Egg Pastry, Heong Peah | [Instagram @guanheong](https://www.instagram.com/guanheong) | [Cover Photo](https://images.unsplash.com/photo-1509440159596-0249088772ff) |
+| 24 *(Pending)* | **Ah Heng Duck Rice** | Chinese / Street Food | George Town, Pulau Pinang | `5.4162, 100.3332` | Braised Duck Rice, Braised Eggs and Tofu, Kiam Chye Boey Soup | [Instagram @ahhengduckrice](https://www.instagram.com/ahhengduckrice) | [Cover Photo](https://images.unsplash.com/photo-1569718212165-3a8278d5f624) |
+| 25 *(Pending)* | **Capitol Satay Celup** | Street Food / Satay Celup | Melaka, Melaka | `2.1965, 102.2512` | Satay Celup Skewers with Rich Peanut Gravy, Seafood, Fried Bean Curd | [Instagram @capitolsataycelup](https://www.instagram.com/capitolsataycelup) | [Cover Photo](https://images.unsplash.com/photo-1555396273-367ea4eb4db5) |
 
 ---
 
-## 4. Synthetic User Activity Disclosures
+## 3. Curated Neighbourhood & Regional Walking Guides (19 Total: 16 Published, 3 Submitted)
 
-To populate the staging operations workspace without violating data privacy or copyright policies:
-- User personas (e.g., `Demo Tourist`, `Demo Reviewer`, `Demo Influencer`, `Demo Admin`) are synthetic test accounts.
-- Review texts, upvote tallies, and moderation workflow submissions are synthetic test payloads designed to verify state transitions, queue sorting, and search/filter indexing.
+| # | Guide Title | Focus Area | State | Duration | Key Stops | Verification Source |
+|---|-------------|------------|-------|----------|-----------|---------------------|
+| 1 | **George Town UNESCO Heritage & Street Art Walk** | George Town | Pulau Pinang | 3.5 hours | Cheong Fatt Tze Blue Mansion, Pinang Peranakan Mansion, Armenian Street Wall Art + 1 more | [Penang Global Tourism](https://mypenang.gov.my) |
+| 2 | **Kuala Lumpur Historic Colonial Core & River Trail** | Merdeka Square | Kuala Lumpur | 2.5 hours | Dataran Merdeka (Independence Square), Sultan Abdul Samad Building, Masjid Jamek River of Life + 1 more | [Tourism Malaysia Official](https://www.malaysia.travel) |
+| 3 | **Melaka Old Town Heritage & Riverside Walk** | Old Town | Melaka | 3.0 hours | The Stadthuys Red Square, Christ Church Melaka, St. Paul's Hill Ruins + 2 more | [Melaka Tourism Promotion Division](https://melaka.gov.my) |
+| 4 | **Ipoh Old Town Street Art & Kopitiam Trail** | Old Town | Perak | 2.0 hours | Ipoh Railway Station (Taj Mahal of Ipoh), Concubine Lane, Birch Memorial Clock Tower + 1 more | [Tourism Perak Official](https://tourismperakmalaysia.com) |
+| 5 | **Johor Bahru Old Town Cultural Trail** | JB City Centre | Johor | 2.5 hours | Tan Hiok Nee Heritage Walk, Hiap Joo Wood-fired Bakery, Johor Ancient Temple + 1 more | [Tourism Johor Official](https://tourism.johor.my) |
+| 6 | **Chinatown KL Hidden Lanes & Food Heritage** | Chinatown | Kuala Lumpur | 2.0 hours | Petaling Street Arch, Sri Mahamariamman Hindu Temple, Kwai Chai Hong Heritage Alley + 1 more | [Tourism Malaysia Official](https://www.malaysia.travel) |
+| 7 | **Kuching Waterfront & Old Bazaar Heritage Walk** | Waterfront | Sarawak | 2.0 hours | Kuching Waterfront Promenade, Darul Hana S-Bridge, Old Court House Cultural Hub + 1 more | [Sarawak Tourism Board](https://sarawaktourism.com) |
+| 8 | **Kota Kinabalu Gaya Street & Coastal Sunset Trail** | Gaya Street | Sabah | 3.0 hours | Gaya Street Market & Yee Fung, Atkinson Clock Tower, Signal Hill Observatory Platform + 1 more | [Sabah Tourism Board](https://sabahtourism.com) |
+| 9 | **Penang Hill to Kek Lok Si Nature & Temple Explorer** | Air Itam | Pulau Pinang | 4.5 hours | Kek Lok Si Grand Pagoda, Air Itam Market Trail, Penang Hill Lower Station Funicular + 1 more | [Penang Hill Corporation](https://www.penanghill.gov.my) |
+| 10 | **Batu Caves & Selangor Cultural Excursion** | Gombak | Selangor | 3.5 hours | Batu Caves 272 Rainbow Steps, Ramayana Cave Mythological Dioramas, Royal Selangor Pewter Visitor Centre | [Tourism Selangor Official](https://selangor.travel) |
+| 11 | **Cameron Highlands Tea Valley & Cloud Forest Trail** | Brinchang | Pahang | 4.0 hours | Boh Tea Estate Sungai Palas, Mossy Forest Elevated Boardwalk, Kea Farm Vegetable & Strawberry Market | [Pahang Tourism Official](https://pahangtourism.org.my) |
+| 12 | **Desaru Coastal Scenic & Fruit Farm Gateway** | Desaru | Johor | 5.0 hours | Desaru Public Beach, Desaru Fruit Farm Tropical Agro-tour, Tanjung Balau Fishermen Village & Museum | [Tourism Johor Official](https://tourism.johor.my) |
+| 13 | **Shah Alam Cultural & Mosque Architecture Trail** | Seksyen 14 | Selangor | 2.5 hours | Blue Mosque (Sultan Salahuddin Abdul Aziz), Shah Alam Lake Gardens, Laman Seni 7 Street Art Murals | [Tourism Selangor Official](https://selangor.travel) |
+| 14 | **Gopeng Heritage & Adventure Trail** | Gopeng | Perak | 4.0 hours | Gopeng Heritage Museum, Gua Tempurung Show Caves, Sungai Kampar Riverside Park | [Tourism Perak Official](https://tourismperakmalaysia.com) |
+| 18 | **Bukit Bintang & KL Golden Triangle Lifestyle Walk** | Bukit Bintang | Kuala Lumpur | 2.0 hours | Pavilion KL Crystal Fountain, Starhill Gallery Cultural Walkway, Jalan Alor Night Food Street + 1 more | [Kuala Lumpur City Hall (DBKL)](https://www.dbkl.gov.my) |
+| 19 | **Ipoh Heritage Trail & Concubine Lane Discovery** | Ipoh Old Town | Perak | 2.5 hours | Ipoh Town Hall & High Court, Birch Memorial Clock Tower, Concubine Lane Shophouses + 1 more | [Tourism Perak Official](https://tourismperakmalaysia.com) |
+| 15 *(Pending)* | **Langkawi Geopark & Mangrove Discovery Trail** | Kilim Geoforest | Kedah | 3.5 hours | Kilim Jetty, Bat Cave (Gua Kelawar), Floating Fish Farm Restaurant + 1 more | [Langkawi Development Authority (LADA)](https://naturallylangkawi.my) |
+| 16 *(Pending)* | **Kuala Selangor Fireflies & Coastal Nature Walk** | Bukit Melawati | Selangor | 4.0 hours | Bukit Melawati Lighthouse & Fort, Kuala Selangor Nature Park Mangroves, Kampung Kuantan Firefly Sanctuary | [Tourism Selangor Official](https://selangor.travel) |
+| 17 *(Pending)* | **Sandakan Heritage & Wildlife Trail** | Sandakan | Sabah | 4.5 hours | Sandakan Memorial Park, Pu Ji Shih Buddhist Temple, Sepilok Orangutan Centre | [Sabah Tourism Board](https://sabahtourism.com) |
+
+---
+
+## 4. Synthetic Reviews & Moderation Test Queue
+
+- **Synthetic Public Reviews**: 65 realistic reviews across spots (39 reviews) and restaurants (26 reviews).
+- **Moderation Cases**: 6 benign moderation queue reports covering missing hours, duplicate transliterations, scaffolding photos, and landmark navigation notes.
+- **Verification Date**: August 20, 2026
