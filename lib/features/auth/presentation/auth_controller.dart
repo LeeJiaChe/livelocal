@@ -36,7 +36,9 @@ class AuthController with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get pendingVerificationEmail =>
-      _pendingVerificationEmail ?? _currentUser?.email;
+      _status == AuthStatus.verificationRequired
+          ? (_pendingVerificationEmail ?? _currentUser?.email)
+          : null;
   bool get isAuthenticated => _currentUser != null;
   bool get canWrite => _status == AuthStatus.authenticated;
 
@@ -153,6 +155,11 @@ class AuthController with ChangeNotifier {
     }
   }
 
+  Future<void> checkEmailVerification() async {
+    if (_status != AuthStatus.verificationRequired || _isLoading) return;
+    await _restoreSession(fromAuthEvent: true);
+  }
+
   Future<void> logout() async {
     _setLoading();
     try {
@@ -185,8 +192,10 @@ class AuthController with ChangeNotifier {
       }
       _errorMessage = null;
     } catch (error) {
-      _status = AuthStatus.failure;
-      _errorMessage = _messageFor(error);
+      if (!fromAuthEvent) {
+        _status = AuthStatus.failure;
+        _errorMessage = _messageFor(error);
+      }
     } finally {
       notifyListeners();
     }
@@ -239,6 +248,7 @@ class AuthController with ChangeNotifier {
       _status = AuthStatus.verificationRequired;
       return;
     }
+    _pendingVerificationEmail = null;
     switch (account.accessStatus) {
       case AccountAccessStatus.active:
         _status = AuthStatus.authenticated;

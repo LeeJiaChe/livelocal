@@ -3,9 +3,10 @@
 This document audits all seeded real-world Malaysian places, restaurants, and neighbourhood guides used in the LiveLocal Staging environment (`livelocal-staging-v2`, ref: `uweqackfulhbfcqvjaob`).
 
 > [!IMPORTANT]
-> **Staging Presentation Fixtures Notice**:
-> - **Real Places & Businesses**: All places, attractions, restaurants, and heritage walking guides seeded here represent real, verified Malaysian entities with genuine addresses, coordinates, and culinary profiles.
-> - **Synthetic User Activity**: Seeded public reviews, ratings, likes, and pending moderation cases are synthetic presentation fixtures (`NULL` user/author IDs) designed to test search, maps, category filters, and moderation UI workflows.
+> **Staging Data & Presentation Fixtures Disclosure**:
+> - **Real Places, Businesses & Coordinates**: All places, attractions, restaurants, and heritage walking guides seeded in this environment represent real, verified Malaysian entities with genuine addresses, coordinates, and culinary profiles.
+> - **Representative Staging Imagery**: Media URLs are curated CC0 / free-to-use photography from Unsplash matched by category, cuisine type, architectural style, or regional ambiance. They serve as representative staging imagery for UI rendering, rather than verified on-site photographs taken directly by the respective establishment.
+> - **Synthetic User Activity**: Seeded public reviews, ratings, upvotes, and pending moderation queue cases are synthetic presentation fixtures (`NULL` user/author IDs) designed to test search, maps, category filters, and moderation UI workflows.
 > - **RLS Boundaries**: These fixture rows do **not** represent real user accounts or test real multi-user RLS isolation. Real end-to-end user workflows (registration, email recovery, authentic reviews) require real Supabase Auth accounts created in the staging app.
 
 ---

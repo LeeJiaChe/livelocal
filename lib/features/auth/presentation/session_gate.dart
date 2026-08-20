@@ -105,8 +105,50 @@ class _SessionFailureScreen extends StatelessWidget {
   }
 }
 
-class EmailVerificationScreen extends StatelessWidget {
+class EmailVerificationScreen extends StatefulWidget {
   const EmailVerificationScreen({super.key});
+
+  @override
+  State<EmailVerificationScreen> createState() =>
+      _EmailVerificationScreenState();
+}
+
+class _EmailVerificationScreenState extends State<EmailVerificationScreen>
+    with WidgetsBindingObserver {
+  bool _isChecking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkVerification();
+    }
+  }
+
+  Future<void> _checkVerification() async {
+    if (_isChecking || !mounted) return;
+    final auth = context.read<AuthController>();
+    if (auth.status != AuthStatus.verificationRequired) return;
+    _isChecking = true;
+    try {
+      await auth.checkEmailVerification();
+    } finally {
+      if (mounted) {
+        _isChecking = false;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -162,7 +204,16 @@ class EmailVerificationScreen extends StatelessWidget {
                     child: const Text('Resend email'),
                   ),
                   TextButton(
-                    onPressed: auth.isLoading ? null : auth.logout,
+                    onPressed: auth.isLoading
+                        ? null
+                        : () async {
+                            await auth.logout();
+                            if (!context.mounted) return;
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/login',
+                              (route) => false,
+                            );
+                          },
                     child: const Text('Use a different account'),
                   ),
                 ],

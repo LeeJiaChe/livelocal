@@ -385,10 +385,21 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
   }
 
   Future<String> _signedImage(String? path) async {
-    if (path == null || path.isEmpty) return '';
-    return _client.storage
-        .from('restaurant-images')
-        .createSignedUrl(path, 3600);
+    if (path == null || path.trim().isEmpty) return '';
+    final trimmed = path.trim();
+    final uri = Uri.tryParse(trimmed);
+    if (uri != null &&
+        uri.hasScheme &&
+        (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return trimmed;
+    }
+    try {
+      return await _client.storage
+          .from('restaurant-images')
+          .createSignedUrl(trimmed, 3600);
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<String> _uploadImage(Uint8List bytes, String mimeType) async {

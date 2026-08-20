@@ -31,7 +31,17 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<AccountIdentity?> restoreSession() async {
-    final user = _client.auth.currentUser;
+    final session = _client.auth.currentSession;
+    final cachedUser = _client.auth.currentUser;
+    if (session == null && cachedUser == null) return null;
+
+    User? user;
+    try {
+      final response = await _client.auth.getUser();
+      user = response.user ?? _client.auth.currentUser;
+    } catch (_) {
+      user = _client.auth.currentUser;
+    }
     if (user == null) return null;
     return _loadAccount(user);
   }
@@ -149,7 +159,13 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<AccountIdentity> refreshAccount() async {
-    final user = _client.auth.currentUser;
+    User? user;
+    try {
+      final response = await _client.auth.getUser();
+      user = response.user ?? _client.auth.currentUser;
+    } catch (_) {
+      user = _client.auth.currentUser;
+    }
     if (user == null) {
       throw const AppException(
         code: AppErrorCode.authentication,
