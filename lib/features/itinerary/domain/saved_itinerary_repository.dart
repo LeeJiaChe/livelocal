@@ -62,6 +62,9 @@ abstract interface class SavedItineraryRepository {
   Future<List<SavedCollectionItemModel>> fetchCollectionItems(
     String collectionId,
   );
+  Future<List<SavedCollectionPlace>> fetchCollectionPlaces(
+    String collectionId,
+  );
   Future<List<String>> fetchPlaceCollectionIds({
     required String targetType,
     required String targetId,

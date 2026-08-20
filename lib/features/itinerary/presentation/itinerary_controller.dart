@@ -19,19 +19,22 @@ class ItineraryController with ChangeNotifier {
   final LocationService _locationService;
   List<SavedCollectionModel> _collections = [];
   List<SavedCollectionItemModel> _activeCollectionItems = [];
+  List<SavedCollectionPlace> _activeCollectionPlaces = [];
   SavedCollectionModel? _activeCollection;
   List<SavedPlaceModel> _savedPlaces = [];
   List<SavedItinerary> _savedItineraries = [];
   List<Map<String, Object>> _itinerarySteps = [];
   bool _isLoading = false;
   bool _isLoadingCollections = false;
+  bool _isLoadingCollectionPlaces = false;
   bool _isGeneratingItinerary = false;
   String? _errorMessage;
-  String? _selectedAlbum;
 
   List<SavedCollectionModel> get collections => List.unmodifiable(_collections);
   List<SavedCollectionItemModel> get activeCollectionItems =>
       List.unmodifiable(_activeCollectionItems);
+  List<SavedCollectionPlace> get activeCollectionPlaces =>
+      List.unmodifiable(_activeCollectionPlaces);
   SavedCollectionModel? get activeCollection => _activeCollection;
   List<SavedPlaceModel> get savedPlaces => List.unmodifiable(_savedPlaces);
   List<SavedItinerary> get savedItineraries =>
@@ -40,23 +43,20 @@ class ItineraryController with ChangeNotifier {
       List.unmodifiable(_itinerarySteps);
   bool get isLoading => _isLoading;
   bool get isLoadingCollections => _isLoadingCollections;
+  bool get isLoadingCollectionPlaces => _isLoadingCollectionPlaces;
   bool get isGeneratingItinerary => _isGeneratingItinerary;
   String? get errorMessage => _errorMessage;
   String? get itineraryError => _errorMessage;
-  String? get selectedAlbum => _selectedAlbum;
-
-  void setAlbumFilter(String? album) {
-    _selectedAlbum = (album == null || album == 'All') ? null : album;
-    notifyListeners();
-  }
 
   void setActiveCollection(SavedCollectionModel? collection) {
     _activeCollection = collection;
     notifyListeners();
     if (collection != null) {
+      loadActiveCollectionPlaces(collection.id);
       loadActiveCollectionItems(collection.id);
     } else {
       _activeCollectionItems = [];
+      _activeCollectionPlaces = [];
       notifyListeners();
     }
   }
@@ -83,6 +83,21 @@ class ItineraryController with ChangeNotifier {
     } catch (error) {
       _errorMessage = _message(error, 'Collection items could not be loaded.');
     } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadActiveCollectionPlaces(String collectionId) async {
+    _isLoadingCollectionPlaces = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      _activeCollectionPlaces =
+          await _repository.fetchCollectionPlaces(collectionId);
+    } catch (error) {
+      _errorMessage = _message(error, 'Collection places could not be loaded.');
+    } finally {
+      _isLoadingCollectionPlaces = false;
       notifyListeners();
     }
   }
@@ -140,6 +155,7 @@ class ItineraryController with ChangeNotifier {
       if (_activeCollection?.id == collectionId) {
         _activeCollection = null;
         _activeCollectionItems = [];
+        _activeCollectionPlaces = [];
       }
       await Future.wait([
         loadCollections(),
@@ -185,7 +201,10 @@ class ItineraryController with ChangeNotifier {
         loadCollections(),
       ]);
       if (_activeCollection != null) {
-        await loadActiveCollectionItems(_activeCollection!.id);
+        await Future.wait([
+          loadActiveCollectionItems(_activeCollection!.id),
+          loadActiveCollectionPlaces(_activeCollection!.id),
+        ]);
       }
       return saved;
     } catch (error) {
@@ -320,7 +339,7 @@ class ItineraryController with ChangeNotifier {
     required RouteOrigin origin,
     required List<SpotModel> allSpots,
     required List<RestaurantModel> allRestaurants,
-    String? album,
+    String? cityFilter,
     String? collectionId,
   }) async {
     _isGeneratingItinerary = true;
@@ -336,7 +355,6 @@ class ItineraryController with ChangeNotifier {
             _savedPlaces.where((sp) => placeIds.contains(sp.id)).toList();
       }
 
-      final effectiveAlbum = album ?? _selectedAlbum;
       final savedSpots = candidatePlaces
           .where((saved) => saved.spotId != null)
           .map(
@@ -346,9 +364,9 @@ class ItineraryController with ChangeNotifier {
           .map((matches) => matches.first)
           .where((spot) {
         if (spot.latitude == null || spot.longitude == null) return false;
-        if (effectiveAlbum != null && effectiveAlbum != 'All') {
+        if (cityFilter != null && cityFilter != 'All') {
           return spot.city.trim().toLowerCase() ==
-              effectiveAlbum.trim().toLowerCase();
+              cityFilter.trim().toLowerCase();
         }
         return true;
       }).toList();
@@ -365,9 +383,9 @@ class ItineraryController with ChangeNotifier {
         if (restaurant.latitude == null || restaurant.longitude == null) {
           return false;
         }
-        if (effectiveAlbum != null && effectiveAlbum != 'All') {
+        if (cityFilter != null && cityFilter != 'All') {
           return restaurant.city.trim().toLowerCase() ==
-              effectiveAlbum.trim().toLowerCase();
+              cityFilter.trim().toLowerCase();
         }
         return true;
       }).toList();

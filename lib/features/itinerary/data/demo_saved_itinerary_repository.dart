@@ -1,6 +1,9 @@
 import '../../../core/errors/app_exception.dart';
+import '../../../models/restaurant_model.dart';
 import '../../../models/saved_collection_model.dart';
 import '../../../models/saved_place_model.dart';
+import '../../../models/spot_model.dart';
+import '../../../services/seed_data_service.dart';
 import '../../auth/data/demo_auth_repository.dart';
 import '../../auth/domain/account_identity.dart';
 import '../domain/saved_itinerary_repository.dart';
@@ -39,17 +42,43 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
     final userCollections =
         _collections.where((item) => item.userId == userId).toList();
 
-    // Compute item counts
+    // Compute item counts and cover image from items
+    final spots = SeedDataService.getInitialSpots();
+    final restaurants = SeedDataService.getInitialRestaurants();
+
     return userCollections.map((col) {
       final items = _collectionItems
           .where((item) => item.collectionId == col.id)
           .toList();
       final spotCount = items.where((i) => i.spotId != null).length;
       final restaurantCount = items.where((i) => i.restaurantId != null).length;
+
+      String? coverUrl;
+      String? coverTargetType;
+      if (items.isNotEmpty) {
+        final firstItem = items.first;
+        if (firstItem.spotId != null) {
+          coverTargetType = 'spot';
+          coverUrl = spots
+              .where((s) => s.id == firstItem.spotId)
+              .map((s) => s.imagePath)
+              .firstOrNull;
+        } else if (firstItem.restaurantId != null) {
+          coverTargetType = 'restaurant';
+          coverUrl = restaurants
+              .where((r) => r.id == firstItem.restaurantId)
+              .map((r) => r.coverImagePath)
+              .firstOrNull;
+        }
+      }
+
       return col.copyWith(
         itemCount: items.length,
         spotCount: spotCount,
         restaurantCount: restaurantCount,
+        coverTargetType: coverTargetType,
+        coverImageUrl: coverUrl,
+        coverImagePath: coverUrl,
       );
     }).toList();
   }
@@ -120,7 +149,7 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
     }
     final updated = _collections[index].copyWith(
       name: trimmedName,
-      description: description?.trim() ?? _collections[index].description,
+      description: description?.trim(),
       updatedAt: DateTime.now(),
     );
     _collections[index] = updated;
@@ -164,6 +193,100 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
     return _collectionItems
         .where((item) => item.collectionId == collectionId)
         .toList();
+  }
+
+  @override
+  Future<List<SavedCollectionPlace>> fetchCollectionPlaces(
+    String collectionId,
+  ) async {
+    _requireUser();
+    final items = _collectionItems
+        .where((ci) => ci.collectionId == collectionId)
+        .toList();
+
+    final spots = SeedDataService.getInitialSpots();
+    final restaurants = SeedDataService.getInitialRestaurants();
+
+    final result = <SavedCollectionPlace>[];
+    for (final item in items) {
+      final savedPlace = _savedPlaces.firstWhere(
+        (sp) => sp.id == item.savedPlaceId,
+        orElse: () =>
+            SavedPlaceModel(id: '', userId: '', savedAt: DateTime.now()),
+      );
+      if (savedPlace.spotId != null) {
+        final spot = spots.firstWhere(
+          (s) => s.id == savedPlace.spotId,
+          orElse: () => SpotModel(
+            id: savedPlace.spotId!,
+            name: 'Local Spot',
+            category: 'Spot',
+            description: '',
+            state: '',
+            city: '',
+            address: '',
+            priceRange: r'$',
+            bestTime: '',
+            thingsToDo: '',
+            imageUrl: '',
+            submittedBy: '',
+            latitude: 0,
+            longitude: 0,
+          ),
+        );
+        result.add(
+          SavedCollectionPlace(
+            savedPlaceId: item.savedPlaceId,
+            targetType: 'spot',
+            targetId: spot.id,
+            name: spot.name,
+            state: spot.state,
+            city: spot.city,
+            categoryOrCuisine: spot.category,
+            priceRange: spot.priceRange,
+            imageUrl: spot.imagePath,
+            rating: spot.rating,
+            reviewCount: spot.reviewCount,
+            addedAt: item.addedAt,
+          ),
+        );
+      } else if (savedPlace.restaurantId != null) {
+        final restaurant = restaurants.firstWhere(
+          (r) => r.id == savedPlace.restaurantId,
+          orElse: () => RestaurantModel(
+            id: savedPlace.restaurantId!,
+            name: 'Local Eatery',
+            cuisineType: 'Eatery',
+            city: '',
+            state: '',
+            address: '',
+            priceRange: r'$',
+            reviewedDishes: '',
+            influencerId: '',
+            influencerName: '',
+            socialMediaUrl: '',
+            coverPhotoUrl: '',
+          ),
+        );
+        result.add(
+          SavedCollectionPlace(
+            savedPlaceId: item.savedPlaceId,
+            targetType: 'restaurant',
+            targetId: restaurant.id,
+            name: restaurant.name,
+            state: restaurant.state,
+            city: restaurant.city,
+            categoryOrCuisine: restaurant.cuisineType,
+            priceRange: restaurant.priceRange,
+            imageUrl: restaurant.coverImagePath,
+            rating: restaurant.rating,
+            reviewCount: restaurant.reviewCount,
+            addedAt: item.addedAt,
+          ),
+        );
+      }
+    }
+    return result;
   }
 
   @override

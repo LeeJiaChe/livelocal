@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -24,8 +25,11 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !context.read<AuthController>().canWrite) return;
-      context.read<ItineraryController>().loadSavedPlaces();
+      if (!mounted) return;
+      final auth = context.read<AuthController>();
+      if (auth.isAuthenticated) {
+        context.read<ItineraryController>().loadSavedPlaces();
+      }
     });
   }
 
@@ -37,56 +41,109 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
 
   Future<void> _showCreateCollectionDialog() async {
     _newCollectionNameCtrl.clear();
-    final newName = await showDialog<String>(
+    String? dialogError;
+
+    final created = await showDialog<SavedCollectionModel>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('New collection'),
-        content: TextField(
-          controller: _newCollectionNameCtrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'e.g. Penang Food Hunt, Weekend Getaways',
-            labelText: 'Collection name',
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('New collection'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _newCollectionNameCtrl,
+                autofocus: true,
+                maxLength: 80,
+                decoration: InputDecoration(
+                  hintText: 'e.g. Weekend in Penang, KL Coffee',
+                  labelText: 'Collection name',
+                  errorText: dialogError,
+                ),
+                textCapitalization: TextCapitalization.words,
+                onChanged: (_) {
+                  if (dialogError != null) {
+                    setDialogState(() => dialogError = null);
+                  }
+                },
+              ),
+            ],
           ),
-          textCapitalization: TextCapitalization.words,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final text = _newCollectionNameCtrl.text.trim();
+                if (text.isEmpty) {
+                  setDialogState(
+                      () => dialogError = 'Please enter a collection name.');
+                  return;
+                }
+                if (text.length > 80) {
+                  setDialogState(() =>
+                      dialogError = 'Name must be 80 characters or fewer.');
+                  return;
+                }
+
+                final controller = dialogCtx.read<ItineraryController>();
+                final existing = controller.collections.any(
+                  (c) => c.name.trim().toLowerCase() == text.toLowerCase(),
+                );
+                if (existing) {
+                  setDialogState(() => dialogError =
+                      'A collection with this name already exists.');
+                  return;
+                }
+
+                final result = await controller.createCollection(name: text);
+                if (result != null && dialogCtx.mounted) {
+                  Navigator.pop(dialogCtx, result);
+                } else if (dialogCtx.mounted) {
+                  setDialogState(() {
+                    dialogError = controller.errorMessage ??
+                        'Could not create collection.';
+                  });
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final text = _newCollectionNameCtrl.text.trim();
-              if (text.isNotEmpty) Navigator.pop(dialogCtx, text);
-            },
-            child: const Text('Create'),
-          ),
-        ],
       ),
     );
 
-    if (newName != null && newName.isNotEmpty && mounted) {
-      final controller = context.read<ItineraryController>();
-      await controller.createCollection(name: newName);
+    if (created != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => CollectionDetailScreen(collection: created),
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
+    final controller = context.watch<ItineraryController>();
 
-    if (!auth.canWrite) {
+    if (!auth.isAuthenticated) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Saved')),
+        appBar: AppBar(
+          title: const Text('Saved collections'),
+        ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.x3),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.bookmark_border_outlined,
+                  Icons.bookmark_outline,
                   size: 64,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -108,7 +165,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                 FilledButton(
                   onPressed: () => context.read<ProtectedNavigation>().open(
                         context,
-                        '/saved',
+                        '/saved-places',
                       ),
                   child: const Text('Sign in to LiveLocal'),
                 ),
@@ -119,7 +176,6 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
       );
     }
 
-    final controller = context.watch<ItineraryController>();
     final collections = controller.collections;
     final savedPlaces = controller.savedPlaces;
 
@@ -129,7 +185,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
         actions: [
           IconButton(
             tooltip: 'New collection',
-            icon: const Icon(Icons.create_new_folder_outlined),
+            icon: const Icon(Icons.add),
             onPressed: _showCreateCollectionDialog,
           ),
           const SizedBox(width: AppSpacing.x1),
@@ -196,7 +252,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                     crossAxisCount: 2,
                     mainAxisSpacing: AppSpacing.x2,
                     crossAxisSpacing: AppSpacing.x2,
-                    childAspectRatio: 0.85,
+                    childAspectRatio: 0.82,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -254,11 +310,14 @@ class _CreateCollectionCard extends StatelessWidget {
       color: Theme.of(context)
           .colorScheme
           .surfaceContainerHighest
-          .withValues(alpha: 0.5),
+          .withValues(alpha: 0.4),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant,
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.6),
           style: BorderStyle.solid,
         ),
       ),
@@ -308,27 +367,62 @@ class _CollectionGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final count = collection.itemCount;
+    final hasCover = collection.coverImageUrl != null &&
+        collection.coverImageUrl!.isNotEmpty;
 
     return Card(
       clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
       child: InkWell(
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                ),
-                child: Icon(
-                  Icons.bookmark_outline,
-                  size: 40,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
+              child: hasCover
+                  ? CachedNetworkImage(
+                      imageUrl: collection.coverImageUrl!,
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: colorScheme.surfaceContainerHighest,
+                        child: const Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => Container(
+                        width: double.infinity,
+                        color: colorScheme.surfaceContainerHighest,
+                        child: Icon(
+                          Icons.bookmark_outline,
+                          size: 36,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    )
+                  : Container(
+                      width: double.infinity,
+                      color: colorScheme.surfaceContainerHighest,
+                      child: Icon(
+                        Icons.collections_bookmark_outlined,
+                        size: 36,
+                        color: colorScheme.primary,
+                      ),
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.x2),
@@ -337,18 +431,18 @@ class _CollectionGridCard extends StatelessWidget {
                 children: [
                   Text(
                     collection.name,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '$count ${count == 1 ? "place" : "places"}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),

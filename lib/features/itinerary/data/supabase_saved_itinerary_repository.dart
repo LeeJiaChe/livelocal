@@ -15,10 +15,19 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
     try {
       final response = await _client.rpc('list_my_saved_collections');
       final list = (response as List<dynamic>?) ?? [];
-      return list.map((raw) {
+      final results = <SavedCollectionModel>[];
+      for (final raw in list) {
         final row = Map<String, dynamic>.from(raw as Map);
-        return SavedCollectionModel.fromMap(row);
-      }).toList();
+        final model = SavedCollectionModel.fromMap(row);
+        final signedCover = await _resolveImage(
+          model.coverImagePath,
+          model.coverTargetType,
+        );
+        results.add(model.copyWith(
+            coverImageUrl:
+                signedCover.isNotEmpty ? signedCover : model.coverImageUrl));
+      }
+      return results;
     } on PostgrestException catch (error) {
       throw _error(error, 'Saved collections could not be loaded.');
     }
@@ -114,6 +123,47 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
       }).toList();
     } on PostgrestException catch (error) {
       throw _error(error, 'Collection items could not be loaded.');
+    }
+  }
+
+  @override
+  Future<List<SavedCollectionPlace>> fetchCollectionPlaces(
+    String collectionId,
+  ) async {
+    try {
+      final response = await _client.rpc(
+        'fetch_collection_places',
+        params: {'p_collection_id': collectionId},
+      );
+      final list = (response as List<dynamic>?) ?? [];
+      final results = <SavedCollectionPlace>[];
+      for (final raw in list) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final place = SavedCollectionPlace.fromMap(row);
+        final signedUrl = await _resolveImage(
+          place.imageUrl,
+          place.targetType,
+        );
+        results.add(
+          SavedCollectionPlace(
+            savedPlaceId: place.savedPlaceId,
+            targetType: place.targetType,
+            targetId: place.targetId,
+            name: place.name,
+            state: place.state,
+            city: place.city,
+            categoryOrCuisine: place.categoryOrCuisine,
+            priceRange: place.priceRange,
+            imageUrl: signedUrl.isNotEmpty ? signedUrl : place.imageUrl,
+            rating: place.rating,
+            reviewCount: place.reviewCount,
+            addedAt: place.addedAt,
+          ),
+        );
+      }
+      return results;
+    } on PostgrestException catch (error) {
+      throw _error(error, 'Collection places could not be loaded.');
     }
   }
 
@@ -279,6 +329,24 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
       });
     } on PostgrestException catch (error) {
       throw _error(error, 'The location preference could not be saved.');
+    }
+  }
+
+  Future<String> _resolveImage(String? path, String? targetType) async {
+    if (path == null || path.trim().isEmpty) return '';
+    final trimmed = path.trim();
+    final uri = Uri.tryParse(trimmed);
+    if (uri != null &&
+        uri.hasScheme &&
+        (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return trimmed;
+    }
+    final bucket =
+        targetType == 'restaurant' ? 'restaurant-images' : 'spot-images';
+    try {
+      return await _client.storage.from(bucket).createSignedUrl(trimmed, 3600);
+    } catch (_) {
+      return '';
     }
   }
 

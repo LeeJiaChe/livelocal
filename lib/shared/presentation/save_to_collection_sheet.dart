@@ -55,7 +55,7 @@ class SaveToCollectionSheet extends StatefulWidget {
               ),
             );
       } else {
-        context.read<ProtectedNavigation>().open(context, '/main');
+        context.read<ProtectedNavigation>().open(context, '/home');
       }
       return;
     }
@@ -85,18 +85,12 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
   final Set<String> _selectedCollectionIds = {};
   bool _isLoading = true;
   bool _isSaving = false;
-  final _newCollectionNameCtrl = TextEditingController();
+  String? _inlineError;
 
   @override
   void initState() {
     super.initState();
     _loadInitialState();
-  }
-
-  @override
-  void dispose() {
-    _newCollectionNameCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _loadInitialState() async {
@@ -116,8 +110,9 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
     });
   }
 
-  Future<void> _toggleCollection(String collectionId) async {
+  void _toggleCollection(String collectionId) {
     setState(() {
+      _inlineError = null;
       if (_selectedCollectionIds.contains(collectionId)) {
         _selectedCollectionIds.remove(collectionId);
       } else {
@@ -127,69 +122,142 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
   }
 
   Future<void> _saveMemberships() async {
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _inlineError = null;
+    });
+
     final controller = context.read<ItineraryController>();
+    final targetCollectionIds = _selectedCollectionIds.toList();
+
     final success = await controller.setPlaceCollections(
       targetType: widget.targetType,
       targetId: widget.targetId,
-      collectionIds: _selectedCollectionIds.toList(),
+      collectionIds: targetCollectionIds,
     );
 
     if (!mounted) return;
+
+    if (!success) {
+      setState(() {
+        _isSaving = false;
+        _inlineError = controller.errorMessage ??
+            'Could not update collection memberships. Please try again.';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text(controller.errorMessage ?? 'Could not update saved places.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+
     Navigator.pop(context);
 
+    String successMsg;
+    if (targetCollectionIds.isEmpty) {
+      successMsg = 'Removed from Saved';
+    } else if (targetCollectionIds.length == 1) {
+      final colName = controller.collections
+          .where((c) => c.id == targetCollectionIds.first)
+          .map((c) => c.name)
+          .firstOrNull;
+      successMsg =
+          colName != null ? 'Saved to "$colName"' : 'Saved to 1 collection';
+    } else {
+      successMsg = 'Saved to ${targetCollectionIds.length} collections';
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? (_selectedCollectionIds.isEmpty
-                  ? 'Removed from saved places'
-                  : 'Saved to ${_selectedCollectionIds.length == 1 ? "1 collection" : "${_selectedCollectionIds.length} collections"}')
-              : controller.errorMessage ?? 'Could not update saved places',
-        ),
-      ),
+      SnackBar(content: Text(successMsg)),
     );
   }
 
   Future<void> _showCreateCollectionDialog() async {
-    _newCollectionNameCtrl.clear();
-    final newName = await showDialog<String>(
+    final nameCtrl = TextEditingController();
+    String? dialogError;
+
+    final createdId = await showDialog<String>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('New collection'),
-        content: TextField(
-          controller: _newCollectionNameCtrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'e.g. Weekend in Penang, KL Coffee',
-            labelText: 'Collection name',
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('New collection'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                maxLength: 80,
+                decoration: InputDecoration(
+                  hintText: 'e.g. Weekend in Penang, KL Coffee',
+                  labelText: 'Collection name',
+                  errorText: dialogError,
+                ),
+                textCapitalization: TextCapitalization.words,
+                onChanged: (_) {
+                  if (dialogError != null) {
+                    setDialogState(() => dialogError = null);
+                  }
+                },
+              ),
+            ],
           ),
-          textCapitalization: TextCapitalization.words,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final text = nameCtrl.text.trim();
+                if (text.isEmpty) {
+                  setDialogState(
+                      () => dialogError = 'Please enter a collection name.');
+                  return;
+                }
+                if (text.length > 80) {
+                  setDialogState(() =>
+                      dialogError = 'Name must be 80 characters or fewer.');
+                  return;
+                }
+
+                final controller = dialogCtx.read<ItineraryController>();
+                final existing = controller.collections.any(
+                  (c) => c.name.trim().toLowerCase() == text.toLowerCase(),
+                );
+                if (existing) {
+                  setDialogState(() => dialogError =
+                      'A collection with this name already exists.');
+                  return;
+                }
+
+                final created = await controller.createCollection(name: text);
+                if (created != null && dialogCtx.mounted) {
+                  Navigator.pop(dialogCtx, created.id);
+                } else if (dialogCtx.mounted) {
+                  setDialogState(() {
+                    dialogError = controller.errorMessage ??
+                        'Could not create collection.';
+                  });
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final text = _newCollectionNameCtrl.text.trim();
-              if (text.isNotEmpty) Navigator.pop(dialogCtx, text);
-            },
-            child: const Text('Create'),
-          ),
-        ],
       ),
     );
 
-    if (newName != null && newName.isNotEmpty && mounted) {
-      final controller = context.read<ItineraryController>();
-      final created = await controller.createCollection(name: newName);
-      if (created != null && mounted) {
-        setState(() {
-          _selectedCollectionIds.add(created.id);
-        });
-      }
+    nameCtrl.dispose();
+
+    if (createdId != null && mounted) {
+      setState(() {
+        _selectedCollectionIds.add(createdId);
+      });
     }
   }
 
@@ -251,105 +319,144 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                   ],
                 ),
               ),
+              if (_inlineError != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x3,
+                    vertical: AppSpacing.x1,
+                  ),
+                  child: Text(
+                    _inlineError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
               const Divider(height: 1),
               if (_isLoading)
                 const Padding(
-                  padding: EdgeInsets.all(AppSpacing.x5),
+                  padding: EdgeInsets.all(AppSpacing.x4),
                   child: Center(child: CircularProgressIndicator()),
+                )
+              else if (collections.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.x4),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.collections_bookmark_outlined,
+                        size: 48,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      Text(
+                        'No collections yet',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: AppSpacing.x1),
+                      Text(
+                        'Create your first collection to start organizing places.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                      ),
+                      const SizedBox(height: AppSpacing.x2),
+                      FilledButton.icon(
+                        onPressed: _showCreateCollectionDialog,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Create collection'),
+                      ),
+                    ],
+                  ),
                 )
               else
                 Flexible(
-                  child: ListView(
+                  child: ListView.builder(
                     shrinkWrap: true,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.x1,
-                    ),
-                    children: [
-                      ListTile(
-                        leading: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            Icons.add,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onPrimaryContainer,
-                          ),
+                    itemCount: collections.length,
+                    itemBuilder: (context, index) {
+                      final collection = collections[index];
+                      final isSelected =
+                          _selectedCollectionIds.contains(collection.id);
+
+                      return CheckboxListTile(
+                        value: isSelected,
+                        onChanged: (_) => _toggleCollection(collection.id),
+                        title: Text(
+                          collection.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        title: const Text(
-                          'Create new collection',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle:
-                            const Text('Group places for a trip or theme'),
-                        onTap: _showCreateCollectionDialog,
-                      ),
-                      if (collections.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(AppSpacing.x3),
-                          child: Center(
-                            child:
-                                Text('No collections yet. Create your first!'),
-                          ),
-                        )
-                      else
-                        ...collections.map((collection) {
-                          final isSelected =
-                              _selectedCollectionIds.contains(collection.id);
-                          return CheckboxListTile(
-                            value: isSelected,
-                            onChanged: (_) => _toggleCollection(collection.id),
-                            secondary: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.bookmark_outline,
-                                color: isSelected
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Theme.of(context)
+                        subtitle: Text(
+                          '${collection.itemCount} ${collection.itemCount == 1 ? "place" : "places"}',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
                                         .colorScheme
                                         .onSurfaceVariant,
-                              ),
-                            ),
-                            title: Text(
-                              collection.name,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: Text(
-                              '${collection.itemCount} ${collection.itemCount == 1 ? "place" : "places"}',
-                            ),
-                            controlAffinity: ListTileControlAffinity.trailing,
-                          );
-                        }),
-                    ],
+                                  ),
+                        ),
+                        secondary: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            isSelected
+                                ? Icons.bookmark
+                                : Icons.bookmark_outline,
+                            color: isSelected
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                            size: 20,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
+              const Divider(height: 1),
               Padding(
-                padding: const EdgeInsets.all(AppSpacing.x2),
-                child: FilledButton(
-                  onPressed: _isSaving ? null : _saveMemberships,
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Done'),
+                padding: const EdgeInsets.all(AppSpacing.x3),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed:
+                            _isSaving ? null : () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.x2),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _isSaving ? null : _saveMemberships,
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Done'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
