@@ -52,10 +52,8 @@ class _CreatorApplicationScreenState extends State<CreatorApplicationScreen> {
     final locked = application != null &&
         ['submitted', 'under_review', 'approved'].contains(application.status);
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
         title: const Text('Creator application'),
-        backgroundColor: const Color(0xFFF7F5F0),
       ),
       body: controller.isLoading && application == null
           ? const Center(child: CircularProgressIndicator())

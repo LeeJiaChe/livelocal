@@ -119,10 +119,8 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
         title: Text(_isRevision ? 'Revise your spot' : 'Submit a local spot'),
-        backgroundColor: const Color(0xFFF7F5F0),
       ),
       body: Form(
         key: _formKey,
