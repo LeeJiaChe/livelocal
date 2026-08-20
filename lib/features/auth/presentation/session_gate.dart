@@ -8,6 +8,7 @@ import '../../admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../profile/domain/account_repository.dart';
 import '../../profile/presentation/account_controller.dart';
 import 'auth_controller.dart';
+import 'set_new_password_screen.dart';
 
 class SessionGate extends StatelessWidget {
   const SessionGate({super.key});
@@ -29,6 +30,8 @@ class SessionGate extends StatelessWidget {
       case AuthStatus.banned:
       case AuthStatus.deletionPending:
         return const RestrictedAccountScreen();
+      case AuthStatus.passwordRecovery:
+        return const SetNewPasswordScreen();
       case AuthStatus.guest:
         return const MainNavigationScreen();
       case AuthStatus.authenticated:

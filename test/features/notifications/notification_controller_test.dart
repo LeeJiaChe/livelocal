@@ -32,7 +32,7 @@ void main() {
 
     await authRepository.registerTourist(
       email: 'another-tourist@example.test',
-      password: SeedDataService.demoPassword,
+      password: 'ValidPassword123!',
       displayName: 'Another Tourist',
     );
     await controller.load();

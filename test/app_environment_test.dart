@@ -148,7 +148,7 @@ void main() {
 
       final success = await controller.register(
         email,
-        SeedDataService.demoPassword,
+        'ValidPassword123!',
         'New Tourist',
       );
 

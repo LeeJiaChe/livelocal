@@ -21,6 +21,15 @@ class SupabaseAuthRepository implements AuthRepository {
       _client.auth.onAuthStateChange.map<void>((_) {});
 
   @override
+  Stream<AuthSessionEvent> get authEvents =>
+      _client.auth.onAuthStateChange.map<AuthSessionEvent>((data) {
+        if (data.event == AuthChangeEvent.passwordRecovery) {
+          return AuthSessionEvent.passwordRecovery;
+        }
+        return AuthSessionEvent.sessionChanged;
+      });
+
+  @override
   Future<AccountIdentity?> restoreSession() async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
@@ -44,7 +53,7 @@ class SupabaseAuthRepository implements AuthRepository {
           userMessage: 'Invalid email or password.',
         );
       }
-      return _loadAccount(user);
+      return await _loadAccount(user);
     } on AuthException catch (error) {
       throw _mapAuthException(error);
     }
@@ -80,7 +89,7 @@ class SupabaseAuthRepository implements AuthRepository {
           emailVerified: false,
         );
       }
-      return _loadAccount(user);
+      return await _loadAccount(user);
     } on AuthException catch (error) {
       throw _mapAuthException(error);
     }
@@ -113,6 +122,17 @@ class SupabaseAuthRepository implements AuthRepository {
         redirectTo: _redirectUrl.toString(),
       );
       return PasswordResetDelivery.email;
+    } on AuthException catch (error) {
+      throw _mapAuthException(error);
+    }
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
     } on AuthException catch (error) {
       throw _mapAuthException(error);
     }

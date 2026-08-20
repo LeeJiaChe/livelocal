@@ -14,6 +14,7 @@ enum AuthStatus {
   restricted,
   banned,
   deletionPending,
+  passwordRecovery,
   failure,
 }
 
@@ -22,7 +23,7 @@ class AuthController with ChangeNotifier {
       : _repository = repository;
 
   final AuthRepository _repository;
-  StreamSubscription<void>? _sessionSubscription;
+  StreamSubscription<AuthSessionEvent>? _sessionSubscription;
 
   AccountIdentity? _currentUser;
   AuthStatus _status = AuthStatus.checking;
@@ -41,9 +42,24 @@ class AuthController with ChangeNotifier {
 
   Future<void> initialize() async {
     await _sessionSubscription?.cancel();
-    _sessionSubscription = _repository.sessionChanges.listen((_) {
-      unawaited(_restoreSession(fromAuthEvent: true));
-    });
+    _sessionSubscription = _repository.authEvents.listen(
+      (event) {
+        if (event == AuthSessionEvent.passwordRecovery) {
+          _status = AuthStatus.passwordRecovery;
+          _errorMessage = null;
+          notifyListeners();
+        } else {
+          if (_status != AuthStatus.passwordRecovery) {
+            unawaited(_restoreSession(fromAuthEvent: true));
+          }
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        if (kDebugMode) {
+          debugPrint('Auth stream error: $error');
+        }
+      },
+    );
     await _restoreSession();
   }
 
@@ -90,6 +106,37 @@ class AuthController with ChangeNotifier {
       return null;
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updatePassword(String newPassword) async {
+    _setLoading();
+    try {
+      await _repository.updatePassword(newPassword);
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = _messageFor(error);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> completePasswordReset(String newPassword) async {
+    final success = await updatePassword(newPassword);
+    if (success) {
+      await logout();
+    }
+    return success;
+  }
+
+  void clearPasswordRecovery() {
+    if (_status == AuthStatus.passwordRecovery) {
+      _status =
+          _currentUser != null ? AuthStatus.authenticated : AuthStatus.guest;
       notifyListeners();
     }
   }

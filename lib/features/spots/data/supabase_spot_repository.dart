@@ -35,7 +35,7 @@ class SupabaseSpotRepository implements SpotRepository {
       final response = await request
           .order('updated_at', ascending: false)
           .range(offset, offset + limit - 1);
-      return Future.wait(
+      return await Future.wait(
         (response as List<dynamic>).map(
           (row) => _mapPublicSpot(Map<String, dynamic>.from(row as Map)),
         ),
@@ -56,7 +56,7 @@ class SupabaseSpotRepository implements SpotRepository {
           .select('*, spots!inner(id, moderation_version)')
           .inFilter(
               'status', ['submitted', 'under_review']).order('submitted_at');
-      return Future.wait(
+      return await Future.wait(
         (response as List<dynamic>).map((raw) async {
           final row = Map<String, dynamic>.from(raw as Map);
           final spot = Map<String, dynamic>.from(row['spots'] as Map);
@@ -94,7 +94,7 @@ class SupabaseSpotRepository implements SpotRepository {
   Future<List<SpotModel>> fetchOwnedSubmissions() async {
     try {
       final response = await _client.rpc('list_my_spot_submissions');
-      return Future.wait((response as List<dynamic>).map((raw) async {
+      return await Future.wait((response as List<dynamic>).map((raw) async {
         final row = Map<String, dynamic>.from(raw as Map);
         return SpotModel(
           id: row['spot_id'] as String,

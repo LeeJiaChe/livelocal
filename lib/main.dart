@@ -22,6 +22,7 @@ import 'features/auth/data/supabase_auth_repository.dart';
 import 'features/auth/domain/auth_repository.dart';
 import 'features/auth/presentation/password_reset_screen.dart';
 import 'features/auth/presentation/session_gate.dart';
+import 'features/auth/presentation/set_new_password_screen.dart';
 import 'features/profile/data/demo_account_repository.dart';
 import 'features/profile/data/supabase_account_repository.dart';
 import 'features/profile/domain/account_repository.dart';
@@ -286,6 +287,7 @@ class LiveLocalApp extends StatelessWidget {
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
           '/password-reset': (context) => const PasswordResetScreen(),
+          '/set-new-password': (context) => const SetNewPasswordScreen(),
           '/notifications': (context) => const NotificationsScreen(),
           '/blocked-users': (context) => const BlockedUsersScreen(),
           '/my-submissions': (context) => const MySubmissionsScreen(),
