@@ -2,8 +2,15 @@ import 'account_identity.dart';
 
 enum PasswordResetDelivery { email, demo }
 
+enum AuthSessionEvent {
+  sessionChanged,
+  passwordRecovery,
+}
+
 abstract interface class AuthRepository {
   Stream<void> get sessionChanges;
+
+  Stream<AuthSessionEvent> get authEvents;
 
   Future<AccountIdentity?> restoreSession();
 
@@ -21,6 +28,8 @@ abstract interface class AuthRepository {
   Future<void> resendVerificationEmail(String email);
 
   Future<PasswordResetDelivery> requestPasswordReset(String email);
+
+  Future<void> updatePassword(String newPassword);
 
   Future<void> signOut();
 

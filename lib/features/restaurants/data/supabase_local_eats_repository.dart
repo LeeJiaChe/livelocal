@@ -25,7 +25,7 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
           : (await _client.from('restaurants').select('id'))
               .map((row) => row['id'] as String)
               .toSet();
-      return Future.wait(
+      return await Future.wait(
         rows.map((row) => _mapPublished(row, ownIds.contains(row['id']))),
       );
     } on PostgrestException catch (error) {
@@ -71,7 +71,7 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
           .select('*, restaurants!inner(id, moderation_version, owner_id)')
           .inFilter(
               'status', ['submitted', 'under_review']).order('submitted_at');
-      return Future.wait(rows.map((row) async {
+      return await Future.wait(rows.map((row) async {
         final entity = Map<String, dynamic>.from(row['restaurants'] as Map);
         return RestaurantModel(
           id: entity['id'] as String,
@@ -100,7 +100,7 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
   Future<List<RestaurantModel>> fetchOwnedRestaurantSubmissions() async {
     try {
       final response = await _client.rpc('list_my_restaurant_submissions');
-      return Future.wait((response as List<dynamic>).map((raw) async {
+      return await Future.wait((response as List<dynamic>).map((raw) async {
         final row = Map<String, dynamic>.from(raw as Map);
         return RestaurantModel(
           id: row['restaurant_id'] as String,
@@ -385,10 +385,21 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
   }
 
   Future<String> _signedImage(String? path) async {
-    if (path == null || path.isEmpty) return '';
-    return _client.storage
-        .from('restaurant-images')
-        .createSignedUrl(path, 3600);
+    if (path == null || path.trim().isEmpty) return '';
+    final trimmed = path.trim();
+    final uri = Uri.tryParse(trimmed);
+    if (uri != null &&
+        uri.hasScheme &&
+        (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return trimmed;
+    }
+    try {
+      return await _client.storage
+          .from('restaurant-images')
+          .createSignedUrl(trimmed, 3600);
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<String> _uploadImage(Uint8List bytes, String mimeType) async {
