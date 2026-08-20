@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../app/theme/app_spacing.dart';
 import '../controllers/guide_controller.dart';
-import '../models/guide_model.dart';
-import 'guide_detail_screen.dart';
-import '../shared/presentation/app_state_view.dart';
 import '../features/guides/presentation/submit_guide_screen.dart';
+import '../models/guide_model.dart';
+import '../shared/presentation/app_state_view.dart';
+import 'guide_detail_screen.dart';
 
 class NeighbourhoodExplorerScreen extends StatefulWidget {
   const NeighbourhoodExplorerScreen({super.key});
@@ -20,13 +21,16 @@ class _NeighbourhoodExplorerScreenState
   static const _states = [
     'All',
     'Johor',
+    'Kedah',
     'Kuala Lumpur',
     'Melaka',
+    'Pahang',
     'Penang',
     'Perak',
     'Sabah',
     'Sarawak',
     'Selangor',
+    'Terengganu',
   ];
 
   late final TextEditingController _searchCtrl;
@@ -58,11 +62,6 @@ class _NeighbourhoodExplorerScreenState
     final hasActiveFilters = controller.hasActiveFilters;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F5F0),
-        title: const Text('Neighbourhood guides'),
-      ),
       body: RefreshIndicator(
         onRefresh: controller.loadGuides,
         child: CustomScrollView(
@@ -70,19 +69,28 @@ class _NeighbourhoodExplorerScreenState
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x2,
+                  AppSpacing.x2,
+                  AppSpacing.x2,
+                  AppSpacing.x1,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Curated routes for exploring locally',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      'Neighbourhood guides',
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Every published guide is curated and versioned by the LiveLocal team.',
+                    const SizedBox(height: AppSpacing.x1),
+                    Text(
+                      'Curated walking routes and district explorations curated by the community.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.x2),
                     SearchBar(
                       controller: _searchCtrl,
                       hintText: 'Search guides or neighbourhoods',
@@ -93,9 +101,7 @@ class _NeighbourhoodExplorerScreenState
                             tooltip: 'Clear search',
                             icon: const Icon(Icons.close),
                             onPressed: () {
-                              setState(() {
-                                _searchCtrl.clear();
-                              });
+                              setState(_searchCtrl.clear);
                               controller.setSearchQuery('');
                             },
                           ),
@@ -105,20 +111,20 @@ class _NeighbourhoodExplorerScreenState
                         controller.setSearchQuery(val);
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.x2),
                     DropdownButtonFormField<String>(
                       key: ValueKey('state_${controller.selectedState}'),
                       initialValue: controller.selectedState,
                       decoration: const InputDecoration(
                         labelText: 'State or territory',
-                        border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.location_on_outlined),
                       ),
                       items: _states
                           .map(
                             (state) => DropdownMenuItem(
                               value: state,
-                              child: Text(state),
+                              child:
+                                  Text(state == 'All' ? 'All Malaysia' : state),
                             ),
                           )
                           .toList(),
@@ -126,7 +132,7 @@ class _NeighbourhoodExplorerScreenState
                         if (value != null) controller.setStateFilter(value);
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.x2),
                     DropdownButtonFormField<String>(
                       key: ValueKey(
                         'nh_${controller.selectedState}_${controller.selectedNeighbourhood}',
@@ -134,7 +140,6 @@ class _NeighbourhoodExplorerScreenState
                       initialValue: controller.selectedNeighbourhood,
                       decoration: const InputDecoration(
                         labelText: 'Neighbourhood / area',
-                        border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.holiday_village_outlined),
                       ),
                       items: neighbourhoods
@@ -151,18 +156,23 @@ class _NeighbourhoodExplorerScreenState
                         }
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.x2),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           '${guides.length} ${guides.length == 1 ? 'guide' : 'guides'} found',
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                         ),
                         if (hasActiveFilters)
                           TextButton.icon(
                             icon: const Icon(Icons.filter_alt_off_outlined,
-                                size: 18),
+                                size: 16),
                             label: const Text('Clear filters'),
                             onPressed: () => _clearFilters(controller),
                           ),
@@ -173,22 +183,20 @@ class _NeighbourhoodExplorerScreenState
               ),
             ),
             if (controller.isLoading && controller.guides.isEmpty)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
+              const SliverPadding(
+                padding: EdgeInsets.all(AppSpacing.x2),
+                sliver: _GuideLoadingSliver(),
               )
             else if (controller.errorMessage != null &&
                 controller.guides.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: SingleChildScrollView(
-                  child: AppStateView(
-                    icon: Icons.wifi_off_outlined,
-                    title: 'Guides could not be loaded',
-                    message: controller.errorMessage!,
-                    actionLabel: 'Try again',
-                    onAction: controller.loadGuides,
-                  ),
+                child: AppStateView(
+                  icon: Icons.wifi_off_outlined,
+                  title: 'Guides could not be loaded',
+                  message: controller.errorMessage!,
+                  actionLabel: 'Try again',
+                  onAction: controller.loadGuides,
                 ),
               )
             else if (controller.guides.isEmpty)
@@ -199,7 +207,7 @@ class _NeighbourhoodExplorerScreenState
                     icon: Icons.explore_off_outlined,
                     title: 'No guides available',
                     message:
-                        'Check back later for curated neighbourhood routes.',
+                        'Check back soon for curated neighbourhood routes.',
                   ),
                 ),
               )
@@ -212,17 +220,22 @@ class _NeighbourhoodExplorerScreenState
                     title: 'No matching guides',
                     message: 'Try another search, state, or neighbourhood.',
                     actionLabel: 'Clear filters',
-                    actionIcon: Icons.filter_alt_off_outlined,
                     onAction: () => _clearFilters(controller),
                   ),
                 ),
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 112),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x2,
+                  0,
+                  AppSpacing.x2,
+                  112,
+                ),
                 sliver: SliverList.separated(
                   itemCount: guides.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.x2),
                   itemBuilder: (context, index) => _GuideCard(
                     guide: guides[index],
                     onTap: () => Navigator.push(
@@ -259,46 +272,74 @@ class _GuideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.x2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.route_outlined),
-                  const SizedBox(width: 12),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.route_outlined,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.x2),
                   Expanded(
-                    child: Text(
-                      guide.title,
-                      style: Theme.of(context).textTheme.titleMedium,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          guide.title,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${guide.locationName}, ${guide.state}',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                        ),
+                      ],
                     ),
                   ),
                   const Icon(Icons.chevron_right),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text('${guide.locationName}, ${guide.state}'),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.x2),
               Text(
                 guide.routeOverview,
-                maxLines: 3,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.x2),
               Wrap(
-                spacing: 16,
-                runSpacing: 8,
+                spacing: AppSpacing.x2,
+                runSpacing: AppSpacing.x1,
                 children: [
                   _Meta(
-                      icon: Icons.schedule_outlined,
-                      text: guide.estimatedDuration),
+                    icon: Icons.schedule_outlined,
+                    text: guide.estimatedDuration,
+                  ),
                   _Meta(
                     icon: Icons.pin_drop_outlined,
                     text: '${guide.stops.length} stops',
@@ -324,10 +365,35 @@ class _Meta extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18),
+        Icon(icon,
+            size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),
-        Text(text),
+        Text(
+          text,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
       ],
+    );
+  }
+}
+
+class _GuideLoadingSliver extends StatelessWidget {
+  const _GuideLoadingSliver();
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverList.separated(
+      itemCount: 3,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.x2),
+      itemBuilder: (_, __) => Container(
+        height: 140,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
     );
   }
 }

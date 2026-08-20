@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../../models/spot_filter_options.dart';
 import '../../../models/spot_model.dart';
 
 class SpotDraftInput {
@@ -67,6 +68,8 @@ class SpotUpvoteResult {
 }
 
 abstract interface class SpotRepository {
+  Future<SpotFilterOptions> fetchFilterOptions();
+
   Future<List<SpotModel>> fetchPublicSpots({
     String? query,
     String? state,

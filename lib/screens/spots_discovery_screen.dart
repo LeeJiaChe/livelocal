@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
+import '../controllers/itinerary_controller.dart';
 import '../controllers/spot_controller.dart';
 import '../core/routing/protected_navigation.dart';
 import '../models/spot_model.dart';
 import '../shared/presentation/app_state_view.dart';
+import '../shared/presentation/save_to_collection_sheet.dart';
 import 'spot_detail_screen.dart';
 
 class SpotsDiscoveryScreen extends StatefulWidget {
@@ -17,28 +19,6 @@ class SpotsDiscoveryScreen extends StatefulWidget {
 }
 
 class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
-  static const _states = [
-    'All',
-    'Johor',
-    'Kuala Lumpur',
-    'Melaka',
-    'Penang',
-    'Perak',
-    'Sabah',
-    'Sarawak',
-    'Selangor',
-  ];
-
-  static const _categories = [
-    'All',
-    'Kopitiam',
-    'Pasar Malam',
-    'Indie Cafe',
-    'Park / Walkway',
-    'Hawker Food',
-    'Heritage Spot',
-  ];
-
   final _search = TextEditingController();
 
   @override
@@ -47,10 +27,79 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
     super.dispose();
   }
 
+  void _showStateSelector(BuildContext context, SpotController controller) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x2,
+            0,
+            AppSpacing.x2,
+            AppSpacing.x2,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.x2,
+                  vertical: AppSpacing.x1,
+                ),
+                child: Text(
+                  'Select state or territory',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const Divider(),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: controller.filterOptions.states.map((opt) {
+                    final isSelected = controller.selectedState == opt.rawValue;
+                    return ListTile(
+                      title: Text(
+                        opt.displayName,
+                        style: TextStyle(
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? Icon(
+                              Icons.check,
+                              color: Theme.of(context).colorScheme.primary,
+                            )
+                          : null,
+                      onTap: () {
+                        controller.filter(state: opt.rawValue);
+                        Navigator.pop(sheetCtx);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<SpotController>();
     final spots = controller.approvedSpots;
+    final categories = controller.filterOptions.categories;
+    final hasActiveFilters = controller.hasActiveFilters;
 
     return Scaffold(
       body: RefreshIndicator(
@@ -70,18 +119,21 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Discover places locals value',
+                      'Discover Malaysia like a local',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: AppSpacing.x1),
                     Text(
-                      'Browse approved public spots without sharing your location.',
-                      style: Theme.of(context).textTheme.bodyLarge,
+                      'Explore authentic heritage, nature, and cultural places recommended by local communities.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
                     const SizedBox(height: AppSpacing.x2),
                     SearchBar(
                       controller: _search,
-                      hintText: 'Search places, food, or neighbourhoods',
+                      hintText: 'Search places, heritage, or towns',
                       leading: const Icon(Icons.search),
                       trailing: [
                         if (_search.text.isNotEmpty)
@@ -100,52 +152,76 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
                       },
                     ),
                     const SizedBox(height: AppSpacing.x2),
-                    DropdownButtonFormField<String>(
-                      initialValue: controller.selectedState,
-                      decoration: const InputDecoration(
-                        labelText: 'State or territory',
-                        prefixIcon: Icon(Icons.location_on_outlined),
-                      ),
-                      items: _states
-                          .map(
-                            (state) => DropdownMenuItem(
-                              value: state,
-                              child: Text(state),
+                    // Filter bar: State filter button + Category horizontal chips
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ActionChip(
+                            avatar: Icon(
+                              Icons.location_on_outlined,
+                              size: 18,
+                              color: controller.selectedState != 'All'
+                                  ? Theme.of(context).colorScheme.onPrimary
+                                  : null,
                             ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) controller.filter(state: value);
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.x2),
-                    Semantics(
-                      label: 'Filter spots by category',
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: _categories
-                              .map(
-                                (category) => Padding(
-                                  padding: const EdgeInsets.only(
-                                      right: AppSpacing.x1),
-                                  child: FilterChip(
-                                    label: Text(category),
-                                    selected:
-                                        controller.selectedCategory == category,
-                                    onSelected: (_) =>
-                                        controller.filter(category: category),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
+                            label: Text(controller.selectedStateDisplayName),
+                            backgroundColor: controller.selectedState != 'All'
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
+                            labelStyle: TextStyle(
+                              color: controller.selectedState != 'All'
+                                  ? Theme.of(context).colorScheme.onPrimary
+                                  : null,
+                              fontWeight: controller.selectedState != 'All'
+                                  ? FontWeight.w600
+                                  : null,
+                            ),
+                            onPressed: () =>
+                                _showStateSelector(context, controller),
+                          ),
+                          const SizedBox(width: AppSpacing.x1),
+                          ...categories.map((cat) {
+                            final isSelected =
+                                controller.selectedCategory == cat;
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.only(right: AppSpacing.x1),
+                              child: FilterChip(
+                                label: Text(cat),
+                                selected: isSelected,
+                                onSelected: (_) =>
+                                    controller.filter(category: cat),
+                              ),
+                            );
+                          }),
+                        ],
                       ),
                     ),
                     const SizedBox(height: AppSpacing.x2),
-                    Text(
-                      '${spots.length} ${spots.length == 1 ? 'place' : 'places'}',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${spots.length} ${spots.length == 1 ? 'place' : 'places'} found',
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                        ),
+                        if (hasActiveFilters)
+                          TextButton.icon(
+                            icon: const Icon(Icons.filter_alt_off_outlined,
+                                size: 16),
+                            label: const Text('Clear filters'),
+                            onPressed: () {
+                              setState(_search.clear);
+                              controller.resetFilters();
+                            },
+                          ),
+                      ],
                     ),
                     if (controller.errorMessage != null && spots.isNotEmpty)
                       Padding(
@@ -183,10 +259,10 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
                 child: AppStateView(
                   icon: Icons.travel_explore_outlined,
                   title: 'No matching places',
-                  message: 'Try another search, category, or state.',
+                  message: 'Try another search, category, or state filter.',
                   actionLabel: 'Clear filters',
                   onAction: () {
-                    _search.clear();
+                    setState(_search.clear);
                     controller.resetFilters();
                   },
                 ),
@@ -248,6 +324,9 @@ class _SpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final itineraryCtrl = context.watch<ItineraryController>();
+    final isSaved = itineraryCtrl.isSaved(spotId: spot.id);
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -258,54 +337,134 @@ class _SpotCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(
-              aspectRatio: 16 / 7,
-              child: CachedNetworkImage(
-                imageUrl: spot.imageUrl,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-                errorWidget: (_, __, ___) => ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const Center(
-                    child: Icon(Icons.image_not_supported_outlined, size: 48),
+            Stack(
+              children: [
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: CachedNetworkImage(
+                    imageUrl: spot.imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => ColoredBox(
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
+                    errorWidget: (_, __, ___) => ColoredBox(
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: const Center(
+                        child:
+                            Icon(Icons.image_not_supported_outlined, size: 48),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surface
+                          .withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        isSaved ? Icons.bookmark : Icons.bookmark_border,
+                        color: isSaved
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                      tooltip: isSaved
+                          ? 'Saved to collections'
+                          : 'Save to collection',
+                      onPressed: () => SaveToCollectionSheet.show(
+                        context,
+                        targetType: 'spot',
+                        targetId: spot.id,
+                        placeName: spot.name,
+                        spot: spot,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 8,
+                  left: 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      spot.category,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.x2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Wrap(
-                    spacing: AppSpacing.x1,
-                    runSpacing: AppSpacing.x1,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Chip(label: Text(spot.category)),
+                      Expanded(
+                        child: Text(
+                          spot.name,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                      ),
                       if (spot.reviewCount > 0)
-                        Chip(
-                          avatar: const Icon(Icons.star, size: 18),
-                          label: Text(
-                            '${spot.rating.toStringAsFixed(1)} · ${spot.reviewCount}',
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star,
+                                size: 16, color: Color(0xFFFFD700)),
+                            const SizedBox(width: 2),
+                            Text(
+                              spot.rating.toStringAsFixed(1),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.x1),
+                  const SizedBox(height: 4),
                   Text(
-                    spot.name,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    '${spot.city}, ${spot.state} · ${spot.priceRange}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
-                  const SizedBox(height: AppSpacing.x1),
-                  Text('${spot.city}, ${spot.state} · ${spot.priceRange}'),
-                  const SizedBox(height: AppSpacing.x1),
+                  const SizedBox(height: 8),
                   Text(
                     spot.description,
-                    maxLines: 3,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -326,7 +485,7 @@ class _SpotLoadingSliver extends StatelessWidget {
       itemCount: 3,
       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.x2),
       itemBuilder: (_, __) => Container(
-        height: 260,
+        height: 280,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),

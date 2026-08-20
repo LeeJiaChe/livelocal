@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../models/spot_filter_options.dart';
 import '../../../models/spot_model.dart';
 import '../../../services/seed_data_service.dart';
 import '../../auth/data/demo_auth_repository.dart';
@@ -41,6 +42,33 @@ class DemoSpotRepository implements SpotRepository {
   final Set<String> _rightsConfirmedRevisions = {};
   final Map<String, String> _currentRevisionIds = {};
   final Set<String> _upvotedSpotIds = {};
+
+  @override
+  Future<SpotFilterOptions> fetchFilterOptions() async {
+    final rawStates = <String>{};
+    final categories = <String>{};
+    for (final spot in _spots) {
+      if (spot.status == 'approved') {
+        if (spot.state.trim().isNotEmpty) rawStates.add(spot.state.trim());
+        if (spot.category.trim().isNotEmpty) {
+          categories.add(spot.category.trim());
+        }
+      }
+    }
+    final sortedRawStates = rawStates.toList()..sort();
+    final stateOptions = [
+      const SpotStateOption(rawValue: 'All', displayName: 'All Malaysia'),
+      ...sortedRawStates.map((s) {
+        final displayName = s == 'Pulau Pinang' ? 'Penang' : s;
+        return SpotStateOption(rawValue: s, displayName: displayName);
+      }),
+    ];
+    final sortedCategories = ['All', ...categories.toList()..sort()];
+    return SpotFilterOptions(
+      states: stateOptions,
+      categories: sortedCategories,
+    );
+  }
 
   @override
   Future<List<SpotModel>> fetchPublicSpots({
