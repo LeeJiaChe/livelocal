@@ -59,6 +59,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  bool _preservePendingOnExit = false;
+
+  void _handleBack() {
+    if (!_preservePendingOnExit) {
+      context.read<ProtectedNavigation?>()?.clearPending();
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    Navigator.of(context).pushReplacementNamed('/home');
+  }
+
+  void _switchToLogin() {
+    _preservePendingOnExit = true;
+    Navigator.pushReplacementNamed(context, '/login');
+  }
+
   Future<void> _handleRegister() async {
     final currentForm = _formKey.currentState;
 
@@ -85,6 +103,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (success) {
+      _preservePendingOnExit = true;
       final requiresVerification =
           authCtrl.status == AuthStatus.verificationRequired;
 
@@ -114,277 +133,270 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  void _goBack() {
-    context.read<ProtectedNavigation>().clearPending();
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-      return;
-    }
-
-    Navigator.pushReplacementNamed(
-      context,
-      '/home',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isSubmitting = context.watch<AuthController>().isLoading;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0,
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!_preservePendingOnExit) {
+          context.read<ProtectedNavigation?>()?.clearPending();
+        }
+        if (!didPop) {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      },
+      child: Scaffold(
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.primary,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: isSubmitting ? null : _goBack,
-        ),
-        title: const Text(
-          'LiveLocal',
-          style: TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.bold,
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.primary,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: isSubmitting ? null : _handleBack,
+          ),
+          title: const Text(
+            'LiveLocal',
+            style: TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.all(24),
-          child: AutofillGroup(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Create your account',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.all(24),
+            child: AutofillGroup(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Create your account',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 4),
+                  const SizedBox(height: 4),
 
-                const Text(
-                  'Join thousands discovering authentic Malaysia',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
+                  const Text(
+                    'Join thousands discovering authentic Malaysia',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                const Text(
-                  'All new accounts start as tourists. '
-                  'Influencer applications are available from your '
-                  'profile after verification.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey,
+                  const Text(
+                    'All new accounts start as tourists. '
+                    'Influencer applications are available from your '
+                    'profile after verification.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                Form(
-                  key: _formKey,
-                  child: Column(
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        // ==================================================
+                        // FULL NAME
+                        // ==================================================
+
+                        TextFormField(
+                          controller: _fullNameController,
+                          enabled: !isSubmitting,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [
+                            AutofillHints.name,
+                          ],
+                          decoration: _fieldDecoration(
+                            prefixIcon: Icons.person_outline,
+                            labelText: 'Full Name',
+                          ),
+                          validator: AuthFormValidator.validateFullName,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // ==================================================
+                        // EMAIL
+                        // ==================================================
+
+                        TextFormField(
+                          controller: _emailController,
+                          enabled: !isSubmitting,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          autofillHints: const [
+                            AutofillHints.email,
+                          ],
+                          decoration: _fieldDecoration(
+                            prefixIcon: Icons.email_outlined,
+                            labelText: 'Email Address',
+                          ),
+                          validator: AuthFormValidator.validateEmail,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // ==================================================
+                        // PASSWORD
+                        // ==================================================
+
+                        TextFormField(
+                          controller: _passwordController,
+                          enabled: !isSubmitting,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [
+                            AutofillHints.newPassword,
+                          ],
+                          decoration: _fieldDecoration(
+                            prefixIcon: Icons.lock_outline,
+                            labelText: 'Password',
+                            suffixIcon: IconButton(
+                              tooltip: _obscurePassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: AppColors.primary,
+                              ),
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      });
+                                    },
+                            ),
+                          ),
+                          validator: AuthFormValidator.validateRegisterPassword,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // ==================================================
+                        // CONFIRM PASSWORD
+                        // ==================================================
+
+                        TextFormField(
+                          controller: _confirmPasswordController,
+                          enabled: !isSubmitting,
+                          obscureText: _obscureConfirm,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [
+                            AutofillHints.newPassword,
+                          ],
+                          onFieldSubmitted: (_) {
+                            if (!isSubmitting) {
+                              _handleRegister();
+                            }
+                          },
+                          decoration: _fieldDecoration(
+                            prefixIcon: Icons.lock_outline,
+                            labelText: 'Confirm Password',
+                            suffixIcon: IconButton(
+                              tooltip: _obscureConfirm
+                                  ? 'Show password confirmation'
+                                  : 'Hide password confirmation',
+                              icon: Icon(
+                                _obscureConfirm
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: AppColors.primary,
+                              ),
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _obscureConfirm = !_obscureConfirm;
+                                      });
+                                    },
+                            ),
+                          ),
+                          validator: (value) {
+                            return AuthFormValidator.validateConfirmPassword(
+                              value,
+                              _passwordController.text,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // ======================================================
+                  // CREATE ACCOUNT BUTTON
+                  // ======================================================
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: isSubmitting ? null : _handleRegister,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: isSubmitting
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Create Account',
+                              style: TextStyle(
+                                fontSize: 16,
+                              ),
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ======================================================
+                  // LOGIN LINK
+                  // ======================================================
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // ==================================================
-                      // FULL NAME
-                      // ==================================================
-
-                      TextFormField(
-                        controller: _fullNameController,
-                        enabled: !isSubmitting,
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [
-                          AutofillHints.name,
-                        ],
-                        decoration: _fieldDecoration(
-                          prefixIcon: Icons.person_outline,
-                          labelText: 'Full Name',
-                        ),
-                        validator: AuthFormValidator.validateFullName,
+                      const Text(
+                        'Already have an account? ',
                       ),
-
-                      const SizedBox(height: 16),
-
-                      // ==================================================
-                      // EMAIL
-                      // ==================================================
-
-                      TextFormField(
-                        controller: _emailController,
-                        enabled: !isSubmitting,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autocorrect: false,
-                        autofillHints: const [
-                          AutofillHints.email,
-                        ],
-                        decoration: _fieldDecoration(
-                          prefixIcon: Icons.email_outlined,
-                          labelText: 'Email Address',
+                      TextButton(
+                        onPressed: isSubmitting ? null : _switchToLogin,
+                        child: const Text(
+                          'Log in',
                         ),
-                        validator: AuthFormValidator.validateEmail,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // ==================================================
-                      // PASSWORD
-                      // ==================================================
-
-                      TextFormField(
-                        controller: _passwordController,
-                        enabled: !isSubmitting,
-                        obscureText: _obscurePassword,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [
-                          AutofillHints.newPassword,
-                        ],
-                        decoration: _fieldDecoration(
-                          prefixIcon: Icons.lock_outline,
-                          labelText: 'Password',
-                          suffixIcon: IconButton(
-                            tooltip: _obscurePassword
-                                ? 'Show password'
-                                : 'Hide password',
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              color: AppColors.primary,
-                            ),
-                            onPressed: isSubmitting
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                          ),
-                        ),
-                        validator: AuthFormValidator.validateRegisterPassword,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // ==================================================
-                      // CONFIRM PASSWORD
-                      // ==================================================
-
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        enabled: !isSubmitting,
-                        obscureText: _obscureConfirm,
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const [
-                          AutofillHints.newPassword,
-                        ],
-                        onFieldSubmitted: (_) {
-                          if (!isSubmitting) {
-                            _handleRegister();
-                          }
-                        },
-                        decoration: _fieldDecoration(
-                          prefixIcon: Icons.lock_outline,
-                          labelText: 'Confirm Password',
-                          suffixIcon: IconButton(
-                            tooltip: _obscureConfirm
-                                ? 'Show password confirmation'
-                                : 'Hide password confirmation',
-                            icon: Icon(
-                              _obscureConfirm
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              color: AppColors.primary,
-                            ),
-                            onPressed: isSubmitting
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _obscureConfirm = !_obscureConfirm;
-                                    });
-                                  },
-                          ),
-                        ),
-                        validator: (value) {
-                          return AuthFormValidator.validateConfirmPassword(
-                            value,
-                            _passwordController.text,
-                          );
-                        },
                       ),
                     ],
                   ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // ======================================================
-                // CREATE ACCOUNT BUTTON
-                // ======================================================
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: isSubmitting ? null : _handleRegister,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: isSubmitting
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text(
-                            'Create Account',
-                            style: TextStyle(
-                              fontSize: 16,
-                            ),
-                          ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ======================================================
-                // LOGIN LINK
-                // ======================================================
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'Already have an account? ',
-                    ),
-                    TextButton(
-                      onPressed: isSubmitting
-                          ? null
-                          : () => Navigator.pushReplacementNamed(
-                                context,
-                                '/login',
-                              ),
-                      child: const Text(
-                        'Log in',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

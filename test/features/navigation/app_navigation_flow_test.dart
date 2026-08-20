@@ -18,6 +18,8 @@ import 'package:live_local/features/admin/presentation/screens/admin_dashboard_s
 import 'package:live_local/features/auth/data/demo_auth_repository.dart';
 import 'package:live_local/features/auth/domain/account_identity.dart';
 import 'package:live_local/features/auth/domain/auth_repository.dart';
+import 'package:live_local/features/auth/presentation/auth_navigation_coordinator.dart';
+import 'package:live_local/features/auth/presentation/password_reset_screen.dart';
 import 'package:live_local/features/auth/presentation/session_gate.dart';
 import 'package:live_local/features/auth/presentation/set_new_password_screen.dart';
 import 'package:live_local/features/guides/data/demo_guide_repository.dart';
@@ -111,8 +113,11 @@ Widget _buildTestApp({
   required AuthController authController,
   required _FakeAuthRepository authRepository,
   ProtectedNavigation? protectedNavigation,
+  GlobalKey<NavigatorState>? navigatorKey,
   Widget? home,
+  String? initialRoute,
 }) {
+  final navKey = navigatorKey ?? GlobalKey<NavigatorState>();
   final protectedNav = protectedNavigation ?? ProtectedNavigation();
   final accountRepository = DemoAccountRepository(authRepository);
   final spotRepository = DemoSpotRepository(authRepository);
@@ -171,16 +176,22 @@ Widget _buildTestApp({
         ),
       ),
     ],
-    child: MaterialApp(
-      home: home ?? const SessionGate(),
-      routes: {
-        '/home': (context) => const SessionGate(),
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/submit-spot': (context) =>
-            const Scaffold(body: Text('Submit Spot Target Screen')),
-        '/set-new-password': (context) => const SetNewPasswordScreen(),
-      },
+    child: AuthNavigationCoordinator(
+      navigatorKey: navKey,
+      child: MaterialApp(
+        navigatorKey: navKey,
+        home: home,
+        initialRoute: initialRoute,
+        routes: {
+          '/home': (context) => const SessionGate(),
+          '/login': (context) => const LoginScreen(),
+          '/register': (context) => const RegisterScreen(),
+          '/password-reset': (context) => const PasswordResetScreen(),
+          '/submit-spot': (context) =>
+              const Scaffold(body: Text('Submit Spot Target Screen')),
+          '/set-new-password': (context) => const SetNewPasswordScreen(),
+        },
+      ),
     ),
   );
 }
@@ -398,6 +409,138 @@ void main() {
       expect(protectedNav.hasPending, isFalse);
     });
 
+    testWidgets(
+        '4A. System back on Login clears abandoned pending navigation (tester.binding.handlePopRoute)',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = _FakeAuthRepository();
+      final authCtrl = AuthController(repository: repo);
+      await authCtrl.initialize();
+      final protectedNav = ProtectedNavigation();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: authCtrl,
+          authRepository: repo,
+          protectedNavigation: protectedNav,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+
+      // Trigger protected navigation
+      final context = tester.element(find.byType(SessionGate));
+      protectedNav.open(context, '/submit-spot');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isTrue);
+
+      // Simulate Android system back gesture/button
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Returns to SessionGate / MainNavigationScreen and pending is cleared
+      expect(find.byType(MainNavigationScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isFalse);
+    });
+
+    testWidgets(
+        '4B. System back from Register after switching clears pending navigation',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = _FakeAuthRepository();
+      final authCtrl = AuthController(repository: repo);
+      await authCtrl.initialize();
+      final protectedNav = ProtectedNavigation();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: authCtrl,
+          authRepository: repo,
+          protectedNavigation: protectedNav,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+
+      final context = tester.element(find.byType(SessionGate));
+      protectedNav.open(context, '/submit-spot');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isTrue);
+
+      // Switch to Register (using replacement)
+      await tester.tap(find.text('Sign up'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RegisterScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isTrue);
+
+      // System back from Register (since replacement was used, system back goes to root /home)
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(MainNavigationScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isFalse);
+    });
+
+    testWidgets(
+        '4C. Switching between Login and Register preserves pending navigation',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = _FakeAuthRepository();
+      final authCtrl = AuthController(repository: repo);
+      await authCtrl.initialize();
+      final protectedNav = ProtectedNavigation();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: authCtrl,
+          authRepository: repo,
+          protectedNavigation: protectedNav,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+
+      final context = tester.element(find.byType(SessionGate));
+      protectedNav.open(context, '/submit-spot');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isTrue);
+
+      // Switch to Register
+      await tester.tap(find.text('Sign up'));
+      await tester.pumpAndSettle();
+      expect(find.byType(RegisterScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isTrue);
+
+      // Switch back to Login
+      final logInLink = find.text('Log in');
+      await tester.ensureVisible(logInLink);
+      await tester.tap(logInLink);
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isTrue);
+    });
+
     testWidgets('5. Password recovery does not consume pending protected route',
         (tester) async {
       final repo = _FakeAuthRepository();
@@ -432,6 +575,151 @@ void main() {
       expect(authCtrl.status, AuthStatus.passwordRecovery);
       // Pending navigation is untouched/not consumed
       expect(protectedNav.hasPending, isTrue);
+    });
+
+    testWidgets(
+        'Recovery Test 1: Password recovery event while PasswordResetScreen is top routes directly to SetNewPasswordScreen',
+        (tester) async {
+      final repo = _FakeAuthRepository();
+      final authCtrl = AuthController(repository: repo);
+      await authCtrl.initialize();
+      final protectedNav = ProtectedNavigation();
+      final navKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: authCtrl,
+          authRepository: repo,
+          protectedNavigation: protectedNav,
+          navigatorKey: navKey,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+
+      // Open protected route to have pending action
+      final context = tester.element(find.byType(SessionGate));
+      protectedNav.open(context, '/submit-spot');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+
+      // Navigate to /password-reset
+      await tester.tap(find.text('Forgot password?'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PasswordResetScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isTrue);
+
+      // User opens link from email -> emit passwordRecovery
+      repo.triggerPasswordRecovery();
+      await tester.pumpAndSettle();
+
+      // SetNewPasswordScreen is active and visible
+      expect(find.byType(SetNewPasswordScreen), findsOneWidget);
+      expect(find.byType(PasswordResetScreen), findsNothing);
+      expect(find.text('Create new password'), findsOneWidget);
+
+      // Pending action is untouched
+      expect(protectedNav.hasPending, isTrue);
+    });
+
+    testWidgets(
+        'Recovery Test 2: Password recovery event while LoginScreen is top routes directly to SetNewPasswordScreen',
+        (tester) async {
+      final repo = _FakeAuthRepository();
+      final authCtrl = AuthController(repository: repo);
+      await authCtrl.initialize();
+      final navKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: authCtrl,
+          authRepository: repo,
+          navigatorKey: navKey,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+
+      // Navigate to /login
+      navKey.currentState?.pushNamed('/login');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+
+      // Trigger recovery
+      repo.triggerPasswordRecovery();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SetNewPasswordScreen), findsOneWidget);
+      expect(find.byType(LoginScreen), findsNothing);
+    });
+
+    testWidgets(
+        'Recovery Test 3: Multiple passwordRecovery events do not push duplicate screens',
+        (tester) async {
+      final repo = _FakeAuthRepository();
+      final authCtrl = AuthController(repository: repo);
+      await authCtrl.initialize();
+      final navKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: authCtrl,
+          authRepository: repo,
+          navigatorKey: navKey,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+
+      navKey.currentState?.pushNamed('/login');
+      await tester.pumpAndSettle();
+
+      // Emit twice
+      repo.triggerPasswordRecovery();
+      await tester.pumpAndSettle();
+      repo.triggerPasswordRecovery();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SetNewPasswordScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'Recovery Test 4: Completing password reset logs out and navigates to LoginScreen',
+        (tester) async {
+      final repo = _FakeAuthRepository();
+      final authCtrl = AuthController(repository: repo);
+      await authCtrl.initialize();
+      final navKey = GlobalKey<NavigatorState>();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: authCtrl,
+          authRepository: repo,
+          navigatorKey: navKey,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+
+      repo.triggerPasswordRecovery();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SetNewPasswordScreen), findsOneWidget);
+
+      // Enter matching valid passwords (10+ chars, letter and number)
+      final passwordFields = find.byType(TextFormField);
+      await tester.enterText(passwordFields.at(0), 'BrandNewPass123!');
+      await tester.enterText(passwordFields.at(1), 'BrandNewPass123!');
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Update Password'));
+      await tester.pumpAndSettle();
+
+      // After update, user is redirected to /login and SetNewPasswordScreen is gone
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(SetNewPasswordScreen), findsNothing);
     });
 
     testWidgets('6. Admin account enters AdminDashboardScreen directly',

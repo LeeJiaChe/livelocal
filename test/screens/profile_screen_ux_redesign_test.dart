@@ -388,5 +388,35 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+        'Avatar falls back to user initial when avatarUrl is missing or invalid',
+        (tester) async {
+      fakeAuth.setUser(
+        const AccountIdentity(
+          id: 'user-2',
+          email: 'jane@example.com',
+          fullName: 'Jane Doe',
+          avatarUrl: 'https://example.com/broken_avatar.jpg',
+          role: AppRole.tourist,
+          accessStatus: AccountAccessStatus.active,
+          emailVerified: true,
+        ),
+      );
+
+      await tester.pumpWidget(
+        _buildProfileApp(
+          auth: fakeAuth,
+          account: fakeAccount,
+          moderation: fakeModeration,
+          launcher: fakeLauncher,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('J'), findsOneWidget);
+      expect(find.text('Jane Doe'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

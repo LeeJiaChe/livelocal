@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../controllers/auth_controller.dart';
 import '../core/config/legal_urls.dart';
+import '../features/auth/domain/account_identity.dart';
 import '../features/moderation/presentation/moderation_controller.dart';
 import '../features/profile/presentation/account_controller.dart';
 
@@ -233,7 +234,7 @@ class _AuthenticatedProfileView extends StatelessWidget {
 
   void _openEditProfileSheet(
     BuildContext context,
-    dynamic user,
+    AccountIdentity user,
     AccountController controller,
   ) {
     showModalBottomSheet<void>(
@@ -244,8 +245,8 @@ class _AuthenticatedProfileView extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) => _EditProfileBottomSheet(
-        initialDisplayName: user.fullName as String,
-        email: user.email as String,
+        initialDisplayName: user.fullName,
+        email: user.email,
         controller: controller,
       ),
     );
@@ -344,6 +345,53 @@ class _AuthenticatedProfileView extends StatelessWidget {
   }
 }
 
+class _UserAvatar extends StatelessWidget {
+  const _UserAvatar({
+    required this.fullName,
+    required this.avatarUrl,
+    this.radius = 46,
+  });
+
+  final String fullName;
+  final String? avatarUrl;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final trimmedName = fullName.trim();
+    final initial = trimmedName.isEmpty ? 'L' : trimmedName[0].toUpperCase();
+
+    final fallback = Center(
+      child: Text(
+        initial,
+        style: theme.textTheme.headlineLarge?.copyWith(
+          color: colorScheme.onPrimaryContainer,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+
+    return Container(
+      width: radius * 2,
+      height: radius * 2,
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: (avatarUrl != null && avatarUrl!.trim().isNotEmpty)
+          ? Image.network(
+              avatarUrl!.trim(),
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => fallback,
+            )
+          : fallback,
+    );
+  }
+}
+
 class _ProfileHeroSection extends StatelessWidget {
   const _ProfileHeroSection({
     required this.user,
@@ -352,16 +400,16 @@ class _ProfileHeroSection extends StatelessWidget {
     required this.onEditProfile,
   });
 
-  final dynamic user;
+  final AccountIdentity user;
   final bool isLoading;
   final VoidCallback onEditPhoto;
   final VoidCallback onEditProfile;
 
-  String _roleLabel(String role) {
+  String _roleLabel(AppRole role) {
     return switch (role) {
-      'admin' => 'Administrator',
-      'influencer' => 'Creator',
-      _ => 'Tourist',
+      AppRole.admin => 'Administrator',
+      AppRole.influencer => 'Creator',
+      AppRole.tourist => 'Tourist',
     };
   }
 
@@ -369,10 +417,10 @@ class _ProfileHeroSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final fullName = user.fullName as String;
-    final email = user.email as String;
-    final avatarUrl = user.avatarUrl as String?;
-    final role = user.role as String;
+    final fullName = user.fullName;
+    final email = user.email;
+    final avatarUrl = user.avatarUrl;
+    final appRole = user.appRole;
 
     return Card(
       elevation: 0,
@@ -391,20 +439,10 @@ class _ProfileHeroSection extends StatelessWidget {
             Stack(
               alignment: Alignment.bottomRight,
               children: [
-                CircleAvatar(
+                _UserAvatar(
+                  fullName: fullName,
+                  avatarUrl: avatarUrl,
                   radius: 46,
-                  backgroundColor: colorScheme.primaryContainer,
-                  backgroundImage:
-                      avatarUrl == null ? null : NetworkImage(avatarUrl),
-                  child: avatarUrl == null
-                      ? Text(
-                          fullName.isEmpty ? 'L' : fullName[0].toUpperCase(),
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
                 ),
                 Positioned(
                   right: -4,
@@ -451,16 +489,16 @@ class _ProfileHeroSection extends StatelessWidget {
                   backgroundColor: colorScheme.secondaryContainer,
                   side: BorderSide.none,
                   avatar: Icon(
-                    role == 'admin'
+                    appRole == AppRole.admin
                         ? Icons.admin_panel_settings_outlined
-                        : (role == 'influencer'
+                        : (appRole == AppRole.influencer
                             ? Icons.stars_outlined
                             : Icons.explore_outlined),
                     size: 16,
                     color: colorScheme.onSecondaryContainer,
                   ),
                   label: Text(
-                    _roleLabel(role),
+                    _roleLabel(appRole),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -468,7 +506,7 @@ class _ProfileHeroSection extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (user.emailVerified == true)
+                if (user.emailVerified)
                   Chip(
                     visualDensity: VisualDensity.compact,
                     backgroundColor:
