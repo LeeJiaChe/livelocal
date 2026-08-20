@@ -1,3 +1,4 @@
+import '../../../models/saved_collection_model.dart';
 import '../../../models/saved_place_model.dart';
 
 class RouteOrigin {
@@ -46,6 +47,32 @@ class SavedItinerary {
 }
 
 abstract interface class SavedItineraryRepository {
+  // Collections
+  Future<List<SavedCollectionModel>> fetchCollections();
+  Future<SavedCollectionModel> createCollection({
+    required String name,
+    String? description,
+  });
+  Future<SavedCollectionModel> renameCollection({
+    required String collectionId,
+    required String name,
+    String? description,
+  });
+  Future<void> deleteCollection(String collectionId);
+  Future<List<SavedCollectionItemModel>> fetchCollectionItems(
+    String collectionId,
+  );
+  Future<List<String>> fetchPlaceCollectionIds({
+    required String targetType,
+    required String targetId,
+  });
+  Future<bool> setPlaceCollections({
+    required String targetType,
+    required String targetId,
+    required List<String> collectionIds,
+  });
+
+  // Places
   Future<List<SavedPlaceModel>> fetchSavedPlaces();
   Future<bool> setSaved({
     required String targetType,
@@ -53,6 +80,7 @@ abstract interface class SavedItineraryRepository {
     required bool saved,
   });
 
+  // Itineraries
   Future<List<SavedItinerary>> fetchItineraries();
   Future<SavedItinerary> createItinerary({
     required String title,

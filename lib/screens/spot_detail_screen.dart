@@ -12,6 +12,7 @@ import '../features/moderation/presentation/content_report_dialog.dart';
 import '../features/moderation/presentation/block_content_author_dialog.dart';
 import '../features/moderation/presentation/moderation_controller.dart';
 import '../features/reviews/presentation/widgets/review_text_widget.dart';
+import '../shared/presentation/save_to_collection_sheet.dart';
 
 class SpotDetailArguments {
   const SpotDetailArguments({required this.spot, this.pendingAction});
@@ -640,30 +641,12 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
   }
 
   Future<void> _requestSave() async {
-    final auth = context.read<AuthController>();
-    if (!auth.canWrite) {
-      context.read<ProtectedNavigation>().open(
-            context,
-            '/spot-detail',
-            arguments: SpotDetailArguments(
-              spot: widget.spot,
-              pendingAction: const SpotPendingAction.save(),
-            ),
-          );
-      return;
-    }
-    final controller = context.read<ItineraryController>();
-    final wasSaved = controller.isSaved(spotId: widget.spot.id);
-    final changed = await controller.toggleSave(spotId: widget.spot.id);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          changed
-              ? (wasSaved ? 'Removed from saved.' : 'Saved to your places.')
-              : controller.errorMessage ?? 'The place could not be updated.',
-        ),
-      ),
+    await SaveToCollectionSheet.show(
+      context,
+      targetType: 'spot',
+      targetId: widget.spot.id,
+      placeName: widget.spot.name,
+      spot: widget.spot,
     );
   }
 

@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../app/theme/app_spacing.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/itinerary_controller.dart';
-import '../controllers/localeats_controller.dart';
-import '../controllers/spot_controller.dart';
 import '../core/routing/protected_navigation.dart';
-import '../models/restaurant_model.dart';
-import '../models/saved_place_model.dart';
-import '../models/spot_model.dart';
-import 'itinerary_screen.dart';
-import 'restaurant_detail_screen.dart';
-import 'spot_detail_screen.dart';
+import '../models/saved_collection_model.dart';
 import '../shared/presentation/app_state_view.dart';
+import 'collection_detail_screen.dart';
+import 'itinerary_screen.dart';
 
 class SavedPlacesScreen extends StatefulWidget {
   const SavedPlacesScreen({super.key});
@@ -22,419 +18,341 @@ class SavedPlacesScreen extends StatefulWidget {
 }
 
 class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
-  _SavedPlaceFilter _filter = _SavedPlaceFilter.all;
-  String? _selectedAlbum;
+  final _newCollectionNameCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !context.read<AuthController>().canWrite) return;
+      context.read<ItineraryController>().loadSavedPlaces();
+    });
   }
 
-  Future<void> _load() async {
-    if (!mounted || !context.read<AuthController>().canWrite) return;
-    await context.read<ItineraryController>().loadSavedPlaces();
+  @override
+  void dispose() {
+    _newCollectionNameCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _showCreateCollectionDialog() async {
+    _newCollectionNameCtrl.clear();
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('New collection'),
+        content: TextField(
+          controller: _newCollectionNameCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Penang Food Hunt, Weekend Getaways',
+            labelText: 'Collection name',
+          ),
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = _newCollectionNameCtrl.text.trim();
+              if (text.isNotEmpty) Navigator.pop(dialogCtx, text);
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty && mounted) {
+      final controller = context.read<ItineraryController>();
+      await controller.createCollection(name: newName);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
+
     if (!auth.canWrite) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF7F5F0),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFFF7F5F0),
-          title: const Text('Saved'),
-        ),
-        body: _GuestState(
-          onSignIn: () => context.read<ProtectedNavigation>().open(
-                context,
-                '/saved-places',
-              ),
+        appBar: AppBar(title: const Text('Saved')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.x3),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.bookmark_border_outlined,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                Text(
+                  'Keep track of places you love',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.x1),
+                Text(
+                  'Sign in to organize spots into custom collections and plan your day itineraries.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.x3),
+                FilledButton(
+                  onPressed: () => context.read<ProtectedNavigation>().open(
+                        context,
+                        '/saved',
+                      ),
+                  child: const Text('Sign in to LiveLocal'),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
 
     final controller = context.watch<ItineraryController>();
-    final spots = context.watch<SpotController>().spots;
-    final restaurants = context.watch<LocalEatsController>().restaurants;
-    final resolved = _resolve(controller.savedPlaces, spots, restaurants);
-
-    final albums = <String>{'All'};
-    for (final place in resolved) {
-      final city = place.spot?.city ?? place.restaurant?.city;
-      if (city != null && city.trim().isNotEmpty) {
-        albums.add(city.trim());
-      }
-    }
-    final sortedAlbums = [
-      'All',
-      ...albums.where((a) => a != 'All').toList()..sort()
-    ];
-    if (_selectedAlbum != null && !albums.contains(_selectedAlbum)) {
-      _selectedAlbum = null;
-    }
-
-    final visiblePlaces = resolved.where((place) {
-      final city = place.spot?.city ?? place.restaurant?.city;
-      final matchesAlbum = _selectedAlbum == null ||
-          _selectedAlbum == 'All' ||
-          city?.trim().toLowerCase() == _selectedAlbum?.trim().toLowerCase();
-      if (!matchesAlbum) return false;
-      return switch (_filter) {
-        _SavedPlaceFilter.all => true,
-        _SavedPlaceFilter.spots => place.spot != null,
-        _SavedPlaceFilter.restaurants => place.restaurant != null,
-      };
-    }).toList();
+    final collections = controller.collections;
+    final savedPlaces = controller.savedPlaces;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F5F0),
-        title: const Text('Saved'),
+        title: const Text('Saved collections'),
+        actions: [
+          IconButton(
+            tooltip: 'New collection',
+            icon: const Icon(Icons.create_new_folder_outlined),
+            onPressed: _showCreateCollectionDialog,
+          ),
+          const SizedBox(width: AppSpacing.x1),
+        ],
       ),
       body: RefreshIndicator(
-        onRefresh: _load,
-        child: controller.isLoading && controller.savedPlaces.isEmpty
-            ? const AppLoadingList()
-            : controller.errorMessage != null && controller.savedPlaces.isEmpty
-                ? AppStateView(
-                    icon: Icons.wifi_off_outlined,
-                    title: 'Saved places could not be loaded',
-                    message: controller.errorMessage!,
-                    actionLabel: 'Try again',
-                    onAction: _load,
-                    scrollable: true,
-                  )
-                : resolved.isEmpty
-                    ? const AppStateView(
-                        icon: Icons.bookmark_border,
-                        title: 'Nothing saved yet',
-                        message:
-                            'Save approved spots and restaurants to plan a day out.',
-                        scrollable: true,
-                      )
-                    : _SavedPlacesList(
-                        places: visiblePlaces,
-                        totalCount: resolved.length,
-                        availableAlbums: sortedAlbums,
-                        selectedAlbum: _selectedAlbum,
-                        onAlbumChanged: (album) {
-                          setState(() => _selectedAlbum = album);
-                          context
-                              .read<ItineraryController>()
-                              .setAlbumFilter(album);
-                        },
-                        selectedFilter: _filter,
-                        onFilterChanged: (filter) {
-                          setState(() => _filter = filter);
-                        },
-                        onOpen: _open,
-                        onRemove: _confirmRemove,
-                      ),
-      ),
-      floatingActionButton: resolved.isEmpty
-          ? null
-          : FloatingActionButton.extended(
-              heroTag: 'saved_places_fab',
-              onPressed: () {
-                context
-                    .read<ItineraryController>()
-                    .setAlbumFilter(_selectedAlbum);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ItineraryScreen(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.route_outlined),
-              label: const Text('Plan a route'),
-            ),
-    );
-  }
-
-  List<_ResolvedPlace> _resolve(
-    List<SavedPlaceModel> saves,
-    List<SpotModel> spots,
-    List<RestaurantModel> restaurants,
-  ) {
-    final result = <_ResolvedPlace>[];
-    for (final save in saves) {
-      final spotMatches = spots.where((spot) => spot.id == save.spotId);
-      if (spotMatches.isNotEmpty) {
-        result.add(_ResolvedPlace(save: save, spot: spotMatches.first));
-        continue;
-      }
-      final restaurantMatches =
-          restaurants.where((item) => item.id == save.restaurantId);
-      if (restaurantMatches.isNotEmpty) {
-        result.add(
-          _ResolvedPlace(save: save, restaurant: restaurantMatches.first),
-        );
-      }
-    }
-    return result;
-  }
-
-  void _open(_ResolvedPlace place) {
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => place.spot != null
-            ? SpotDetailScreen(spot: place.spot!)
-            : RestaurantDetailScreen(restaurant: place.restaurant!),
-      ),
-    );
-  }
-
-  Future<void> _confirmRemove(_ResolvedPlace place) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Remove ${place.name}?'),
-        content: const Text(
-          'The place will also be unavailable for new itineraries. Existing saved itineraries are not changed.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    final controller = context.read<ItineraryController>();
-    final saved = await controller.toggleSave(
-      spotId: place.spot?.id,
-      restaurantId: place.restaurant?.id,
-    );
-    if (!mounted || saved) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          controller.errorMessage ?? 'The place could not be removed.',
-        ),
-      ),
-    );
-  }
-}
-
-enum _SavedPlaceFilter { all, spots, restaurants }
-
-class _SavedPlacesList extends StatelessWidget {
-  const _SavedPlacesList({
-    required this.places,
-    required this.totalCount,
-    required this.availableAlbums,
-    required this.selectedAlbum,
-    required this.onAlbumChanged,
-    required this.selectedFilter,
-    required this.onFilterChanged,
-    required this.onOpen,
-    required this.onRemove,
-  });
-
-  final List<_ResolvedPlace> places;
-  final int totalCount;
-  final List<String> availableAlbums;
-  final String? selectedAlbum;
-  final ValueChanged<String?> onAlbumChanged;
-  final _SavedPlaceFilter selectedFilter;
-  final ValueChanged<_SavedPlaceFilter> onFilterChanged;
-  final ValueChanged<_ResolvedPlace> onOpen;
-  final ValueChanged<_ResolvedPlace> onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
-      children: [
-        Semantics(
-          header: true,
-          child: Text(
-            '$totalCount saved ${totalCount == 1 ? 'place' : 'places'}',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (availableAlbums.length > 1) ...[
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SegmentedButton<String>(
-              showSelectedIcon: false,
-              segments: availableAlbums.map((album) {
-                return ButtonSegment<String>(
-                  value: album,
-                  label: Text(album),
-                );
-              }).toList(),
-              selected: {selectedAlbum ?? 'All'},
-              onSelectionChanged: (selection) {
-                final chosen = selection.single;
-                onAlbumChanged(chosen == 'All' ? null : chosen);
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SegmentedButton<_SavedPlaceFilter>(
-            showSelectedIcon: false,
-            segments: const [
-              ButtonSegment(
-                value: _SavedPlaceFilter.all,
-                icon: Icon(Icons.bookmarks_outlined),
-                label: Text('All'),
-              ),
-              ButtonSegment(
-                value: _SavedPlaceFilter.spots,
-                icon: Icon(Icons.place_outlined),
-                label: Text('Spots'),
-              ),
-              ButtonSegment(
-                value: _SavedPlaceFilter.restaurants,
-                icon: Icon(Icons.restaurant_outlined),
-                label: Text('Restaurants'),
-              ),
-            ],
-            selected: {selectedFilter},
-            onSelectionChanged: (selection) {
-              onFilterChanged(selection.single);
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (places.isEmpty)
-          Card(
-            elevation: 0,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Icon(
-                    selectedFilter == _SavedPlaceFilter.spots
-                        ? Icons.place_outlined
-                        : selectedFilter == _SavedPlaceFilter.restaurants
-                            ? Icons.restaurant_outlined
-                            : Icons.bookmark_border,
-                    size: 40,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    selectedFilter == _SavedPlaceFilter.spots
-                        ? 'No saved spots yet'
-                        : selectedFilter == _SavedPlaceFilter.restaurants
-                            ? 'No saved restaurants yet'
-                            : 'No saved places in this area',
-                    style: Theme.of(context).textTheme.titleMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          )
-        else
-          ..._groupByArea(places).entries.expand(
-                (entry) => [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
-                    child: Text(
-                      'Suggested day · ${entry.key}',
-                      style: Theme.of(context).textTheme.titleMedium,
+        onRefresh: controller.loadSavedPlaces,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x2,
+                  AppSpacing.x1,
+                  AppSpacing.x2,
+                  AppSpacing.x2,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your curated collections',
+                      style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                  ),
-                  ...entry.value.map(
-                    (place) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Card(
-                        margin: EdgeInsets.zero,
-                        elevation: 0,
-                        child: ListTile(
-                          minTileHeight: 72,
-                          leading: Icon(
-                            place.spot == null
-                                ? Icons.restaurant_outlined
-                                : Icons.place_outlined,
+                    const SizedBox(height: AppSpacing.x1),
+                    Text(
+                      'Organize places for upcoming trips, food hunts, or weekend plans.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
-                          title: Text(place.name),
-                          subtitle: Text(place.description),
-                          onTap: () => onOpen(place),
-                          trailing: IconButton(
-                            tooltip: 'Remove ${place.name} from saved',
-                            onPressed: () => onRemove(place),
-                            icon: const Icon(Icons.bookmark_remove_outlined),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (controller.isLoading && collections.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (controller.errorMessage != null && collections.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: AppStateView(
+                  icon: Icons.wifi_off_outlined,
+                  title: 'Saved collections could not be loaded',
+                  message: controller.errorMessage!,
+                  actionLabel: 'Try again',
+                  onAction: controller.loadSavedPlaces,
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.x2,
+                  0,
+                  AppSpacing.x2,
+                  112,
+                ),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: AppSpacing.x2,
+                    crossAxisSpacing: AppSpacing.x2,
+                    childAspectRatio: 0.85,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index == 0) {
+                        return _CreateCollectionCard(
+                          onTap: _showCreateCollectionDialog,
+                        );
+                      }
+                      final collection = collections[index - 1];
+                      return _CollectionGridCard(
+                        collection: collection,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => CollectionDetailScreen(
+                              collection: collection,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
+                    childCount: collections.length + 1,
                   ),
-                ],
+                ),
               ),
-      ],
+          ],
+        ),
+      ),
+      floatingActionButton: savedPlaces.isNotEmpty
+          ? FloatingActionButton.extended(
+              heroTag: 'saved_places_fab',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const ItineraryScreen(),
+                ),
+              ),
+              icon: const Icon(Icons.route_outlined),
+              label: const Text('Plan route'),
+            )
+          : null,
     );
   }
-
-  Map<String, List<_ResolvedPlace>> _groupByArea(List<_ResolvedPlace> places) {
-    final grouped = <String, List<_ResolvedPlace>>{};
-    for (final place in places) {
-      grouped.putIfAbsent(place.area, () => []).add(place);
-    }
-    return grouped;
-  }
 }
 
-class _ResolvedPlace {
-  const _ResolvedPlace({required this.save, this.spot, this.restaurant});
+class _CreateCollectionCard extends StatelessWidget {
+  const _CreateCollectionCard({required this.onTap});
 
-  final SavedPlaceModel save;
-  final SpotModel? spot;
-  final RestaurantModel? restaurant;
-
-  String get name => spot?.name ?? restaurant!.name;
-  String get description => spot == null
-      ? '${restaurant!.cuisineType} · ${restaurant!.city}'
-      : '${spot!.category} · ${spot!.city}';
-  String get area => spot == null
-      ? '${restaurant!.city}, ${restaurant!.state}'
-      : '${spot!.city}, ${spot!.state}';
-}
-
-class _GuestState extends StatelessWidget {
-  const _GuestState({required this.onSignIn});
-
-  final VoidCallback onSignIn;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+    return Card(
+      elevation: 0,
+      color: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
+          .withValues(alpha: 0.5),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          style: BorderStyle.solid,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.add,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.x2),
+              Text(
+                'New collection',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectionGridCard extends StatelessWidget {
+  const _CollectionGridCard({
+    required this.collection,
+    required this.onTap,
+  });
+
+  final SavedCollectionModel collection;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = collection.itemCount;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.bookmark_border, size: 56),
-            const SizedBox(height: 16),
-            Text(
-              'Keep your places together',
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                ),
+                child: Icon(
+                  Icons.bookmark_outline,
+                  size: 40,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Sign in to save places and create itineraries. Public browsing remains available without an account.',
-              textAlign: TextAlign.center,
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.x2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    collection.name,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$count ${count == 1 ? "place" : "places"}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-            FilledButton(onPressed: onSignIn, child: const Text('Sign in')),
           ],
         ),
       ),

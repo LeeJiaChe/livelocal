@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../models/restaurant_model.dart';
+import '../../../models/saved_collection_model.dart';
 import '../../../models/saved_place_model.dart';
 import '../../../models/spot_model.dart';
 import '../../../services/location_service.dart';
@@ -16,20 +17,29 @@ class ItineraryController with ChangeNotifier {
 
   final SavedItineraryRepository _repository;
   final LocationService _locationService;
+  List<SavedCollectionModel> _collections = [];
+  List<SavedCollectionItemModel> _activeCollectionItems = [];
+  SavedCollectionModel? _activeCollection;
   List<SavedPlaceModel> _savedPlaces = [];
   List<SavedItinerary> _savedItineraries = [];
   List<Map<String, Object>> _itinerarySteps = [];
   bool _isLoading = false;
+  bool _isLoadingCollections = false;
   bool _isGeneratingItinerary = false;
   String? _errorMessage;
   String? _selectedAlbum;
 
+  List<SavedCollectionModel> get collections => List.unmodifiable(_collections);
+  List<SavedCollectionItemModel> get activeCollectionItems =>
+      List.unmodifiable(_activeCollectionItems);
+  SavedCollectionModel? get activeCollection => _activeCollection;
   List<SavedPlaceModel> get savedPlaces => List.unmodifiable(_savedPlaces);
   List<SavedItinerary> get savedItineraries =>
       List.unmodifiable(_savedItineraries);
   List<Map<String, Object>> get itinerarySteps =>
       List.unmodifiable(_itinerarySteps);
   bool get isLoading => _isLoading;
+  bool get isLoadingCollections => _isLoadingCollections;
   bool get isGeneratingItinerary => _isGeneratingItinerary;
   String? get errorMessage => _errorMessage;
   String? get itineraryError => _errorMessage;
@@ -40,12 +50,163 @@ class ItineraryController with ChangeNotifier {
     notifyListeners();
   }
 
+  void setActiveCollection(SavedCollectionModel? collection) {
+    _activeCollection = collection;
+    notifyListeners();
+    if (collection != null) {
+      loadActiveCollectionItems(collection.id);
+    } else {
+      _activeCollectionItems = [];
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadCollections() async {
+    _isLoadingCollections = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      _collections = await _repository.fetchCollections();
+    } catch (error) {
+      _errorMessage = _message(error, 'Collections could not be loaded.');
+    } finally {
+      _isLoadingCollections = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadActiveCollectionItems(String collectionId) async {
+    try {
+      _activeCollectionItems =
+          await _repository.fetchCollectionItems(collectionId);
+      _errorMessage = null;
+    } catch (error) {
+      _errorMessage = _message(error, 'Collection items could not be loaded.');
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<SavedCollectionModel?> createCollection({
+    required String name,
+    String? description,
+  }) async {
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final created = await _repository.createCollection(
+        name: name,
+        description: description,
+      );
+      await loadCollections();
+      return created;
+    } catch (error) {
+      _errorMessage = _message(error, 'Collection could not be created.');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<SavedCollectionModel?> renameCollection({
+    required String collectionId,
+    required String name,
+    String? description,
+  }) async {
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final updated = await _repository.renameCollection(
+        collectionId: collectionId,
+        name: name,
+        description: description,
+      );
+      await loadCollections();
+      if (_activeCollection?.id == collectionId) {
+        _activeCollection = updated;
+      }
+      return updated;
+    } catch (error) {
+      _errorMessage = _message(error, 'Collection could not be renamed.');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> deleteCollection(String collectionId) async {
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _repository.deleteCollection(collectionId);
+      if (_activeCollection?.id == collectionId) {
+        _activeCollection = null;
+        _activeCollectionItems = [];
+      }
+      await Future.wait([
+        loadCollections(),
+        loadSavedPlaces(),
+      ]);
+      return true;
+    } catch (error) {
+      _errorMessage = _message(error, 'Collection could not be deleted.');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<List<String>> fetchPlaceCollectionIds({
+    required String targetType,
+    required String targetId,
+  }) async {
+    try {
+      return await _repository.fetchPlaceCollectionIds(
+        targetType: targetType,
+        targetId: targetId,
+      );
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<bool> setPlaceCollections({
+    required String targetType,
+    required String targetId,
+    required List<String> collectionIds,
+  }) async {
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final saved = await _repository.setPlaceCollections(
+        targetType: targetType,
+        targetId: targetId,
+        collectionIds: collectionIds,
+      );
+      await Future.wait([
+        loadSavedPlaces(),
+        loadCollections(),
+      ]);
+      if (_activeCollection != null) {
+        await loadActiveCollectionItems(_activeCollection!.id);
+      }
+      return saved;
+    } catch (error) {
+      _errorMessage =
+          _message(error, 'Could not update collection memberships.');
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> loadSavedPlaces() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
-      _savedPlaces = await _repository.fetchSavedPlaces();
+      final values = await Future.wait([
+        _repository.fetchSavedPlaces(),
+        _repository.fetchCollections(),
+      ]);
+      _savedPlaces = values[0] as List<SavedPlaceModel>;
+      _collections = values[1] as List<SavedCollectionModel>;
     } catch (error) {
       _errorMessage = _message(error, 'Saved places could not be loaded.');
     } finally {
@@ -79,18 +240,54 @@ class ItineraryController with ChangeNotifier {
       notifyListeners();
       return false;
     }
+    final targetType = spotId != null ? 'spot' : 'restaurant';
+    final targetId = spotId ?? restaurantId!;
     final currentlySaved = isSaved(
       spotId: spotId,
       restaurantId: restaurantId,
     );
+
     try {
-      await _repository.setSaved(
-        targetType: spotId == null ? 'restaurant' : 'spot',
-        targetId: spotId ?? restaurantId!,
-        saved: !currentlySaved,
-      );
-      await loadSavedPlaces();
-      return true;
+      if (currentlySaved) {
+        // Remove from all collections
+        await setPlaceCollections(
+          targetType: targetType,
+          targetId: targetId,
+          collectionIds: const [],
+        );
+        return true;
+      } else {
+        // Save to default collection or first collection
+        if (_collections.isEmpty) {
+          await loadCollections();
+        }
+        var defaultCol = _collections.firstWhere(
+          (c) => c.name.toLowerCase() == 'saved places',
+          orElse: () => _collections.isNotEmpty
+              ? _collections.first
+              : SavedCollectionModel(
+                  id: '',
+                  userId: '',
+                  name: 'Saved places',
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                ),
+        );
+        if (defaultCol.id.isEmpty) {
+          final created = await _repository.createCollection(
+            name: 'Saved places',
+            description: 'Default collection for your saved places',
+          );
+          defaultCol = created;
+          await loadCollections();
+        }
+        await setPlaceCollections(
+          targetType: targetType,
+          targetId: targetId,
+          collectionIds: [defaultCol.id],
+        );
+        return true;
+      }
     } catch (error) {
       _errorMessage = _message(
         error,
@@ -124,13 +321,23 @@ class ItineraryController with ChangeNotifier {
     required List<SpotModel> allSpots,
     required List<RestaurantModel> allRestaurants,
     String? album,
+    String? collectionId,
   }) async {
     _isGeneratingItinerary = true;
     _errorMessage = null;
     notifyListeners();
     try {
+      List<SavedPlaceModel> candidatePlaces = _savedPlaces;
+
+      if (collectionId != null && collectionId.isNotEmpty) {
+        final items = await _repository.fetchCollectionItems(collectionId);
+        final placeIds = items.map((i) => i.savedPlaceId).toSet();
+        candidatePlaces =
+            _savedPlaces.where((sp) => placeIds.contains(sp.id)).toList();
+      }
+
       final effectiveAlbum = album ?? _selectedAlbum;
-      final savedSpots = _savedPlaces
+      final savedSpots = candidatePlaces
           .where((saved) => saved.spotId != null)
           .map(
             (saved) => allSpots.where((spot) => spot.id == saved.spotId),
@@ -145,7 +352,8 @@ class ItineraryController with ChangeNotifier {
         }
         return true;
       }).toList();
-      final savedRestaurants = _savedPlaces
+
+      final savedRestaurants = candidatePlaces
           .where((saved) => saved.restaurantId != null)
           .map(
             (saved) => allRestaurants
@@ -163,14 +371,13 @@ class ItineraryController with ChangeNotifier {
         }
         return true;
       }).toList();
-      final savedCount = (effectiveAlbum != null && effectiveAlbum != 'All')
-          ? savedSpots.length + savedRestaurants.length
-          : _savedPlaces.length;
+
+      final candidateCount = candidatePlaces.length;
       if (savedSpots.isEmpty && savedRestaurants.isEmpty) {
         throw const AppException(
           code: AppErrorCode.validation,
           userMessage:
-              'None of your saved places currently has verified map coordinates.',
+              'None of the saved places in this plan currently has verified coordinates.',
         );
       }
 
@@ -187,6 +394,7 @@ class ItineraryController with ChangeNotifier {
             : (stop['item'] as RestaurantModel).id;
         return ItineraryTarget(type: isSpot ? 'spot' : 'restaurant', id: id);
       }).toList();
+
       await _repository.saveLocationPreference(origin);
       await _repository.createItinerary(
         title: title,
@@ -195,9 +403,9 @@ class ItineraryController with ChangeNotifier {
       );
       _itinerarySteps = _buildSteps(sorted);
       await loadItineraries();
-      if (targets.length < savedCount) {
+      if (targets.length < candidateCount) {
         _errorMessage =
-            '${savedCount - targets.length} saved place(s) without verified coordinates were omitted.';
+            '${candidateCount - targets.length} place(s) without verified coordinates were omitted.';
       }
       return true;
     } catch (error) {
