@@ -147,9 +147,11 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
         userMessage: 'A collection with this name already exists.',
       );
     }
+    final trimmedDesc = description?.trim();
     final updated = _collections[index].copyWith(
       name: trimmedName,
-      description: description?.trim(),
+      description: trimmedDesc,
+      clearDescription: trimmedDesc == null || trimmedDesc.isEmpty,
       updatedAt: DateTime.now(),
     );
     _collections[index] = updated;
@@ -314,7 +316,7 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
   }
 
   @override
-  Future<bool> setPlaceCollections({
+  Future<SetPlaceCollectionsResult> setPlaceCollections({
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
@@ -335,7 +337,12 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
         _collectionItems.removeWhere((item) => item.savedPlaceId == placeId);
         _savedPlaces.removeAt(placeIndex);
       }
-      return false;
+      return SetPlaceCollectionsResult(
+        saved: false,
+        collectionIds: const [],
+        targetType: targetType,
+        targetId: targetId,
+      );
     }
 
     String placeId;
@@ -376,7 +383,87 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
       }
     }
 
-    return true;
+    return SetPlaceCollectionsResult(
+      saved: true,
+      collectionIds: collectionIds,
+      targetType: targetType,
+      targetId: targetId,
+    );
+  }
+
+  @override
+  Future<List<SavedRouteCandidate>> fetchSavedRouteCandidates({
+    String? collectionId,
+  }) async {
+    final userId = _requireUser();
+    final spots = SeedDataService.getInitialSpots();
+    final restaurants = SeedDataService.getInitialRestaurants();
+
+    final List<SavedPlaceModel> userSavedPlaces;
+    if (collectionId != null && collectionId.isNotEmpty) {
+      final colItems = _collectionItems
+          .where((ci) => ci.collectionId == collectionId)
+          .toList();
+      final placeIds = colItems.map((ci) => ci.savedPlaceId).toSet();
+      userSavedPlaces = _savedPlaces
+          .where((sp) => sp.userId == userId && placeIds.contains(sp.id))
+          .toList();
+    } else {
+      userSavedPlaces =
+          _savedPlaces.where((sp) => sp.userId == userId).toList();
+    }
+
+    final results = <SavedRouteCandidate>[];
+    for (final sp in userSavedPlaces) {
+      if (sp.spotId != null) {
+        final spot = spots.where((s) => s.id == sp.spotId).firstOrNull;
+        if (spot != null) {
+          results.add(
+            SavedRouteCandidate(
+              savedPlaceId: sp.id,
+              targetType: 'spot',
+              targetId: spot.id,
+              name: spot.name,
+              state: spot.state,
+              city: spot.city,
+              latitude: spot.latitude ?? 0.0,
+              longitude: spot.longitude ?? 0.0,
+              categoryOrCuisine: spot.category,
+              bestTime: spot.bestTime,
+              thingsToDo: spot.thingsToDo,
+              priceRange: spot.priceRange,
+              imageUrl: spot.imagePath,
+              rating: spot.rating,
+              reviewCount: spot.reviewCount,
+            ),
+          );
+        }
+      } else if (sp.restaurantId != null) {
+        final restaurant =
+            restaurants.where((r) => r.id == sp.restaurantId).firstOrNull;
+        if (restaurant != null) {
+          results.add(
+            SavedRouteCandidate(
+              savedPlaceId: sp.id,
+              targetType: 'restaurant',
+              targetId: restaurant.id,
+              name: restaurant.name,
+              state: restaurant.state,
+              city: restaurant.city,
+              latitude: restaurant.latitude ?? 0.0,
+              longitude: restaurant.longitude ?? 0.0,
+              categoryOrCuisine: restaurant.cuisineType,
+              reviewedDishes: restaurant.reviewedDishes,
+              priceRange: restaurant.priceRange,
+              imageUrl: restaurant.coverImagePath,
+              rating: restaurant.rating,
+              reviewCount: restaurant.reviewCount,
+            ),
+          );
+        }
+      }
+    }
+    return results;
   }
 
   @override
@@ -397,17 +484,19 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
     final defaultCollId = _collections.firstWhere((c) => c.userId == userId).id;
 
     if (saved) {
-      return await setPlaceCollections(
+      final result = await setPlaceCollections(
         targetType: targetType,
         targetId: targetId,
         collectionIds: [defaultCollId],
       );
+      return result.saved;
     } else {
-      return await setPlaceCollections(
+      final result = await setPlaceCollections(
         targetType: targetType,
         targetId: targetId,
         collectionIds: const [],
       );
+      return result.saved;
     }
   }
 

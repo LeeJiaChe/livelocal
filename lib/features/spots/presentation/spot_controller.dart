@@ -55,6 +55,12 @@ class SpotController with ChangeNotifier {
   List<SpotModel> get pendingSpots => List.unmodifiable(_pendingSpots);
   List<SpotModel> get ownedSubmissions => List.unmodifiable(_ownedSubmissions);
 
+  Future<SpotModel?> fetchSpotById(String spotId) async {
+    final cached = _spots.where((s) => s.id == spotId).firstOrNull;
+    if (cached != null) return cached;
+    return await _repository.fetchPublicSpotById(spotId);
+  }
+
   Future<void> loadSpots() async {
     _isLoading = true;
     _errorMessage = null;

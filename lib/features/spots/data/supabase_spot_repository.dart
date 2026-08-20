@@ -90,6 +90,24 @@ class SupabaseSpotRepository implements SpotRepository {
   }
 
   @override
+  Future<SpotModel?> fetchPublicSpotById(String spotId) async {
+    try {
+      final row = await _client
+          .from('published_spots')
+          .select()
+          .eq('id', spotId)
+          .maybeSingle();
+      if (row == null) return null;
+      return await _mapPublicSpot(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error) {
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Spot could not be loaded.',
+      );
+    }
+  }
+
+  @override
   Future<List<SpotModel>> fetchPendingModeration() async {
     try {
       final response = await _client

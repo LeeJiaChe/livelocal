@@ -6,9 +6,7 @@ import '../app/theme/app_spacing.dart';
 import '../controllers/itinerary_controller.dart';
 import '../controllers/localeats_controller.dart';
 import '../controllers/spot_controller.dart';
-import '../models/restaurant_model.dart';
 import '../models/saved_collection_model.dart';
-import '../models/spot_model.dart';
 import '../shared/presentation/app_state_view.dart';
 import 'itinerary_screen.dart';
 import 'restaurant_detail_screen.dart';
@@ -153,26 +151,53 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
 
   Future<void> _removeFromCollection(SavedCollectionPlace place) async {
     final controller = context.read<ItineraryController>();
-    final currentMemberships = await controller.fetchPlaceCollectionIds(
-      targetType: place.targetType,
-      targetId: place.targetId,
-    );
+    List<String> currentMemberships;
+    try {
+      currentMemberships = await controller.fetchPlaceCollectionIds(
+        targetType: place.targetType,
+        targetId: place.targetId,
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(controller.errorMessage ??
+                'Could not load memberships to remove place.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+      return;
+    }
+
     final newMemberships =
         currentMemberships.where((id) => id != _currentCollection.id).toList();
 
-    final success = await controller.setPlaceCollections(
-      targetType: place.targetType,
-      targetId: place.targetId,
-      collectionIds: newMemberships,
-    );
-
-    if (mounted && success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-              Text('Removed "${place.name}" from ${_currentCollection.name}'),
-        ),
+    try {
+      await controller.setPlaceCollections(
+        targetType: place.targetType,
+        targetId: place.targetId,
+        collectionIds: newMemberships,
       );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Removed "${place.name}" from ${_currentCollection.name}'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(controller.errorMessage ??
+                'Could not remove place from collection.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
@@ -186,30 +211,19 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     );
   }
 
-  void _openPlaceDetail(SavedCollectionPlace place) {
+  Future<void> _openPlaceDetail(SavedCollectionPlace place) async {
     if (place.isSpot) {
       final spotCtrl = context.read<SpotController>();
-      final existingSpot =
-          spotCtrl.spots.where((s) => s.id == place.targetId).firstOrNull;
-      final spot = existingSpot ??
-          SpotModel(
-            id: place.targetId,
-            name: place.name,
-            category: place.categoryOrCuisine,
-            description: '',
-            state: place.state,
-            city: place.city,
-            address: place.city,
-            priceRange: place.priceRange ?? r'$',
-            bestTime: 'Anytime',
-            thingsToDo: 'Explore and discover',
-            imageUrl: place.imageUrl ?? '',
-            imagePath: place.imageUrl,
-            rating: place.rating,
-            reviewCount: place.reviewCount,
-            submittedBy: '',
-            status: 'approved',
-          );
+      final spot = await spotCtrl.fetchSpotById(place.targetId);
+      if (!mounted) return;
+      if (spot == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This place is no longer publicly available.'),
+          ),
+        );
+        return;
+      }
       Navigator.pushNamed(
         context,
         '/spot-detail',
@@ -217,27 +231,16 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
       );
     } else {
       final eatsCtrl = context.read<LocalEatsController>();
-      final existingRestaurant =
-          eatsCtrl.restaurants.where((r) => r.id == place.targetId).firstOrNull;
-      final restaurant = existingRestaurant ??
-          RestaurantModel(
-            id: place.targetId,
-            name: place.name,
-            address: place.city,
-            state: place.state,
-            city: place.city,
-            cuisineType: place.categoryOrCuisine,
-            priceRange: place.priceRange ?? r'$',
-            reviewedDishes: 'Local specialties',
-            influencerId: '',
-            influencerName: '',
-            socialMediaUrl: '',
-            coverPhotoUrl: place.imageUrl ?? '',
-            coverImagePath: place.imageUrl,
-            rating: place.rating,
-            reviewCount: place.reviewCount,
-            status: 'approved',
-          );
+      final restaurant = await eatsCtrl.fetchRestaurantById(place.targetId);
+      if (!mounted) return;
+      if (restaurant == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This place is no longer publicly available.'),
+          ),
+        );
+        return;
+      }
       Navigator.pushNamed(
         context,
         '/restaurant-detail',

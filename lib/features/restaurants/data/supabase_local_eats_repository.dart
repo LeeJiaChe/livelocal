@@ -34,6 +34,30 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
   }
 
   @override
+  Future<RestaurantModel?> fetchPublicRestaurantById(
+      String restaurantId) async {
+    try {
+      final row = await _client
+          .from('published_restaurants')
+          .select()
+          .eq('id', restaurantId)
+          .maybeSingle();
+      if (row == null) return null;
+      final isOwn = _client.auth.currentUser == null
+          ? false
+          : (await _client
+                  .from('restaurants')
+                  .select('id')
+                  .eq('id', restaurantId)
+                  .maybeSingle()) !=
+              null;
+      return await _mapPublished(row, isOwn);
+    } on PostgrestException catch (error) {
+      throw _error(error, 'Restaurant could not be loaded.');
+    }
+  }
+
+  @override
   Future<List<DiscountCodeModel>> fetchActiveDiscounts() async {
     try {
       final response = await _client.rpc('list_active_discounts');

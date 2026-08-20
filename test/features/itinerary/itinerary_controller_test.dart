@@ -43,7 +43,9 @@ void main() {
         targetId: spot.id,
         collectionIds: [defaultColId, customCol.id],
       );
-      expect(updatedMemberships, isTrue);
+      expect(updatedMemberships.saved, isTrue);
+      expect(updatedMemberships.collectionIds,
+          containsAll([defaultColId, customCol.id]));
 
       final memberships = await controller.fetchPlaceCollectionIds(
         targetType: 'spot',

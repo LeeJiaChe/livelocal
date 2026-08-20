@@ -69,10 +69,14 @@ abstract interface class SavedItineraryRepository {
     required String targetType,
     required String targetId,
   });
-  Future<bool> setPlaceCollections({
+  Future<SetPlaceCollectionsResult> setPlaceCollections({
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
+  });
+
+  Future<List<SavedRouteCandidate>> fetchSavedRouteCandidates({
+    String? collectionId,
   });
 
   // Places

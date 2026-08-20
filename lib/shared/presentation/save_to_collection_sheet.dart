@@ -85,32 +85,55 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
   final Set<String> _selectedCollectionIds = {};
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _initialLoadFailed = false;
   String? _inlineError;
 
   @override
   void initState() {
     super.initState();
-    _loadInitialState();
-  }
-
-  Future<void> _loadInitialState() async {
-    final controller = context.read<ItineraryController>();
-    await controller.loadCollections();
-    if (!mounted) return;
-
-    final memberships = await controller.fetchPlaceCollectionIds(
-      targetType: widget.targetType,
-      targetId: widget.targetId,
-    );
-
-    if (!mounted) return;
-    setState(() {
-      _selectedCollectionIds.addAll(memberships);
-      _isLoading = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadInitialState();
+      }
     });
   }
 
+  Future<void> _loadInitialState() async {
+    setState(() {
+      _isLoading = true;
+      _initialLoadFailed = false;
+      _inlineError = null;
+    });
+
+    final controller = context.read<ItineraryController>();
+    try {
+      await controller.loadCollections();
+      if (!mounted) return;
+
+      final memberships = await controller.fetchPlaceCollectionIds(
+        targetType: widget.targetType,
+        targetId: widget.targetId,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _selectedCollectionIds.clear();
+        _selectedCollectionIds.addAll(memberships);
+        _isLoading = false;
+        _initialLoadFailed = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _initialLoadFailed = true;
+        _inlineError = 'Could not load collection memberships. Please retry.';
+      });
+    }
+  }
+
   void _toggleCollection(String collectionId) {
+    if (_initialLoadFailed) return;
     setState(() {
       _inlineError = null;
       if (_selectedCollectionIds.contains(collectionId)) {
@@ -122,6 +145,8 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
   }
 
   Future<void> _saveMemberships() async {
+    if (_initialLoadFailed) return;
+
     setState(() {
       _isSaving = true;
       _inlineError = null;
@@ -130,15 +155,36 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
     final controller = context.read<ItineraryController>();
     final targetCollectionIds = _selectedCollectionIds.toList();
 
-    final success = await controller.setPlaceCollections(
-      targetType: widget.targetType,
-      targetId: widget.targetId,
-      collectionIds: targetCollectionIds,
-    );
+    try {
+      final result = await controller.setPlaceCollections(
+        targetType: widget.targetType,
+        targetId: widget.targetId,
+        collectionIds: targetCollectionIds,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (!success) {
+      Navigator.pop(context);
+
+      String successMsg;
+      if (!result.saved || targetCollectionIds.isEmpty) {
+        successMsg = 'Removed from Saved';
+      } else if (targetCollectionIds.length == 1) {
+        final colName = controller.collections
+            .where((c) => c.id == targetCollectionIds.first)
+            .map((c) => c.name)
+            .firstOrNull;
+        successMsg =
+            colName != null ? 'Saved to "$colName"' : 'Saved to 1 collection';
+      } else {
+        successMsg = 'Saved to ${targetCollectionIds.length} collections';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successMsg)),
+      );
+    } catch (error) {
+      if (!mounted) return;
       setState(() {
         _isSaving = false;
         _inlineError = controller.errorMessage ??
@@ -146,33 +192,13 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text(controller.errorMessage ?? 'Could not update saved places.'),
+          content: Text(
+            controller.errorMessage ?? 'Could not update saved places.',
+          ),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
-      return;
     }
-
-    Navigator.pop(context);
-
-    String successMsg;
-    if (targetCollectionIds.isEmpty) {
-      successMsg = 'Removed from Saved';
-    } else if (targetCollectionIds.length == 1) {
-      final colName = controller.collections
-          .where((c) => c.id == targetCollectionIds.first)
-          .map((c) => c.name)
-          .firstOrNull;
-      successMsg =
-          colName != null ? 'Saved to "$colName"' : 'Saved to 1 collection';
-    } else {
-      successMsg = 'Saved to ${targetCollectionIds.length} collections';
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(successMsg)),
-    );
   }
 
   Future<void> _showCreateCollectionDialog() async {
@@ -325,12 +351,23 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                     horizontal: AppSpacing.x3,
                     vertical: AppSpacing.x1,
                   ),
-                  child: Text(
-                    _inlineError!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 13,
-                    ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _inlineError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      if (_initialLoadFailed)
+                        TextButton(
+                          onPressed: _loadInitialState,
+                          child: const Text('Retry'),
+                        ),
+                    ],
                   ),
                 ),
               const Divider(height: 1),
@@ -443,7 +480,10 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                     const SizedBox(width: AppSpacing.x2),
                     Expanded(
                       child: FilledButton(
-                        onPressed: _isSaving ? null : _saveMemberships,
+                        onPressed:
+                            (_isSaving || _initialLoadFailed || _isLoading)
+                                ? null
+                                : _saveMemberships,
                         child: _isSaving
                             ? const SizedBox(
                                 width: 20,

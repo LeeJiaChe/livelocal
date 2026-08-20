@@ -78,6 +78,8 @@ abstract interface class SpotRepository {
     required int limit,
   });
 
+  Future<SpotModel?> fetchPublicSpotById(String spotId);
+
   Future<List<SpotModel>> fetchPendingModeration();
 
   Future<List<SpotModel>> fetchOwnedSubmissions();

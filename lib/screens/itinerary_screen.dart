@@ -5,8 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
 import '../controllers/itinerary_controller.dart';
-import '../controllers/localeats_controller.dart';
-import '../controllers/spot_controller.dart';
 import '../features/itinerary/domain/saved_itinerary_repository.dart';
 import '../widgets/timeline_step_card.dart';
 
@@ -516,8 +514,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     final saved = await controller.generateAndSaveItinerary(
       title: planTitle,
       origin: origin,
-      allSpots: context.read<SpotController>().spots,
-      allRestaurants: context.read<LocalEatsController>().restaurants,
       collectionId: selectedColId,
     );
 

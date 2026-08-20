@@ -50,15 +50,11 @@ class ItineraryController with ChangeNotifier {
 
   void setActiveCollection(SavedCollectionModel? collection) {
     _activeCollection = collection;
-    notifyListeners();
-    if (collection != null) {
-      loadActiveCollectionPlaces(collection.id);
-      loadActiveCollectionItems(collection.id);
-    } else {
+    if (collection == null) {
       _activeCollectionItems = [];
       _activeCollectionPlaces = [];
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   Future<void> loadCollections() async {
@@ -173,17 +169,13 @@ class ItineraryController with ChangeNotifier {
     required String targetType,
     required String targetId,
   }) async {
-    try {
-      return await _repository.fetchPlaceCollectionIds(
-        targetType: targetType,
-        targetId: targetId,
-      );
-    } catch (_) {
-      return const [];
-    }
+    return await _repository.fetchPlaceCollectionIds(
+      targetType: targetType,
+      targetId: targetId,
+    );
   }
 
-  Future<bool> setPlaceCollections({
+  Future<SetPlaceCollectionsResult> setPlaceCollections({
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
@@ -191,7 +183,7 @@ class ItineraryController with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      final saved = await _repository.setPlaceCollections(
+      final result = await _repository.setPlaceCollections(
         targetType: targetType,
         targetId: targetId,
         collectionIds: collectionIds,
@@ -206,12 +198,12 @@ class ItineraryController with ChangeNotifier {
           loadActiveCollectionPlaces(_activeCollection!.id),
         ]);
       }
-      return saved;
+      return result;
     } catch (error) {
       _errorMessage =
           _message(error, 'Could not update collection memberships.');
       notifyListeners();
-      return false;
+      rethrow;
     }
   }
 
@@ -337,61 +329,32 @@ class ItineraryController with ChangeNotifier {
   Future<bool> generateAndSaveItinerary({
     required String title,
     required RouteOrigin origin,
-    required List<SpotModel> allSpots,
-    required List<RestaurantModel> allRestaurants,
     String? cityFilter,
     String? collectionId,
+    List<SpotModel>? allSpots,
+    List<RestaurantModel>? allRestaurants,
   }) async {
     _isGeneratingItinerary = true;
     _errorMessage = null;
     notifyListeners();
     try {
-      List<SavedPlaceModel> candidatePlaces = _savedPlaces;
+      final candidates = await _repository.fetchSavedRouteCandidates(
+        collectionId: collectionId,
+      );
 
-      if (collectionId != null && collectionId.isNotEmpty) {
-        final items = await _repository.fetchCollectionItems(collectionId);
-        final placeIds = items.map((i) => i.savedPlaceId).toSet();
-        candidatePlaces =
-            _savedPlaces.where((sp) => placeIds.contains(sp.id)).toList();
-      }
-
-      final savedSpots = candidatePlaces
-          .where((saved) => saved.spotId != null)
-          .map(
-            (saved) => allSpots.where((spot) => spot.id == saved.spotId),
-          )
-          .where((matches) => matches.isNotEmpty)
-          .map((matches) => matches.first)
-          .where((spot) {
-        if (spot.latitude == null || spot.longitude == null) return false;
-        if (cityFilter != null && cityFilter != 'All') {
-          return spot.city.trim().toLowerCase() ==
-              cityFilter.trim().toLowerCase();
-        }
-        return true;
-      }).toList();
-
-      final savedRestaurants = candidatePlaces
-          .where((saved) => saved.restaurantId != null)
-          .map(
-            (saved) => allRestaurants
-                .where((restaurant) => restaurant.id == saved.restaurantId),
-          )
-          .where((matches) => matches.isNotEmpty)
-          .map((matches) => matches.first)
-          .where((restaurant) {
-        if (restaurant.latitude == null || restaurant.longitude == null) {
+      final filteredCandidates = candidates.where((candidate) {
+        if (candidate.latitude == 0.0 && candidate.longitude == 0.0) {
           return false;
         }
         if (cityFilter != null && cityFilter != 'All') {
-          return restaurant.city.trim().toLowerCase() ==
+          return candidate.city.trim().toLowerCase() ==
               cityFilter.trim().toLowerCase();
         }
         return true;
       }).toList();
 
-      final candidateCount = candidatePlaces.length;
-      if (savedSpots.isEmpty && savedRestaurants.isEmpty) {
+      final candidateCount = candidates.length;
+      if (filteredCandidates.isEmpty) {
         throw const AppException(
           code: AppErrorCode.validation,
           userMessage:
@@ -399,18 +362,16 @@ class ItineraryController with ChangeNotifier {
         );
       }
 
-      final sorted = _locationService.sortLocationsByProximity(
+      final sorted = _locationService.sortCandidatesByProximity(
         origin.latitude,
         origin.longitude,
-        savedSpots,
-        savedRestaurants,
+        filteredCandidates,
       );
-      final targets = sorted.map((stop) {
-        final isSpot = stop['type'] == 'Spot';
-        final id = isSpot
-            ? (stop['item'] as SpotModel).id
-            : (stop['item'] as RestaurantModel).id;
-        return ItineraryTarget(type: isSpot ? 'spot' : 'restaurant', id: id);
+      final targets = sorted.map((candidate) {
+        return ItineraryTarget(
+          type: candidate.targetType,
+          id: candidate.targetId,
+        );
       }).toList();
 
       await _repository.saveLocationPreference(origin);
@@ -419,7 +380,7 @@ class ItineraryController with ChangeNotifier {
         origin: origin,
         orderedTargets: targets,
       );
-      _itinerarySteps = _buildSteps(sorted);
+      _itinerarySteps = _buildCandidateSteps(sorted);
       await loadItineraries();
       if (targets.length < candidateCount) {
         _errorMessage =
@@ -436,39 +397,38 @@ class ItineraryController with ChangeNotifier {
     }
   }
 
-  List<Map<String, Object>> _buildSteps(
-    List<Map<String, dynamic>> sorted,
+  List<Map<String, Object>> _buildCandidateSteps(
+    List<SavedRouteCandidate> sorted,
   ) {
     return List.generate(sorted.length, (index) {
       final stop = sorted[index];
-      final isSpot = stop['type'] == 'Spot';
-      final item = stop['item'];
-      if (isSpot) {
-        final spot = item as SpotModel;
+      if (stop.isSpot) {
         return {
-          'title': spot.name,
-          'location': '${spot.city}, ${spot.state}',
-          'best_time': spot.bestTime,
-          'activity': spot.thingsToDo,
-          'type': 'Spot (${spot.category})',
+          'title': stop.name,
+          'location': '${stop.city}, ${stop.state}',
+          'best_time': stop.bestTime ?? 'Anytime',
+          'activity': stop.thingsToDo ?? 'Explore spot',
+          'type': 'Spot (${stop.categoryOrCuisine})',
           'step': 'Stop ${index + 1}',
-          'lat': stop['lat'] as double,
-          'lng': stop['lng'] as double,
-          'area': spot.city,
+          'lat': stop.latitude,
+          'lng': stop.longitude,
+          'area': stop.city,
           if (index == 0) 'day_label': 'Route overview',
         };
       }
-      final restaurant = item as RestaurantModel;
       return {
-        'title': restaurant.name,
-        'location': '${restaurant.city}, ${restaurant.state}',
+        'title': stop.name,
+        'location': '${stop.city}, ${stop.state}',
         'best_time': 'Meal stop',
-        'activity': 'Try: ${restaurant.reviewedDishes}',
-        'type': 'Restaurant (${restaurant.cuisineType})',
+        'activity':
+            stop.reviewedDishes != null && stop.reviewedDishes!.isNotEmpty
+                ? 'Try: ${stop.reviewedDishes}'
+                : 'Meal stop',
+        'type': 'Restaurant (${stop.categoryOrCuisine})',
         'step': 'Stop ${index + 1}',
-        'lat': stop['lat'] as double,
-        'lng': stop['lng'] as double,
-        'area': restaurant.city,
+        'lat': stop.latitude,
+        'lng': stop.longitude,
+        'area': stop.city,
         if (index == 0) 'day_label': 'Route overview',
       };
     });

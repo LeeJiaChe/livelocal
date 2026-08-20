@@ -195,7 +195,7 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
   }
 
   @override
-  Future<bool> setPlaceCollections({
+  Future<SetPlaceCollectionsResult> setPlaceCollections({
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
@@ -210,9 +210,58 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
         },
       );
       final map = Map<String, dynamic>.from(response as Map);
-      return map['saved'] as bool? ?? false;
+      return SetPlaceCollectionsResult.fromMap(map);
     } on PostgrestException catch (error) {
       throw _error(error, 'The collection could not be updated.');
+    }
+  }
+
+  @override
+  Future<List<SavedRouteCandidate>> fetchSavedRouteCandidates({
+    String? collectionId,
+  }) async {
+    try {
+      final params = <String, dynamic>{};
+      if (collectionId != null && collectionId.isNotEmpty) {
+        params['p_collection_id'] = collectionId;
+      }
+      final response = await _client.rpc(
+        'fetch_saved_route_candidates',
+        params: params,
+      );
+      final list = (response as List<dynamic>?) ?? [];
+      final results = <SavedRouteCandidate>[];
+      for (final raw in list) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final candidate = SavedRouteCandidate.fromMap(row);
+        final signedUrl = await _resolveImage(
+          candidate.imageUrl,
+          candidate.targetType,
+        );
+        results.add(
+          SavedRouteCandidate(
+            savedPlaceId: candidate.savedPlaceId,
+            targetType: candidate.targetType,
+            targetId: candidate.targetId,
+            name: candidate.name,
+            state: candidate.state,
+            city: candidate.city,
+            latitude: candidate.latitude,
+            longitude: candidate.longitude,
+            categoryOrCuisine: candidate.categoryOrCuisine,
+            bestTime: candidate.bestTime,
+            thingsToDo: candidate.thingsToDo,
+            reviewedDishes: candidate.reviewedDishes,
+            priceRange: candidate.priceRange,
+            imageUrl: signedUrl.isNotEmpty ? signedUrl : candidate.imageUrl,
+            rating: candidate.rating,
+            reviewCount: candidate.reviewCount,
+          ),
+        );
+      }
+      return results;
+    } on PostgrestException catch (error) {
+      throw _error(error, 'Saved route candidates could not be loaded.');
     }
   }
 

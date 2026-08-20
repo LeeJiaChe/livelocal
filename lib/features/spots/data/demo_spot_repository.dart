@@ -96,6 +96,14 @@ class DemoSpotRepository implements SpotRepository {
   }
 
   @override
+  Future<SpotModel?> fetchPublicSpotById(String spotId) async {
+    final match = _spots
+        .where((spot) => spot.id == spotId && spot.status == 'approved')
+        .firstOrNull;
+    return match;
+  }
+
+  @override
   Future<List<SpotModel>> fetchPendingModeration() async {
     return _spots.where((spot) => spot.status == 'submitted').toList();
   }

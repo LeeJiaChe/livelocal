@@ -49,6 +49,12 @@ class LocalEatsController with ChangeNotifier {
       _selectedBudget != 'All' ||
       _searchQuery.isNotEmpty;
 
+  Future<RestaurantModel?> fetchRestaurantById(String restaurantId) async {
+    final cached = _restaurants.where((r) => r.id == restaurantId).firstOrNull;
+    if (cached != null) return cached;
+    return await _repository.fetchPublicRestaurantById(restaurantId);
+  }
+
   List<String> get availableStates {
     final set = <String>{};
     for (final r in _restaurants) {

@@ -61,6 +61,10 @@ class _MockSpotRepo implements SpotRepository {
   Future<SpotFilterOptions> fetchFilterOptions() async => options;
 
   @override
+  Future<SpotModel?> fetchPublicSpotById(String spotId) async =>
+      spots.where((s) => s.id == spotId).firstOrNull;
+
+  @override
   Future<List<SpotModel>> fetchPublicSpots({
     String? query,
     String? state,

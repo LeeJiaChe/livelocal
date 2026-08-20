@@ -69,6 +69,7 @@ class SavedCollectionModel {
     String? userId,
     String? name,
     String? description,
+    bool clearDescription = false,
     int? itemCount,
     int? spotCount,
     int? restaurantCount,
@@ -82,7 +83,7 @@ class SavedCollectionModel {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       name: name ?? this.name,
-      description: description ?? this.description,
+      description: clearDescription ? null : (description ?? this.description),
       itemCount: itemCount ?? this.itemCount,
       spotCount: spotCount ?? this.spotCount,
       restaurantCount: restaurantCount ?? this.restaurantCount,
@@ -192,4 +193,95 @@ class SavedCollectionPlace {
         'review_count': reviewCount,
         'added_at': addedAt.toIso8601String(),
       };
+}
+
+/// Result of set_place_collections mutation.
+/// Represents operation success and resulting saved state explicitly.
+class SetPlaceCollectionsResult {
+  const SetPlaceCollectionsResult({
+    required this.saved,
+    required this.collectionIds,
+    this.targetType,
+    this.targetId,
+  });
+
+  final bool saved;
+  final List<String> collectionIds;
+  final String? targetType;
+  final String? targetId;
+
+  factory SetPlaceCollectionsResult.fromMap(Map<String, dynamic> map) {
+    return SetPlaceCollectionsResult(
+      saved: map['saved'] as bool? ?? false,
+      collectionIds: (map['collection_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      targetType: map['target_type'] as String?,
+      targetId: map['target_id'] as String?,
+    );
+  }
+}
+
+/// Resolved metadata and exact coordinates for itinerary route generation, independent of discovery pagination caches.
+class SavedRouteCandidate {
+  const SavedRouteCandidate({
+    required this.savedPlaceId,
+    required this.targetType,
+    required this.targetId,
+    required this.name,
+    required this.state,
+    required this.city,
+    required this.latitude,
+    required this.longitude,
+    required this.categoryOrCuisine,
+    this.bestTime,
+    this.thingsToDo,
+    this.reviewedDishes,
+    this.priceRange,
+    this.imageUrl,
+    this.rating = 0.0,
+    this.reviewCount = 0,
+  });
+
+  final String savedPlaceId;
+  final String targetType; // 'spot' | 'restaurant'
+  final String targetId;
+  final String name;
+  final String state;
+  final String city;
+  final double latitude;
+  final double longitude;
+  final String categoryOrCuisine;
+  final String? bestTime;
+  final String? thingsToDo;
+  final String? reviewedDishes;
+  final String? priceRange;
+  final String? imageUrl;
+  final double rating;
+  final int reviewCount;
+
+  bool get isSpot => targetType == 'spot';
+  bool get isRestaurant => targetType == 'restaurant';
+
+  factory SavedRouteCandidate.fromMap(Map<String, dynamic> map) {
+    return SavedRouteCandidate(
+      savedPlaceId: map['saved_place_id'] as String? ?? '',
+      targetType: map['target_type'] as String? ?? 'spot',
+      targetId: map['target_id'] as String? ?? '',
+      name: map['name'] as String? ?? 'Unavailable place',
+      state: map['state'] as String? ?? '',
+      city: map['city'] as String? ?? '',
+      latitude: (map['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (map['longitude'] as num?)?.toDouble() ?? 0.0,
+      categoryOrCuisine: map['category_or_cuisine'] as String? ?? '',
+      bestTime: map['best_time'] as String?,
+      thingsToDo: map['things_to_do'] as String?,
+      reviewedDishes: map['reviewed_dishes'] as String?,
+      priceRange: map['price_range'] as String?,
+      imageUrl: map['image_url'] as String?,
+      rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
+      reviewCount: (map['review_count'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
