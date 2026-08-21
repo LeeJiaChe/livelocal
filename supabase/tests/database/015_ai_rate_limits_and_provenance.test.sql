@@ -168,6 +168,21 @@ select ok(
 );
 
 -- 8. AI provenance consistency constraint tests
+do $$
+declare
+  v_test_user uuid := '80000000-0000-0000-0000-000000000001';
+  v_test_rest uuid := '81000000-0000-0000-0000-000000000001';
+begin
+  insert into auth.users (id, email)
+  values (v_test_user, 'test_provenance_user@example.com')
+  on conflict (id) do nothing;
+
+  insert into public.restaurants (id, owner_id)
+  values (v_test_rest, v_test_user)
+  on conflict (id) do nothing;
+end;
+$$;
+
 select lives_ok(
   $$
   insert into public.restaurant_revisions (
@@ -175,7 +190,8 @@ select lives_ok(
     cuisine_type, price_range, reviewed_dishes, social_media_url,
     ai_assisted, ai_source_platform
   ) values (
-    gen_random_uuid(), 1, gen_random_uuid(), 'Manual Test', '123 St', 'Penang', 'George Town',
+    '81000000-0000-0000-0000-000000000001', 101, '80000000-0000-0000-0000-000000000001',
+    'Manual Test', '123 St', 'Penang', 'George Town',
     'Malay', '$', 'Laksa', 'https://instagram.com/p/valid1/',
     false, null
   )
@@ -190,7 +206,8 @@ select lives_ok(
     cuisine_type, price_range, reviewed_dishes, social_media_url,
     ai_assisted, ai_source_platform
   ) values (
-    gen_random_uuid(), 1, gen_random_uuid(), 'IG Test', '123 St', 'Penang', 'George Town',
+    '81000000-0000-0000-0000-000000000001', 102, '80000000-0000-0000-0000-000000000001',
+    'IG Test', '123 St', 'Penang', 'George Town',
     'Malay', '$', 'Laksa', 'https://instagram.com/p/valid2/',
     true, 'instagram'
   )
@@ -205,7 +222,8 @@ select lives_ok(
     cuisine_type, price_range, reviewed_dishes, social_media_url,
     ai_assisted, ai_source_platform
   ) values (
-    gen_random_uuid(), 1, gen_random_uuid(), 'TikTok Test', '123 St', 'Penang', 'George Town',
+    '81000000-0000-0000-0000-000000000001', 103, '80000000-0000-0000-0000-000000000001',
+    'TikTok Test', '123 St', 'Penang', 'George Town',
     'Malay', '$', 'Laksa', 'https://www.tiktok.com/@creator/video/1234567890123456789',
     true, 'tiktok'
   )
@@ -220,7 +238,8 @@ select throws_ok(
     cuisine_type, price_range, reviewed_dishes, social_media_url,
     ai_assisted, ai_source_platform
   ) values (
-    gen_random_uuid(), 1, gen_random_uuid(), 'Invalid Test 1', '123 St', 'Penang', 'George Town',
+    '81000000-0000-0000-0000-000000000001', 104, '80000000-0000-0000-0000-000000000001',
+    'Invalid Test 1', '123 St', 'Penang', 'George Town',
     'Malay', '$', 'Laksa', 'https://instagram.com/p/valid3/',
     false, 'instagram'
   )
@@ -237,7 +256,8 @@ select throws_ok(
     cuisine_type, price_range, reviewed_dishes, social_media_url,
     ai_assisted, ai_source_platform
   ) values (
-    gen_random_uuid(), 1, gen_random_uuid(), 'Invalid Test 2', '123 St', 'Penang', 'George Town',
+    '81000000-0000-0000-0000-000000000001', 105, '80000000-0000-0000-0000-000000000001',
+    'Invalid Test 2', '123 St', 'Penang', 'George Town',
     'Malay', '$', 'Laksa', 'https://instagram.com/p/valid4/',
     true, null
   )
@@ -254,7 +274,8 @@ select throws_ok(
     cuisine_type, price_range, reviewed_dishes, social_media_url,
     ai_assisted, ai_source_platform
   ) values (
-    gen_random_uuid(), 1, gen_random_uuid(), 'Invalid Test 3', '123 St', 'Penang', 'George Town',
+    '81000000-0000-0000-0000-000000000001', 106, '80000000-0000-0000-0000-000000000001',
+    'Invalid Test 3', '123 St', 'Penang', 'George Town',
     'Malay', '$', 'Laksa', 'https://instagram.com/p/valid5/',
     true, 'youtube'
   )
