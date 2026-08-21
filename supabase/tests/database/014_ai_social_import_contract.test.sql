@@ -21,12 +21,12 @@ select ok(
   private.is_supported_review_post_url('https://instagram.com/reel/ABC123/'),
   'Instagram Reel URL is a valid final review source'
 );
-select not_ok(
-  private.is_supported_review_post_url('https://tiktok.com/@creator/'),
+select ok(
+  not private.is_supported_review_post_url('https://tiktok.com/@creator/'),
   'TikTok profile URL cannot be a final review source'
 );
-select not_ok(
-  private.is_supported_review_post_url('https://instagram.com/creator/'),
+select ok(
+  not private.is_supported_review_post_url('https://instagram.com/creator/'),
   'Instagram profile URL cannot be a final review source'
 );
 
@@ -38,20 +38,20 @@ select ok(
   (select relrowsecurity from pg_class where oid = 'public.social_oauth_states'::regclass),
   'OAuth state has RLS enabled'
 );
-select not_ok(
-  has_table_privilege('authenticated', 'public.social_account_connections', 'select'),
+select ok(
+  not has_table_privilege('authenticated', 'public.social_account_connections', 'select'),
   'authenticated clients cannot read provider tokens'
 );
-select not_ok(
-  has_table_privilege('authenticated', 'public.social_account_connections', 'insert'),
+select ok(
+  not has_table_privilege('authenticated', 'public.social_account_connections', 'insert'),
   'authenticated clients cannot insert provider tokens'
 );
-select not_ok(
-  has_table_privilege('authenticated', 'public.social_oauth_states', 'select'),
+select ok(
+  not has_table_privilege('authenticated', 'public.social_oauth_states', 'select'),
   'authenticated clients cannot read OAuth state'
 );
-select not_ok(
-  has_table_privilege('authenticated', 'public.social_oauth_states', 'insert'),
+select ok(
+  not has_table_privilege('authenticated', 'public.social_oauth_states', 'insert'),
   'authenticated clients cannot create OAuth state directly'
 );
 
