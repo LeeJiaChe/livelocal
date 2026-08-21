@@ -2,6 +2,7 @@ import {
   generateStructuredRestaurantCandidates,
   normalizeCandidates,
 } from "./ai_extractor.ts";
+import { GenerationError } from "./types.ts";
 
 Deno.test("normalization preserves verified source and reports missing fields", () => {
   const post = {
@@ -44,6 +45,130 @@ Deno.test("normalization rejects AI-supplied unverified post URLs", () => {
     sourceCaption: null,
   }]);
   equal(candidates.length, 0);
+});
+
+Deno.test("missing AI API key throws AI_PROVIDER_NOT_CONFIGURED", async () => {
+  try {
+    await generateStructuredRestaurantCandidates(
+      {
+        detection: {
+          platform: "tiktok",
+          sourceType: "post",
+          normalizedUrl: "https://www.tiktok.com/@user/video/123",
+        },
+        posts: [],
+      },
+      { apiKey: "", model: "gpt-4o-mini" },
+    );
+    throw new Error("Should have thrown");
+  } catch (err) {
+    if (err instanceof GenerationError) {
+      equal(err.code, "AI_PROVIDER_NOT_CONFIGURED");
+      equal(err.status, 503);
+    } else {
+      throw err;
+    }
+  }
+});
+
+Deno.test("gemini_openai_compatible provider uses Gemini defaults", async () => {
+  const post = {
+    sourcePlatform: "tiktok" as const,
+    sourcePostUrl: "https://www.tiktok.com/@user/video/123",
+    influencerUsername: "creator",
+    sourceCaption: "Good Laksa Cafe",
+  };
+  let calledUrl = "";
+  let calledModel = "";
+
+  await generateStructuredRestaurantCandidates(
+    {
+      detection: {
+        platform: "tiktok",
+        sourceType: "post",
+        normalizedUrl: post.sourcePostUrl,
+      },
+      posts: [post],
+    },
+    {
+      provider: "gemini_openai_compatible",
+      apiKey: "test-gemini-key",
+    },
+    (url, init) => {
+      calledUrl = String(url);
+      const body = JSON.parse(String(init?.body));
+      calledModel = body.model;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{
+              message: {
+                content: JSON.stringify({
+                  candidates: [{
+                    restaurantName: "Good Laksa Cafe",
+                    address: null,
+                    state: null,
+                    city: null,
+                    cuisineType: null,
+                    priceRange: null,
+                    reviewedDishes: ["Laksa"],
+                    sourcePostUrl: post.sourcePostUrl,
+                    confidence: 0.9,
+                    missingFields: [],
+                  }],
+                }),
+              },
+            }],
+          }),
+          { status: 200 },
+        ),
+      );
+    },
+  );
+
+  equal(
+    calledUrl,
+    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+  );
+  equal(calledModel, "gemini-2.5-flash");
+});
+
+Deno.test("malformed AI response throws MALFORMED_AI_RESPONSE", async () => {
+  try {
+    await generateStructuredRestaurantCandidates(
+      {
+        detection: {
+          platform: "tiktok",
+          sourceType: "post",
+          normalizedUrl: "https://www.tiktok.com/@user/video/123",
+        },
+        posts: [{
+          sourcePlatform: "tiktok",
+          sourcePostUrl: "https://www.tiktok.com/@user/video/123",
+          influencerUsername: null,
+          sourceCaption: "Test",
+        }],
+      },
+      { apiKey: "test-key" },
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              choices: [{ message: { content: "INVALID_NOT_JSON" } }],
+            }),
+            { status: 200 },
+          ),
+        ),
+    );
+    throw new Error("Should have thrown");
+  } catch (err) {
+    if (err instanceof GenerationError) {
+      equal(err.code, "MALFORMED_AI_RESPONSE");
+      equal(err.status, 502);
+    } else {
+      throw err;
+    }
+  }
 });
 
 Deno.test("structured AI fetching is mockable and caps profile results at five", async () => {
@@ -97,9 +222,15 @@ Deno.test("structured AI fetching is mockable and caps profile results at five",
 });
 
 function equal(actual: unknown, expected: unknown) {
-  if (actual !== expected) throw new Error("Values are not equal");
+  if (actual !== expected) {
+    throw new Error(
+      `Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`,
+    );
+  }
 }
 
-function includes(values: string[], expected: string) {
-  if (!values.includes(expected)) throw new Error(`Missing ${expected}`);
+function includes(array: string[], item: string) {
+  if (!array.includes(item)) {
+    throw new Error(`Expected ${JSON.stringify(array)} to contain "${item}"`);
+  }
 }
