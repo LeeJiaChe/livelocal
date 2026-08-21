@@ -30,12 +30,12 @@ begin
   perform pg_advisory_xact_lock(hashtextextended(p_user_id::text, 0));
 
   -- 1. Cooldown / duplicate check
-  select created_at into last_time
+  select requested_at into last_time
   from public.ai_generation_usage
   where user_id = p_user_id
     and source_hash = p_source_hash
-    and created_at >= (now_ts - (p_cooldown_seconds || ' seconds')::interval)
-  order by created_at desc
+    and requested_at >= (now_ts - (p_cooldown_seconds || ' seconds')::interval)
+  order by requested_at desc
   limit 1;
 
   if found then
@@ -50,7 +50,7 @@ begin
   select count(*) into hour_cnt
   from public.ai_generation_usage
   where user_id = p_user_id
-    and created_at >= (now_ts - interval '1 hour');
+    and requested_at >= (now_ts - interval '1 hour');
 
   if hour_cnt >= p_hourly_limit then
     return jsonb_build_object(
@@ -64,7 +64,7 @@ begin
   select count(*) into day_cnt
   from public.ai_generation_usage
   where user_id = p_user_id
-    and created_at >= (now_ts - interval '24 hours');
+    and requested_at >= (now_ts - interval '24 hours');
 
   if day_cnt >= p_daily_limit then
     return jsonb_build_object(
@@ -76,7 +76,7 @@ begin
 
   -- 4. Record usage
   insert into public.ai_generation_usage (
-    user_id, source_hash, platform, outcome, created_at
+    user_id, source_hash, platform, outcome, requested_at
   ) values (
     p_user_id, p_source_hash, p_platform, 'started', now_ts
   ) returning id into new_id;
