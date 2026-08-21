@@ -6,6 +6,10 @@ import '../../controllers/auth_controller.dart';
 class ProtectedNavigation {
   PendingProtectedNavigation? _pending;
 
+  bool get hasPending => _pending != null;
+
+  PendingProtectedNavigation? peekPending() => _pending;
+
   void open(
     BuildContext context,
     String routeName, {
@@ -27,6 +31,10 @@ class ProtectedNavigation {
     final pending = _pending;
     _pending = null;
     return pending;
+  }
+
+  void clearPending() {
+    _pending = null;
   }
 }
 

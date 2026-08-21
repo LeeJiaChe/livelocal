@@ -20,8 +20,10 @@ import 'constants/app_colors.dart';
 import 'features/auth/data/demo_auth_repository.dart';
 import 'features/auth/data/supabase_auth_repository.dart';
 import 'features/auth/domain/auth_repository.dart';
+import 'features/auth/presentation/auth_navigation_coordinator.dart';
 import 'features/auth/presentation/password_reset_screen.dart';
 import 'features/auth/presentation/session_gate.dart';
+import 'features/auth/presentation/set_new_password_screen.dart';
 import 'features/profile/data/demo_account_repository.dart';
 import 'features/profile/data/supabase_account_repository.dart';
 import 'features/profile/domain/account_repository.dart';
@@ -64,7 +66,9 @@ import 'features/moderation/data/demo_moderation_repository.dart';
 import 'features/moderation/data/supabase_moderation_repository.dart';
 import 'features/moderation/domain/moderation_repository.dart';
 import 'app/theme/app_theme.dart';
+import 'features/guides/presentation/submit_guide_screen.dart';
 import 'features/moderation/presentation/blocked_users_screen.dart';
+import 'screens/add_restaurant_screen.dart';
 import 'screens/my_submissions_screen.dart';
 
 Future<void> main() async {
@@ -111,16 +115,21 @@ Future<void> main() async {
       authRepository = demoAuthRepository;
       final demoAccountRepository = DemoAccountRepository(demoAuthRepository);
       accountRepository = demoAccountRepository;
-      spotRepository = DemoSpotRepository(demoAuthRepository);
+      spotRepository =
+          DemoSpotRepository(demoAuthRepository, seedAdminWorkload: true);
       reviewRepository = DemoReviewRepository(demoAuthRepository);
       adminRepository =
           DemoAdminRepository(demoAuthRepository, demoAccountRepository);
-      influencerApplicationRepository =
-          DemoInfluencerApplicationRepository(demoAuthRepository);
-      localEatsRepository = DemoLocalEatsRepository(demoAuthRepository);
+      influencerApplicationRepository = DemoInfluencerApplicationRepository(
+        demoAuthRepository,
+        seedAdminWorkload: true,
+      );
+      localEatsRepository =
+          DemoLocalEatsRepository(demoAuthRepository, seedAdminWorkload: true);
       savedItineraryRepository =
           DemoSavedItineraryRepository(demoAuthRepository);
-      guideRepository = DemoGuideRepository(demoAuthRepository);
+      guideRepository =
+          DemoGuideRepository(demoAuthRepository, seedAdminWorkload: true);
       notificationRepository = DemoNotificationRepository(demoAuthRepository);
       moderationRepository = DemoModerationRepository(demoAuthRepository);
     } else {
@@ -184,6 +193,9 @@ Future<void> main() async {
 }
 
 class LiveLocalApp extends StatelessWidget {
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   const LiveLocalApp({
     super.key,
     required this.configuration,
@@ -261,71 +273,80 @@ class LiveLocalApp extends StatelessWidget {
           create: (_) => ModerationController(repository: moderationRepository),
         ),
       ],
-      child: MaterialApp(
-        title: 'LiveLocal',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        initialRoute: '/home',
-        builder: (context, child) {
-          final content = child ?? const SizedBox.shrink();
-          if (!configuration.isDemo) return content;
-          return Banner(
-            message: 'DEMO',
-            location: BannerLocation.topEnd,
-            color: AppColors.error,
-            child: content,
-          );
-        },
-        routes: {
-          '/welcome': (context) => const WelcomeScreen(),
-          '/login': (context) => const LoginScreen(),
-          '/register': (context) => const RegisterScreen(),
-          '/password-reset': (context) => const PasswordResetScreen(),
-          '/notifications': (context) => const NotificationsScreen(),
-          '/blocked-users': (context) => const BlockedUsersScreen(),
-          '/my-submissions': (context) => const MySubmissionsScreen(),
-          '/submit-spot': (context) => const SubmitSpotScreen(),
-          '/creator-application': (context) => const CreatorApplicationScreen(),
-          '/account-deletion': (context) => const ProfileScreen(),
-          '/restaurant-detail': (context) {
-            final arguments = ModalRoute.of(context)?.settings.arguments;
-            if (arguments is! RestaurantDetailArguments) {
-              return const ConfigurationFailureApp(
-                message: 'The requested restaurant is unavailable.',
-              );
-            }
-            return RestaurantDetailScreen(
-              restaurant: arguments.restaurant,
-              pendingAction: arguments.pendingAction,
+      child: AuthNavigationCoordinator(
+        navigatorKey: navigatorKey,
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          title: 'LiveLocal',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          initialRoute: '/home',
+          builder: (context, child) {
+            final content = child ?? const SizedBox.shrink();
+            if (!configuration.isDemo) return content;
+            return Banner(
+              message: 'DEMO',
+              location: BannerLocation.topEnd,
+              color: AppColors.error,
+              child: content,
             );
           },
-          '/saved-places': (context) => const SavedPlacesScreen(),
-          '/spot-detail': (context) {
-            final arguments = ModalRoute.of(context)?.settings.arguments;
-            if (arguments is! SpotDetailArguments) {
-              return const ConfigurationFailureApp(
-                message: 'The requested spot is unavailable.',
+          routes: {
+            '/welcome': (context) => const WelcomeScreen(),
+            '/login': (context) => const LoginScreen(),
+            '/register': (context) => const RegisterScreen(),
+            '/password-reset': (context) => const PasswordResetScreen(),
+            '/set-new-password': (context) => const SetNewPasswordScreen(),
+            '/notifications': (context) => const NotificationsScreen(),
+            '/blocked-users': (context) => const BlockedUsersScreen(),
+            '/my-submissions': (context) => const MySubmissionsScreen(),
+            '/submit-spot': (context) => const SubmitSpotScreen(),
+            '/submit-guide': (context) => const SubmitGuideScreen(),
+            '/add-restaurant': (context) => const AddRestaurantScreen(),
+            '/recommend-restaurant': (context) => const AddRestaurantScreen(),
+            '/creator-application': (context) =>
+                const CreatorApplicationScreen(),
+            '/account-deletion': (context) => const ProfileScreen(),
+            '/restaurant-detail': (context) {
+              final arguments = ModalRoute.of(context)?.settings.arguments;
+              if (arguments is! RestaurantDetailArguments) {
+                return const ConfigurationFailureApp(
+                  message: 'The requested restaurant is unavailable.',
+                );
+              }
+              return RestaurantDetailScreen(
+                restaurant: arguments.restaurant,
+                pendingAction: arguments.pendingAction,
               );
-            }
-            return SpotDetailScreen(
-              spot: arguments.spot,
-              pendingAction: arguments.pendingAction,
-            );
-          },
-          '/guide-detail': (context) {
-            final arguments = ModalRoute.of(context)?.settings.arguments;
-            if (arguments is! GuideDetailArguments) {
-              return const ConfigurationFailureApp(
-                message: 'The requested guide is unavailable.',
+            },
+            '/saved-places': (context) => const SavedPlacesScreen(),
+            '/spot-detail': (context) {
+              final arguments = ModalRoute.of(context)?.settings.arguments;
+              if (arguments is! SpotDetailArguments) {
+                return const ConfigurationFailureApp(
+                  message: 'The requested spot is unavailable.',
+                );
+              }
+              return SpotDetailScreen(
+                spot: arguments.spot,
+                pendingAction: arguments.pendingAction,
               );
-            }
-            return GuideDetailScreen(
-              guide: arguments.guide,
-              pendingReport: arguments.pendingReport,
-            );
+            },
+            '/guide-detail': (context) {
+              final arguments = ModalRoute.of(context)?.settings.arguments;
+              if (arguments is! GuideDetailArguments) {
+                return const ConfigurationFailureApp(
+                  message: 'The requested guide is unavailable.',
+                );
+              }
+              return GuideDetailScreen(
+                guide: arguments.guide,
+                pendingReport: arguments.pendingReport,
+              );
+            },
+            '/home': (context) => const SessionGate(),
           },
-          '/home': (context) => const SessionGate(),
-        },
+        ),
       ),
     );
   }

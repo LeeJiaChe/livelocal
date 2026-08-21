@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(25);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -32,18 +32,31 @@ set local role authenticated;
 select throws_ok(
   $$select public.submit_guide('Local route', 'George Town', 'Penang',
     'A detailed neighbourhood route submitted for careful admin review.',
-    '["Market"]'::jsonb, '["Begin at the main market entrance"]'::jsonb,
+    '["Market", "Clan Jetties"]'::jsonb,
+    '["Begin at the main market entrance", "Walk to Clan Jetties"]'::jsonb,
     '2 hours')$$,
   'P0001', 'UGC_RULES_ACCEPTANCE_REQUIRED',
   'guide submission requires current UGC consent');
 select lives_ok($$select public.accept_current_ugc_rules()$$,
   'tourist accepts current UGC rules');
+
+-- 1-stop rejection test
+select throws_ok(
+  $$select public.submit_guide('Short route', 'George Town', 'Penang',
+    'A route with only 1 stop that should be rejected by server quality checks.',
+    '["Market"]'::jsonb, '["Begin at the main market entrance"]'::jsonb,
+    '30 minutes')$$,
+  '22023', 'GUIDE_MINIMUM_STOPS_REQUIRED',
+  'guide with only 1 stop is rejected with GUIDE_MINIMUM_STOPS_REQUIRED');
+
+-- 2-stop valid submission test
 select lives_ok(
   $$select public.submit_guide('Local route', 'George Town', 'Penang',
     'A detailed neighbourhood route submitted for careful admin review.',
-    '["Market"]'::jsonb, '["Begin at the main market entrance"]'::jsonb,
+    '["Market", "Clan Jetties"]'::jsonb,
+    '["Begin at the main market entrance", "Walk to Clan Jetties"]'::jsonb,
     '2 hours')$$,
-  'tourist submits a valid ordered guide');
+  'tourist submits a valid ordered guide with at least 2 stops');
 select is((select count(*) from public.list_my_guide_submissions()), 1::bigint,
   'tourist sees the persisted submission status');
 select is((select count(*) from public.published_guides), 0::bigint,
@@ -70,6 +83,12 @@ select lives_ok(
     'approved', 'Route and stops verified', 1)$$,
   'admin securely approves a guide');
 
+-- Check author attribution columns populated on approval
+select is((select author_display_name from public.published_guides limit 1),
+  'Guide Tourist', 'approved guide contains author display name');
+select is((select author_is_creator from public.published_guides limit 1),
+  false, 'approved tourist guide has author_is_creator = false');
+
 reset role;
 select set_config('request.jwt.claims',
   '{"sub":"a1000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
@@ -77,9 +96,10 @@ set local role authenticated;
 select lives_ok(
   $$select public.submit_guide('Second local route', 'Ipoh Old Town', 'Perak',
     'A second complete neighbourhood route submitted for moderation testing.',
-    '["Clock tower"]'::jsonb, '["Meet beside the public clock tower"]'::jsonb,
+    '["Clock tower", "Concubine Lane"]'::jsonb,
+    '["Meet beside the public clock tower", "Walk through Concubine Lane"]'::jsonb,
     '90 minutes')$$,
-  'tourist can submit another independent guide');
+  'tourist can submit another independent 2-stop guide');
 
 reset role;
 select set_config('request.jwt.claims',

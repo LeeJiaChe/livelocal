@@ -17,6 +17,7 @@ import '../models/review_model.dart';
 import '../features/moderation/presentation/content_report_dialog.dart';
 import '../features/moderation/presentation/block_content_author_dialog.dart';
 import '../features/moderation/presentation/moderation_controller.dart';
+import '../shared/presentation/save_to_collection_sheet.dart';
 
 class RestaurantDetailArguments {
   const RestaurantDetailArguments({
@@ -124,9 +125,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F5F0),
         title: const Text('Restaurant'),
         actions: [
           IconButton(
@@ -388,28 +387,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   }
 
   Future<void> _requestSave() async {
-    final auth = context.read<AuthController>();
-    if (!auth.canWrite) {
-      context.read<ProtectedNavigation>().open(
-            context,
-            '/restaurant-detail',
-            arguments: RestaurantDetailArguments(
-              restaurant: widget.restaurant,
-              pendingAction: const RestaurantPendingAction.save(),
-            ),
-          );
-      return;
-    }
-    final controller = context.read<ItineraryController>();
-    final wasSaved = controller.isSaved(restaurantId: widget.restaurant.id);
-    final changed = await controller.toggleSave(
-      restaurantId: widget.restaurant.id,
-    );
-    if (!mounted) return;
-    _message(
-      changed
-          ? (wasSaved ? 'Removed from saved.' : 'Saved to your places.')
-          : controller.errorMessage ?? 'The place could not be updated.',
+    await SaveToCollectionSheet.show(
+      context,
+      targetType: 'restaurant',
+      targetId: widget.restaurant.id,
+      placeName: widget.restaurant.name,
+      restaurant: widget.restaurant,
     );
   }
 

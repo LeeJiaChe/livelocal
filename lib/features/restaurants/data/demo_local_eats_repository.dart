@@ -10,8 +10,32 @@ import '../../auth/domain/account_identity.dart';
 import '../domain/local_eats_repository.dart';
 
 class DemoLocalEatsRepository implements LocalEatsRepository {
-  DemoLocalEatsRepository(this._authRepository)
-      : _restaurants = List.of(SeedDataService.getInitialRestaurants()),
+  DemoLocalEatsRepository(
+    this._authRepository, {
+    bool seedAdminWorkload = false,
+  })  : _restaurants = List.of([
+          ...SeedDataService.getInitialRestaurants(),
+          if (seedAdminWorkload)
+            RestaurantModel(
+              id: 'demo-restaurant-pending-1',
+              revisionId: 'demo-restaurant-rev-1',
+              name: 'Kopitiam Heritage Noodle House',
+              address: '45 Jalan Sultan',
+              state: 'Kuala Lumpur',
+              city: 'Kuala Lumpur',
+              cuisineType: 'Local Kopitiam',
+              priceRange: r'$',
+              reviewedDishes:
+                  'Signature dry chili pan mee and traditional kaya toast',
+              influencerId: 'usr-influencer-1',
+              influencerName: 'Demo Influencer',
+              socialMediaUrl:
+                  'https://www.tiktok.com/@foodie/video/1234567890123456789',
+              coverPhotoUrl:
+                  'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
+              status: 'submitted',
+            ),
+        ]),
         _discounts = List.of(SeedDataService.getInitialDiscountCodes()) {
     for (final restaurant in _restaurants) {
       _currentRevisionIds[restaurant.id] =
@@ -36,6 +60,20 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
           ),
         )
         .toList();
+  }
+
+  @override
+  Future<RestaurantModel?> fetchPublicRestaurantById(
+      String restaurantId) async {
+    final userId = _authRepository.currentAccountForDemo?.id;
+    final match = _restaurants
+        .where((r) => r.id == restaurantId && r.status == 'approved')
+        .firstOrNull;
+    if (match == null) return null;
+    return _copyRestaurant(
+      match,
+      isOwnedByCurrentUser: match.influencerId == userId,
+    );
   }
 
   @override

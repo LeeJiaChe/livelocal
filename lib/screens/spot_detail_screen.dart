@@ -11,6 +11,8 @@ import '../core/routing/protected_navigation.dart';
 import '../features/moderation/presentation/content_report_dialog.dart';
 import '../features/moderation/presentation/block_content_author_dialog.dart';
 import '../features/moderation/presentation/moderation_controller.dart';
+import '../features/reviews/presentation/widgets/review_text_widget.dart';
+import '../shared/presentation/save_to_collection_sheet.dart';
 
 class SpotDetailArguments {
   const SpotDetailArguments({required this.spot, this.pendingAction});
@@ -59,11 +61,14 @@ class SpotDetailScreen extends StatefulWidget {
 
 class _SpotDetailScreenState extends State<SpotDetailScreen> {
   final _commentCtrl = TextEditingController();
+  final _scrollController = ScrollController();
+  bool _showScrollToTop = false;
   double _userRating = 5.0;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await context
@@ -102,8 +107,28 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     });
   }
 
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final show = _scrollController.offset > 300;
+    if (show != _showScrollToTop) {
+      setState(() => _showScrollToTop = show);
+    }
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _commentCtrl.dispose();
     super.dispose();
   }
@@ -126,8 +151,17 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     final spotReviews = reviewCtrl.getReviewsForSpot(widget.spot.id);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
+      floatingActionButton: _showScrollToTop
+          ? FloatingActionButton.small(
+              tooltip: 'Back to top',
+              backgroundColor: AppColors.primary,
+              onPressed: _scrollToTop,
+              child: const Icon(Icons.arrow_upward, color: Colors.white),
+            )
+          : null,
       body: CustomScrollView(
+        controller: _scrollController,
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverAppBar(
@@ -202,7 +236,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
                   color: Colors.grey.shade200,
-                  child: const Center(child: CircularProgressIndicator()),
+                  child: const Icon(Icons.image, size: 64, color: Colors.grey),
                 ),
                 errorWidget: (context, url, error) => Container(
                   color: Colors.grey.shade200,
@@ -319,26 +353,48 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                       child: Column(
                         children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Icon(Icons.access_time,
                                   color: AppColors.primary, size: 18),
                               const SizedBox(width: 8),
-                              const Text('Best Visiting Time: ',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              Text(widget.spot.bestTime),
+                              Expanded(
+                                child: Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      const TextSpan(
+                                        text: 'Best Visiting Time: ',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      TextSpan(text: widget.spot.bestTime),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Icon(Icons.check_circle_outline,
                                   color: AppColors.primary, size: 18),
                               const SizedBox(width: 8),
-                              const Text('Things to do / Order: ',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              Expanded(child: Text(widget.spot.thingsToDo)),
+                              Expanded(
+                                child: Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      const TextSpan(
+                                        text: 'Things to do / Order: ',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      TextSpan(text: widget.spot.thingsToDo),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -348,9 +404,13 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Community Reviews',
+                        const Expanded(
+                          child: Text(
+                            'Community Reviews',
                             style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ),
                         OutlinedButton.icon(
                           onPressed: _requestWriteReview,
                           icon:
@@ -463,9 +523,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 6),
-                                  Text(r.comment,
-                                      style: const TextStyle(
-                                          fontSize: 13, height: 1.4)),
+                                  ReviewTextWidget(text: r.comment),
                                   const SizedBox(height: 6),
                                   Row(
                                     children: [
@@ -583,30 +641,12 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
   }
 
   Future<void> _requestSave() async {
-    final auth = context.read<AuthController>();
-    if (!auth.canWrite) {
-      context.read<ProtectedNavigation>().open(
-            context,
-            '/spot-detail',
-            arguments: SpotDetailArguments(
-              spot: widget.spot,
-              pendingAction: const SpotPendingAction.save(),
-            ),
-          );
-      return;
-    }
-    final controller = context.read<ItineraryController>();
-    final wasSaved = controller.isSaved(spotId: widget.spot.id);
-    final changed = await controller.toggleSave(spotId: widget.spot.id);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          changed
-              ? (wasSaved ? 'Removed from saved.' : 'Saved to your places.')
-              : controller.errorMessage ?? 'The place could not be updated.',
-        ),
-      ),
+    await SaveToCollectionSheet.show(
+      context,
+      targetType: 'spot',
+      targetId: widget.spot.id,
+      placeName: widget.spot.name,
+      spot: widget.spot,
     );
   }
 

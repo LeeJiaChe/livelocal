@@ -14,6 +14,7 @@ enum AuthStatus {
   restricted,
   banned,
   deletionPending,
+  passwordRecovery,
   failure,
 }
 
@@ -22,7 +23,7 @@ class AuthController with ChangeNotifier {
       : _repository = repository;
 
   final AuthRepository _repository;
-  StreamSubscription<void>? _sessionSubscription;
+  StreamSubscription<AuthSessionEvent>? _sessionSubscription;
 
   AccountIdentity? _currentUser;
   AuthStatus _status = AuthStatus.checking;
@@ -35,15 +36,32 @@ class AuthController with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get pendingVerificationEmail =>
-      _pendingVerificationEmail ?? _currentUser?.email;
+      _status == AuthStatus.verificationRequired
+          ? (_pendingVerificationEmail ?? _currentUser?.email)
+          : null;
   bool get isAuthenticated => _currentUser != null;
   bool get canWrite => _status == AuthStatus.authenticated;
 
   Future<void> initialize() async {
     await _sessionSubscription?.cancel();
-    _sessionSubscription = _repository.sessionChanges.listen((_) {
-      unawaited(_restoreSession(fromAuthEvent: true));
-    });
+    _sessionSubscription = _repository.authEvents.listen(
+      (event) {
+        if (event == AuthSessionEvent.passwordRecovery) {
+          _status = AuthStatus.passwordRecovery;
+          _errorMessage = null;
+          notifyListeners();
+        } else {
+          if (_status != AuthStatus.passwordRecovery) {
+            unawaited(_restoreSession(fromAuthEvent: true));
+          }
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        if (kDebugMode) {
+          debugPrint('Auth stream error: $error');
+        }
+      },
+    );
     await _restoreSession();
   }
 
@@ -94,6 +112,37 @@ class AuthController with ChangeNotifier {
     }
   }
 
+  Future<bool> updatePassword(String newPassword) async {
+    _setLoading();
+    try {
+      await _repository.updatePassword(newPassword);
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = _messageFor(error);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> completePasswordReset(String newPassword) async {
+    final success = await updatePassword(newPassword);
+    if (success) {
+      await logout();
+    }
+    return success;
+  }
+
+  void clearPasswordRecovery() {
+    if (_status == AuthStatus.passwordRecovery) {
+      _status =
+          _currentUser != null ? AuthStatus.authenticated : AuthStatus.guest;
+      notifyListeners();
+    }
+  }
+
   Future<void> refreshAccount() async {
     try {
       final account = await _repository.refreshAccount();
@@ -104,6 +153,11 @@ class AuthController with ChangeNotifier {
     } finally {
       notifyListeners();
     }
+  }
+
+  Future<void> checkEmailVerification() async {
+    if (_status != AuthStatus.verificationRequired || _isLoading) return;
+    await _restoreSession(fromAuthEvent: true);
   }
 
   Future<void> logout() async {
@@ -138,8 +192,10 @@ class AuthController with ChangeNotifier {
       }
       _errorMessage = null;
     } catch (error) {
-      _status = AuthStatus.failure;
-      _errorMessage = _messageFor(error);
+      if (!fromAuthEvent) {
+        _status = AuthStatus.failure;
+        _errorMessage = _messageFor(error);
+      }
     } finally {
       notifyListeners();
     }
@@ -192,6 +248,7 @@ class AuthController with ChangeNotifier {
       _status = AuthStatus.verificationRequired;
       return;
     }
+    _pendingVerificationEmail = null;
     switch (account.accessStatus) {
       case AccountAccessStatus.active:
         _status = AuthStatus.authenticated;

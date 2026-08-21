@@ -12,6 +12,8 @@ class GuideModel {
   final String? revisionId;
   final int version;
   final String? decisionReason;
+  final String? authorDisplayName;
+  final bool authorIsCreator;
 
   GuideModel({
     required this.id,
@@ -27,6 +29,8 @@ class GuideModel {
     this.revisionId,
     this.version = 1,
     this.decisionReason,
+    this.authorDisplayName,
+    this.authorIsCreator = false,
   });
 
   Map<String, dynamic> toMap() => {
@@ -43,6 +47,8 @@ class GuideModel {
         'revision_id': revisionId,
         'version': version,
         'decision_reason': decisionReason,
+        'author_display_name': authorDisplayName,
+        'author_is_creator': authorIsCreator,
       };
 
   factory GuideModel.fromMap(Map<String, dynamic> map) => GuideModel(
@@ -59,5 +65,7 @@ class GuideModel {
         revisionId: map['revision_id'],
         version: (map['version'] as num?)?.toInt() ?? 1,
         decisionReason: map['decision_reason'],
+        authorDisplayName: map['author_display_name'] as String?,
+        authorIsCreator: map['author_is_creator'] == true,
       );
 }

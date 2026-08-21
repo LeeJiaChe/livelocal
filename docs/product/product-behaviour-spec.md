@@ -188,10 +188,8 @@ and does not claim optimal road routing.
 
 ## Guides
 
-MVP guides are admin-curated only. Admins create/manage drafts; approved guides
-are public; revisions and audit history remain mandatory. The data model keeps
-a creator/owner field for possible future influencer/community submissions.
-No public or influencer guide-submission UI is in MVP.
+Guides are community-submitted travel routes and itineraries. Authenticated active tourists and creators may submit Guide drafts for review. All submitted Guides require Admin moderation before publication. Admins may also create and curate Guides. Approved guides are public; revisions and audit history remain mandatory. Safe creator/owner attribution is preserved on public guides.
+
 
 ## Reviews and reports
 

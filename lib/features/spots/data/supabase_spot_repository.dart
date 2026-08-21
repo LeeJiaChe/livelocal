@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../core/errors/supabase_error_mapper.dart';
 import '../../../core/errors/app_exception.dart';
+import '../../../core/errors/supabase_error_mapper.dart';
+import '../../../models/spot_filter_options.dart';
 import '../../../models/spot_model.dart';
 import '../domain/spot_repository.dart';
 
@@ -10,6 +11,46 @@ class SupabaseSpotRepository implements SpotRepository {
   SupabaseSpotRepository(this._client);
 
   final SupabaseClient _client;
+
+  @override
+  Future<SpotFilterOptions> fetchFilterOptions() async {
+    try {
+      final rows =
+          await _client.from('published_spots').select('state, category');
+      final list = (rows as List<dynamic>?) ?? [];
+      final rawStates = <String>{};
+      final categories = <String>{};
+      for (final r in list) {
+        final row = Map<String, dynamic>.from(r as Map);
+        final state = row['state'] as String?;
+        final cat = row['category'] as String?;
+        if (state != null && state.trim().isNotEmpty) {
+          rawStates.add(state.trim());
+        }
+        if (cat != null && cat.trim().isNotEmpty) {
+          categories.add(cat.trim());
+        }
+      }
+
+      final sortedRawStates = rawStates.toList()..sort();
+      final stateOptions = [
+        const SpotStateOption(rawValue: 'All', displayName: 'All Malaysia'),
+        ...sortedRawStates.map((s) {
+          final displayName = s == 'Pulau Pinang' ? 'Penang' : s;
+          return SpotStateOption(rawValue: s, displayName: displayName);
+        }),
+      ];
+
+      final sortedCategories = ['All', ...categories.toList()..sort()];
+
+      return SpotFilterOptions(
+        states: stateOptions,
+        categories: sortedCategories,
+      );
+    } catch (_) {
+      return SpotFilterOptions.fallback;
+    }
+  }
 
   @override
   Future<List<SpotModel>> fetchPublicSpots({
@@ -35,7 +76,7 @@ class SupabaseSpotRepository implements SpotRepository {
       final response = await request
           .order('updated_at', ascending: false)
           .range(offset, offset + limit - 1);
-      return Future.wait(
+      return await Future.wait(
         (response as List<dynamic>).map(
           (row) => _mapPublicSpot(Map<String, dynamic>.from(row as Map)),
         ),
@@ -49,6 +90,24 @@ class SupabaseSpotRepository implements SpotRepository {
   }
 
   @override
+  Future<SpotModel?> fetchPublicSpotById(String spotId) async {
+    try {
+      final row = await _client
+          .from('published_spots')
+          .select()
+          .eq('id', spotId)
+          .maybeSingle();
+      if (row == null) return null;
+      return await _mapPublicSpot(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error) {
+      throw SupabaseErrorMapper.parseError(
+        error,
+        'Spot could not be loaded.',
+      );
+    }
+  }
+
+  @override
   Future<List<SpotModel>> fetchPendingModeration() async {
     try {
       final response = await _client
@@ -56,7 +115,7 @@ class SupabaseSpotRepository implements SpotRepository {
           .select('*, spots!inner(id, moderation_version)')
           .inFilter(
               'status', ['submitted', 'under_review']).order('submitted_at');
-      return Future.wait(
+      return await Future.wait(
         (response as List<dynamic>).map((raw) async {
           final row = Map<String, dynamic>.from(raw as Map);
           final spot = Map<String, dynamic>.from(row['spots'] as Map);
@@ -94,7 +153,7 @@ class SupabaseSpotRepository implements SpotRepository {
   Future<List<SpotModel>> fetchOwnedSubmissions() async {
     try {
       final response = await _client.rpc('list_my_spot_submissions');
-      return Future.wait((response as List<dynamic>).map((raw) async {
+      return await Future.wait((response as List<dynamic>).map((raw) async {
         final row = Map<String, dynamic>.from(raw as Map);
         return SpotModel(
           id: row['spot_id'] as String,
@@ -391,8 +450,21 @@ class SupabaseSpotRepository implements SpotRepository {
   }
 
   Future<String> _signedImage(String? path) async {
-    if (path == null || path.isEmpty) return '';
-    return _client.storage.from('spot-images').createSignedUrl(path, 3600);
+    if (path == null || path.trim().isEmpty) return '';
+    final trimmed = path.trim();
+    final uri = Uri.tryParse(trimmed);
+    if (uri != null &&
+        uri.hasScheme &&
+        (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return trimmed;
+    }
+    try {
+      return await _client.storage
+          .from('spot-images')
+          .createSignedUrl(trimmed, 3600);
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<String> _uploadImage(Uint8List bytes, String mimeType) async {

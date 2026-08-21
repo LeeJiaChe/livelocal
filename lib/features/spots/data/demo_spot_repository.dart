@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../models/spot_filter_options.dart';
 import '../../../models/spot_model.dart';
 import '../../../services/seed_data_service.dart';
 import '../../auth/data/demo_auth_repository.dart';
@@ -8,8 +9,29 @@ import '../../auth/domain/account_identity.dart';
 import '../domain/spot_repository.dart';
 
 class DemoSpotRepository implements SpotRepository {
-  DemoSpotRepository(this._authRepository)
-      : _spots = List<SpotModel>.of(SeedDataService.getInitialSpots()) {
+  DemoSpotRepository(this._authRepository, {bool seedAdminWorkload = false})
+      : _spots = List<SpotModel>.of([
+          ...SeedDataService.getInitialSpots(),
+          if (seedAdminWorkload)
+            SpotModel(
+              id: 'demo-spot-pending-1',
+              revisionId: 'demo-spot-rev-1',
+              name: 'Bukit Bintang Alley Roastery',
+              category: 'Cafe',
+              description:
+                  'Cozy hidden coffee spot tucked in a mural alley off Jalan Alor.',
+              state: 'Kuala Lumpur',
+              city: 'Kuala Lumpur',
+              address: '14 Jalan Alor',
+              priceRange: r'$$',
+              bestTime: 'Morning',
+              thingsToDo: 'Specialty pour-over coffee, artisan pastries',
+              imageUrl:
+                  'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80',
+              submittedBy: 'usr-tourist-1',
+              status: 'submitted',
+            ),
+        ]) {
     for (final spot in _spots) {
       _currentRevisionIds[spot.id] = spot.revisionId ?? spot.id;
     }
@@ -20,6 +42,33 @@ class DemoSpotRepository implements SpotRepository {
   final Set<String> _rightsConfirmedRevisions = {};
   final Map<String, String> _currentRevisionIds = {};
   final Set<String> _upvotedSpotIds = {};
+
+  @override
+  Future<SpotFilterOptions> fetchFilterOptions() async {
+    final rawStates = <String>{};
+    final categories = <String>{};
+    for (final spot in _spots) {
+      if (spot.status == 'approved') {
+        if (spot.state.trim().isNotEmpty) rawStates.add(spot.state.trim());
+        if (spot.category.trim().isNotEmpty) {
+          categories.add(spot.category.trim());
+        }
+      }
+    }
+    final sortedRawStates = rawStates.toList()..sort();
+    final stateOptions = [
+      const SpotStateOption(rawValue: 'All', displayName: 'All Malaysia'),
+      ...sortedRawStates.map((s) {
+        final displayName = s == 'Pulau Pinang' ? 'Penang' : s;
+        return SpotStateOption(rawValue: s, displayName: displayName);
+      }),
+    ];
+    final sortedCategories = ['All', ...categories.toList()..sort()];
+    return SpotFilterOptions(
+      states: stateOptions,
+      categories: sortedCategories,
+    );
+  }
 
   @override
   Future<List<SpotModel>> fetchPublicSpots({
@@ -44,6 +93,14 @@ class DemoSpotRepository implements SpotRepository {
     if (offset >= filtered.length) return const [];
     final end = (offset + limit).clamp(0, filtered.length);
     return filtered.sublist(offset, end);
+  }
+
+  @override
+  Future<SpotModel?> fetchPublicSpotById(String spotId) async {
+    final match = _spots
+        .where((spot) => spot.id == spotId && spot.status == 'approved')
+        .firstOrNull;
+    return match;
   }
 
   @override

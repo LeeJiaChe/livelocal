@@ -28,9 +28,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     if (!context.watch<AuthController>().canWrite) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF7F5F0),
         appBar: AppBar(
-          backgroundColor: const Color(0xFFF7F5F0),
           title: const Text('Notifications'),
         ),
         body: Center(
@@ -68,9 +66,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final controller = context.watch<NotificationController>();
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F5F0),
         title: const Text('Notifications'),
         actions: [
           if (controller.unreadCount > 0)

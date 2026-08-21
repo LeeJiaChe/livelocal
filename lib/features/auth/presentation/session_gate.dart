@@ -3,10 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../core/config/app_environment.dart';
+import '../../../core/routing/protected_navigation.dart';
 import '../../../screens/main_navigation_screen.dart';
+import '../../admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../profile/domain/account_repository.dart';
 import '../../profile/presentation/account_controller.dart';
 import 'auth_controller.dart';
+import 'set_new_password_screen.dart';
 
 class SessionGate extends StatelessWidget {
   const SessionGate({super.key});
@@ -28,8 +31,29 @@ class SessionGate extends StatelessWidget {
       case AuthStatus.banned:
       case AuthStatus.deletionPending:
         return const RestrictedAccountScreen();
+      case AuthStatus.passwordRecovery:
+        return const SetNewPasswordScreen();
       case AuthStatus.guest:
+        return const MainNavigationScreen();
       case AuthStatus.authenticated:
+        if (auth.currentUser?.role == 'admin') {
+          context.read<ProtectedNavigation?>()?.clearPending();
+          return const AdminDashboardScreen();
+        }
+        final protectedNav =
+            Provider.of<ProtectedNavigation?>(context, listen: false);
+        if (protectedNav != null && protectedNav.hasPending && auth.canWrite) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            final pending = protectedNav.consumePending();
+            if (pending != null && auth.canWrite) {
+              Navigator.of(context).pushNamed(
+                pending.routeName,
+                arguments: pending.arguments,
+              );
+            }
+          });
+        }
         return const MainNavigationScreen();
     }
   }
@@ -97,8 +121,50 @@ class _SessionFailureScreen extends StatelessWidget {
   }
 }
 
-class EmailVerificationScreen extends StatelessWidget {
+class EmailVerificationScreen extends StatefulWidget {
   const EmailVerificationScreen({super.key});
+
+  @override
+  State<EmailVerificationScreen> createState() =>
+      _EmailVerificationScreenState();
+}
+
+class _EmailVerificationScreenState extends State<EmailVerificationScreen>
+    with WidgetsBindingObserver {
+  bool _isChecking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkVerification();
+    }
+  }
+
+  Future<void> _checkVerification() async {
+    if (_isChecking || !mounted) return;
+    final auth = context.read<AuthController>();
+    if (auth.status != AuthStatus.verificationRequired) return;
+    _isChecking = true;
+    try {
+      await auth.checkEmailVerification();
+    } finally {
+      if (mounted) {
+        _isChecking = false;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +220,19 @@ class EmailVerificationScreen extends StatelessWidget {
                     child: const Text('Resend email'),
                   ),
                   TextButton(
-                    onPressed: auth.isLoading ? null : auth.logout,
+                    onPressed: auth.isLoading
+                        ? null
+                        : () async {
+                            context
+                                .read<ProtectedNavigation?>()
+                                ?.clearPending();
+                            await auth.logout();
+                            if (!context.mounted) return;
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/login',
+                              (route) => false,
+                            );
+                          },
                     child: const Text('Use a different account'),
                   ),
                 ],

@@ -14,7 +14,8 @@ import 'package:live_local/services/seed_data_service.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('saved-place filters use persisted spot and restaurant data',
+  testWidgets(
+      'SavedPlacesScreen displays collections grid and allows creating collections',
       (tester) async {
     final authRepository = DemoAuthRepository();
     await authRepository.signIn(
@@ -27,16 +28,22 @@ void main() {
     final spotRepository = DemoSpotRepository(authRepository);
     final restaurantRepository = DemoLocalEatsRepository(authRepository);
     final savedRepository = DemoSavedItineraryRepository(authRepository);
-    final spot = SeedDataService.getInitialSpots().first;
-    final restaurant = SeedDataService.getInitialRestaurants().first;
+
+    final spots = SeedDataService.getInitialSpots();
+    final restaurants = SeedDataService.getInitialRestaurants();
+
+    final penangSpot = spots.firstWhere((s) => s.city == 'George Town');
+    final penangRestaurant =
+        restaurants.firstWhere((r) => r.city == 'George Town');
+
     await savedRepository.setSaved(
       targetType: 'spot',
-      targetId: spot.id,
+      targetId: penangSpot.id,
       saved: true,
     );
     await savedRepository.setSaved(
       targetType: 'restaurant',
-      targetId: restaurant.id,
+      targetId: penangRestaurant.id,
       saved: true,
     );
 
@@ -65,19 +72,23 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('2 saved places'), findsOneWidget);
-    expect(find.text(spot.name), findsOneWidget);
-    expect(find.text(restaurant.name), findsOneWidget);
-    expect(find.textContaining('Suggested day ·'), findsWidgets);
+    // Verify header and collections exist
+    expect(find.text('Saved collections'), findsOneWidget);
+    expect(find.text('Your curated collections'), findsOneWidget);
+    expect(find.text('New collection'), findsOneWidget);
+    expect(find.text('Saved places'), findsOneWidget);
 
-    await tester.tap(find.text('Spots'));
+    // Tap "+ New collection"
+    await tester.tap(find.text('New collection'));
     await tester.pumpAndSettle();
-    expect(find.text(spot.name), findsOneWidget);
-    expect(find.text(restaurant.name), findsNothing);
 
-    await tester.tap(find.text('Restaurants'));
+    // Dialog opens
+    expect(find.text('Collection name'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Penang Food Trip');
+    await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
-    expect(find.text(spot.name), findsNothing);
-    expect(find.text(restaurant.name), findsOneWidget);
+
+    // New collection appears in the list
+    expect(find.text('Penang Food Trip'), findsOneWidget);
   });
 }

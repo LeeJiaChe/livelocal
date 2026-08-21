@@ -1,7 +1,8 @@
 import 'dart:math';
 import 'package:geolocator/geolocator.dart';
-import '../models/spot_model.dart';
 import '../models/restaurant_model.dart';
+import '../models/saved_collection_model.dart';
+import '../models/spot_model.dart';
 
 /// Abstract strategy for calculating proximity-based itineraries.
 abstract class RoutingStrategy {
@@ -11,10 +12,58 @@ abstract class RoutingStrategy {
     List<SpotModel> spots,
     List<RestaurantModel> restaurants,
   );
+
+  List<SavedRouteCandidate> calculateRouteFromCandidates(
+    double startLat,
+    double startLng,
+    List<SavedRouteCandidate> candidates,
+  );
 }
 
 /// A basic implementation that visits the next geographically closest point.
 class NearestNeighborRouting implements RoutingStrategy {
+  @override
+  List<SavedRouteCandidate> calculateRouteFromCandidates(
+    double startLat,
+    double startLng,
+    List<SavedRouteCandidate> candidates,
+  ) {
+    final unvisited = candidates
+        .where((c) => c.latitude != 0.0 && c.longitude != 0.0)
+        .toList();
+
+    if (unvisited.isEmpty) return [];
+
+    final route = <SavedRouteCandidate>[];
+    double currentLat = startLat;
+    double currentLng = startLng;
+
+    while (unvisited.isNotEmpty) {
+      int closestIndex = 0;
+      double minDistance = double.maxFinite;
+
+      for (int i = 0; i < unvisited.length; i++) {
+        final dist = _calculateHaversineDistance(
+          currentLat,
+          currentLng,
+          unvisited[i].latitude,
+          unvisited[i].longitude,
+        );
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestIndex = i;
+        }
+      }
+
+      final nextStop = unvisited.removeAt(closestIndex);
+      route.add(nextStop);
+      currentLat = nextStop.latitude;
+      currentLng = nextStop.longitude;
+    }
+
+    return route;
+  }
+
   @override
   List<Map<String, dynamic>> calculateRoute(
     double startLat,
@@ -143,5 +192,17 @@ class LocationService {
   ) {
     return _routingStrategy.calculateRoute(
         startLat, startLng, spots, restaurants);
+  }
+
+  List<SavedRouteCandidate> sortCandidatesByProximity(
+    double startLat,
+    double startLng,
+    List<SavedRouteCandidate> candidates,
+  ) {
+    return _routingStrategy.calculateRouteFromCandidates(
+      startLat,
+      startLng,
+      candidates,
+    );
   }
 }

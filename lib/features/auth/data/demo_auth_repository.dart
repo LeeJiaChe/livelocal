@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../core/validation/auth_form_validator.dart';
 import '../../../models/profile_model.dart';
 import '../../../services/seed_data_service.dart';
 import '../domain/account_identity.dart';
@@ -15,13 +16,19 @@ class DemoAuthRepository implements AuthRepository {
   final List<ProfileModel> _profiles;
   final StreamController<void> _sessionController =
       StreamController<void>.broadcast();
+  final StreamController<AuthSessionEvent> _authEventController =
+      StreamController<AuthSessionEvent>.broadcast();
   final Map<String, AppRole> _roleOverrides = {};
+  final Map<String, String> _customPasswords = {};
   AccountIdentity? _currentAccount;
 
   AccountIdentity? get currentAccountForDemo => _currentAccount;
 
   @override
   Stream<void> get sessionChanges => _sessionController.stream;
+
+  @override
+  Stream<AuthSessionEvent> get authEvents => _authEventController.stream;
 
   @override
   Future<AccountIdentity?> restoreSession() async => _currentAccount;
@@ -31,13 +38,6 @@ class DemoAuthRepository implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    if (password != SeedDataService.demoPassword) {
-      throw const AppException(
-        code: AppErrorCode.authentication,
-        userMessage: 'Invalid email or password.',
-      );
-    }
-
     final normalizedEmail = email.trim().toLowerCase();
     final matches = _profiles
         .where((profile) => profile.email.toLowerCase() == normalizedEmail)
@@ -49,8 +49,18 @@ class DemoAuthRepository implements AuthRepository {
       );
     }
 
+    final expectedPassword =
+        _customPasswords[normalizedEmail] ?? SeedDataService.demoPassword;
+    if (password != expectedPassword) {
+      throw const AppException(
+        code: AppErrorCode.authentication,
+        userMessage: 'Invalid email or password.',
+      );
+    }
+
     _currentAccount = _fromProfile(matches.single);
     _sessionController.add(null);
+    _authEventController.add(AuthSessionEvent.sessionChanged);
     return _currentAccount!;
   }
 
@@ -60,13 +70,14 @@ class DemoAuthRepository implements AuthRepository {
     required String password,
     required String displayName,
   }) async {
-    if (password != SeedDataService.demoPassword) {
-      throw const AppException(
+    final passwordError = AuthFormValidator.validateRegisterPassword(password);
+    if (passwordError != null) {
+      throw AppException(
         code: AppErrorCode.validation,
-        userMessage:
-            'Demo accounts must use the password shown on the demo sign-in screen.',
+        userMessage: passwordError,
       );
     }
+
     final normalizedEmail = email.trim().toLowerCase();
     if (_profiles.any(
       (profile) => profile.email.toLowerCase() == normalizedEmail,
@@ -84,8 +95,10 @@ class DemoAuthRepository implements AuthRepository {
       role: AppRole.tourist.name,
     );
     _profiles.add(profile);
+    _customPasswords[normalizedEmail] = password;
     _currentAccount = _fromProfile(profile);
     _sessionController.add(null);
+    _authEventController.add(AuthSessionEvent.sessionChanged);
     return _currentAccount!;
   }
 
@@ -109,9 +122,41 @@ class DemoAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> updatePassword(String newPassword) async {
+    final passwordError =
+        AuthFormValidator.validateRegisterPassword(newPassword);
+    if (passwordError != null) {
+      throw AppException(
+        code: AppErrorCode.validation,
+        userMessage: passwordError,
+      );
+    }
+    final email = _currentAccount?.email.toLowerCase();
+    if (email != null) {
+      _customPasswords[email] = newPassword;
+    }
+  }
+
+  void triggerPasswordRecoveryForDemo(String email) {
+    final normalizedEmail = email.trim().toLowerCase();
+    final profile = _profiles.firstWhere(
+      (p) => p.email.toLowerCase() == normalizedEmail,
+      orElse: () => ProfileModel(
+        id: 'demo-recovery',
+        email: normalizedEmail,
+        fullName: 'Demo Recovery User',
+        role: AppRole.tourist.name,
+      ),
+    );
+    _currentAccount = _fromProfile(profile);
+    _authEventController.add(AuthSessionEvent.passwordRecovery);
+  }
+
+  @override
   Future<void> signOut() async {
     _currentAccount = null;
     _sessionController.add(null);
+    _authEventController.add(AuthSessionEvent.sessionChanged);
   }
 
   @override

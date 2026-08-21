@@ -21,8 +21,27 @@ class SupabaseAuthRepository implements AuthRepository {
       _client.auth.onAuthStateChange.map<void>((_) {});
 
   @override
+  Stream<AuthSessionEvent> get authEvents =>
+      _client.auth.onAuthStateChange.map<AuthSessionEvent>((data) {
+        if (data.event == AuthChangeEvent.passwordRecovery) {
+          return AuthSessionEvent.passwordRecovery;
+        }
+        return AuthSessionEvent.sessionChanged;
+      });
+
+  @override
   Future<AccountIdentity?> restoreSession() async {
-    final user = _client.auth.currentUser;
+    final session = _client.auth.currentSession;
+    final cachedUser = _client.auth.currentUser;
+    if (session == null && cachedUser == null) return null;
+
+    User? user;
+    try {
+      final response = await _client.auth.getUser();
+      user = response.user ?? _client.auth.currentUser;
+    } catch (_) {
+      user = _client.auth.currentUser;
+    }
     if (user == null) return null;
     return _loadAccount(user);
   }
@@ -44,7 +63,7 @@ class SupabaseAuthRepository implements AuthRepository {
           userMessage: 'Invalid email or password.',
         );
       }
-      return _loadAccount(user);
+      return await _loadAccount(user);
     } on AuthException catch (error) {
       throw _mapAuthException(error);
     }
@@ -80,7 +99,7 @@ class SupabaseAuthRepository implements AuthRepository {
           emailVerified: false,
         );
       }
-      return _loadAccount(user);
+      return await _loadAccount(user);
     } on AuthException catch (error) {
       throw _mapAuthException(error);
     }
@@ -119,6 +138,17 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+    } on AuthException catch (error) {
+      throw _mapAuthException(error);
+    }
+  }
+
+  @override
   Future<void> signOut() async {
     try {
       await _client.auth.signOut(scope: SignOutScope.global);
@@ -129,7 +159,13 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<AccountIdentity> refreshAccount() async {
-    final user = _client.auth.currentUser;
+    User? user;
+    try {
+      final response = await _client.auth.getUser();
+      user = response.user ?? _client.auth.currentUser;
+    } catch (_) {
+      user = _client.auth.currentUser;
+    }
     if (user == null) {
       throw const AppException(
         code: AppErrorCode.authentication,

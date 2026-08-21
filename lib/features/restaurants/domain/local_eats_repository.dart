@@ -63,6 +63,7 @@ class DiscountDraftInput {
 
 abstract interface class LocalEatsRepository {
   Future<List<RestaurantModel>> fetchPublicRestaurants();
+  Future<RestaurantModel?> fetchPublicRestaurantById(String restaurantId);
   Future<List<DiscountCodeModel>> fetchActiveDiscounts();
   Future<List<DiscountCodeModel>> fetchOwnedDiscounts();
   Future<List<RestaurantModel>> fetchPendingRestaurants();

@@ -100,7 +100,7 @@ void main() {
     expect(find.byType(ProfileScreen), findsOneWidget);
 
     // Verify guest state: Sign in prompt is visible, no Delete account
-    expect(find.text('Sign in for personal features'), findsOneWidget);
+    expect(find.text('Sign in to make LiveLocal yours'), findsOneWidget);
     expect(find.byType(FilledButton), findsWidgets);
     expect(find.text('Delete account'), findsNothing);
   });
@@ -115,7 +115,7 @@ void main() {
     expect(find.byType(ProfileScreen), findsOneWidget);
 
     // Verify authenticated state: Delete account is available
-    expect(find.text('Sign in for personal features'), findsNothing);
+    expect(find.text('Sign in to make LiveLocal yours'), findsNothing);
 
     // Scroll to the bottom to find Delete account
     final deleteAccountFinder = find.text('Delete account');

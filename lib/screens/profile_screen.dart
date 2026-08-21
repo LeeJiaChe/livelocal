@@ -2,280 +2,244 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../constants/app_colors.dart';
 import '../controllers/auth_controller.dart';
-import '../features/profile/presentation/account_controller.dart';
-import '../features/moderation/presentation/moderation_controller.dart';
 import '../core/config/legal_urls.dart';
+import '../features/auth/domain/account_identity.dart';
+import '../features/influencer_applications/domain/influencer_application_repository.dart';
+import '../features/influencer_applications/presentation/influencer_application_controller.dart';
+import '../features/moderation/presentation/moderation_controller.dart';
+import '../features/profile/presentation/account_controller.dart';
+import '../shared/presentation/contributions/contribution_status_chip.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, this.launcher});
   final AppLauncher? launcher;
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthController>();
+    final user = auth.currentUser;
+    if (user == null) {
+      return _GuestProfileView(launcher: launcher);
+    }
+    return _AuthenticatedProfileView(launcher: launcher);
+  }
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  final _displayNameController = TextEditingController();
-  bool _editing = false;
-
-  @override
-  void dispose() {
-    _displayNameController.dispose();
-    super.dispose();
-  }
+class _AuthenticatedProfileView extends StatelessWidget {
+  const _AuthenticatedProfileView({this.launcher});
+  final AppLauncher? launcher;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final auth = context.watch<AuthController>();
     final account = context.watch<AccountController>();
     final moderation = context.watch<ModerationController>();
-    final user = auth.currentUser;
-    if (user == null) return _GuestAccountPrompt(launcher: widget.launcher);
+    final user = auth.currentUser!;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
-        title: const Text('Your account'),
-        backgroundColor: const Color(0xFFF7F5F0),
+        title: const Text('Profile'),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-          children: [
-            Card(
-              elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 48,
-                          backgroundColor: AppColors.accentLight,
-                          backgroundImage: user.avatarUrl == null
-                              ? null
-                              : NetworkImage(user.avatarUrl!),
-                          child: user.avatarUrl == null
-                              ? Text(
-                                  user.fullName.isEmpty
-                                      ? 'L'
-                                      : user.fullName[0].toUpperCase(),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineMedium
-                                      ?.copyWith(color: AppColors.primaryDark),
-                                )
-                              : null,
-                        ),
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: IconButton.filled(
-                            tooltip: 'Change profile photo',
-                            onPressed: account.isLoading
-                                ? null
-                                : () => _chooseAvatar(account),
-                            icon: const Icon(Icons.photo_camera_outlined),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      user.fullName,
-                      style: Theme.of(context).textTheme.titleLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user.email,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    Chip(
-                      avatar:
-                          const Icon(Icons.verified_user_outlined, size: 18),
-                      label: Text(_roleLabel(user.role)),
-                    ),
-                  ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              children: [
+                // 1. HERO SECTION
+                _ProfileHeroSection(
+                  user: user,
+                  isLoading: account.isLoading,
+                  onEditPhoto: () => _chooseAvatar(context, account),
+                  onEditProfile: () =>
+                      _openEditProfileSheet(context, user, account),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (user.role == 'tourist') ...[
-              Card(
-                elevation: 0,
-                child: ListTile(
-                  minTileHeight: 64,
-                  leading: const Icon(Icons.campaign_outlined),
-                  title: const Text('Become a local creator'),
-                  subtitle: const Text(
-                    'Apply to submit creator-led restaurant recommendations.',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () =>
-                      Navigator.pushNamed(context, '/creator-application'),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            Card(
-              elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Profile details',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: _editing ? 'Cancel editing' : 'Edit profile',
-                          onPressed: account.isLoading
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _editing = !_editing;
-                                    _displayNameController.text = user.fullName;
-                                  });
-                                },
-                          icon: Icon(
-                              _editing ? Icons.close : Icons.edit_outlined),
-                        ),
-                      ],
-                    ),
-                    if (_editing) ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _displayNameController,
-                        textInputAction: TextInputAction.done,
-                        maxLength: 80,
-                        decoration: const InputDecoration(
-                          labelText: 'Display name',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      FilledButton(
-                        onPressed: account.isLoading
-                            ? null
-                            : () => _saveDisplayName(account),
-                        child: const Text('Save changes'),
-                      ),
-                    ] else
-                      const ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.email_outlined),
-                        title: Text('Email address'),
-                        subtitle: Text(
-                          'Email changes require a separate verified flow.',
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            if (account.errorMessage != null) ...[
-              const SizedBox(height: 12),
-              _InlineError(message: account.errorMessage!),
-            ],
-            const SizedBox(height: 16),
-            Card(
-              elevation: 0,
-              child: Column(
-                children: [
-                  ListTile(
-                    minTileHeight: 56,
-                    leading: const Icon(Icons.fact_check_outlined),
-                    title: const Text('Your submissions'),
-                    subtitle: const Text('Drafts, review status and revisions'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/my-submissions'),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    minTileHeight: 56,
-                    leading: const Icon(Icons.notifications_outlined),
-                    title: const Text('Notifications'),
-                    subtitle: const Text('View your in-app history'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.pushNamed(context, '/notifications'),
-                  ),
-                  if (moderation.supportsUserBlocking) ...[
-                    const Divider(height: 1),
-                    ListTile(
-                      minTileHeight: 56,
-                      leading: const Icon(Icons.person_off_outlined),
-                      title: const Text('Blocked accounts'),
-                      subtitle: const Text('Review or undo hidden accounts'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/blocked-users'),
-                    ),
-                  ],
-                  const Divider(height: 1),
-                  ListTile(
-                    minTileHeight: 56,
-                    leading: const Icon(Icons.logout),
-                    title: const Text('Sign out'),
-                    onTap: auth.isLoading ? null : auth.logout,
-                  ),
+                const SizedBox(height: 20),
+
+                if (account.errorMessage != null) ...[
+                  _InlineError(message: account.errorMessage!),
+                  const SizedBox(height: 16),
                 ],
-              ),
+
+                // 2. CREATOR CALLOUT (Tourist only)
+                if (user.role == 'tourist') ...[
+                  Builder(
+                    builder: (ctx) {
+                      InfluencerApplication? application;
+                      try {
+                        application =
+                            ctx.watch<InfluencerApplicationController>().mine;
+                      } catch (_) {
+                        application = null;
+                      }
+                      return _CreatorCalloutCard(
+                        application: application,
+                        onApply: () => Navigator.pushNamed(
+                          context,
+                          '/creator-application',
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // 3. YOUR ACTIVITY
+                Text(
+                  'Your activity',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainerLow,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        minTileHeight: 60,
+                        leading: const Icon(Icons.fact_check_outlined),
+                        title: const Text('Your submissions'),
+                        subtitle:
+                            const Text('Drafts, review status and revisions'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/my-submissions'),
+                      ),
+                      Divider(
+                        height: 1,
+                        indent: 56,
+                        color:
+                            colorScheme.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                      ListTile(
+                        minTileHeight: 60,
+                        leading: const Icon(Icons.notifications_outlined),
+                        title: const Text('Notifications'),
+                        subtitle: const Text('View your in-app history'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/notifications'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // 4. PRIVACY & SAFETY
+                Text(
+                  'Privacy & safety',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainerLow,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      if (moderation.supportsUserBlocking) ...[
+                        ListTile(
+                          minTileHeight: 60,
+                          leading: const Icon(Icons.person_off_outlined),
+                          title: const Text('Blocked accounts'),
+                          subtitle:
+                              const Text('Review or undo hidden accounts'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/blocked-users'),
+                        ),
+                        Divider(
+                          height: 1,
+                          indent: 56,
+                          color:
+                              colorScheme.outlineVariant.withValues(alpha: 0.4),
+                        ),
+                      ],
+                      ListTile(
+                        minTileHeight: 60,
+                        leading: Icon(
+                          Icons.delete_outline,
+                          color: colorScheme.error,
+                        ),
+                        title: Text(
+                          'Delete account',
+                          style: TextStyle(color: colorScheme.error),
+                        ),
+                        subtitle: const Text(
+                          'Schedule permanent account deletion',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: account.isLoading
+                            ? null
+                            : () => _showDeletionDialog(context, account),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // 5. SIGN OUT
+                OutlinedButton.icon(
+                  onPressed: auth.isLoading ? null : auth.logout,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Sign out'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // 6. LEGAL FOOTER
+                _LegalFooter(launcher: launcher),
+                const SizedBox(height: 80),
+              ],
             ),
-            const SizedBox(height: 24),
-            TextButton.icon(
-              onPressed:
-                  account.isLoading ? null : () => _showDeletionDialog(account),
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete account'),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-                minimumSize: const Size.fromHeight(48),
-              ),
-            ),
-            _LegalFooter(launcher: widget.launcher),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _saveDisplayName(AccountController controller) async {
-    final name = _displayNameController.text.trim();
-    if (name.length < 2 || name.length > 80) {
-      _showMessage('Use a display name between 2 and 80 characters.');
-      return;
-    }
-    final saved = await controller.updateDisplayName(name);
-    if (!mounted || !saved) return;
-    setState(() => _editing = false);
-    _showMessage('Profile updated.');
-  }
-
-  Future<void> _chooseAvatar(AccountController controller) async {
+  Future<void> _chooseAvatar(
+    BuildContext context,
+    AccountController controller,
+  ) async {
     final image = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       maxWidth: 1600,
       maxHeight: 1600,
       imageQuality: 88,
     );
-    if (image == null || !mounted) return;
+    if (image == null || !context.mounted) return;
     final bytes = await image.readAsBytes();
     final mimeType = image.mimeType ?? _mimeFromName(image.name);
     final uploaded = await controller.uploadAvatar(bytes, mimeType);
-    if (!mounted || !uploaded) return;
-    _showMessage('Profile photo updated.');
+    if (!context.mounted || !uploaded) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profile photo updated.')),
+    );
   }
 
   String _mimeFromName(String name) {
@@ -285,7 +249,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return 'image/jpeg';
   }
 
-  Future<void> _showDeletionDialog(AccountController controller) async {
+  void _openEditProfileSheet(
+    BuildContext context,
+    AccountIdentity user,
+    AccountController controller,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => _EditProfileBottomSheet(
+        initialDisplayName: user.fullName,
+        email: user.email,
+        controller: controller,
+      ),
+    );
+  }
+
+  Future<void> _showDeletionDialog(
+    BuildContext context,
+    AccountController controller,
+  ) async {
     final password = TextEditingController();
     final confirmation = TextEditingController();
     var obscure = true;
@@ -366,85 +353,547 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final enteredPassword = password.text;
     password.dispose();
     confirmation.dispose();
-    if (shouldDelete != true || !mounted) return;
+    if (shouldDelete != true || !context.mounted) return;
     final requested = await controller.requestDeletion(enteredPassword);
-    if (!mounted || !requested) return;
-    _showMessage('Account deletion scheduled.');
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  String _roleLabel(String role) {
-    return switch (role) {
-      'admin' => 'Administrator',
-      'influencer' => 'Creator',
-      _ => 'Tourist',
-    };
+    if (!context.mounted || !requested) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Account deletion scheduled.')),
+    );
   }
 }
 
-class _GuestAccountPrompt extends StatelessWidget {
-  const _GuestAccountPrompt({this.launcher});
+class _UserAvatar extends StatelessWidget {
+  const _UserAvatar({
+    required this.fullName,
+    required this.avatarUrl,
+    this.radius = 46,
+  });
+
+  final String fullName;
+  final String? avatarUrl;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final trimmedName = fullName.trim();
+    final initial = trimmedName.isEmpty ? 'L' : trimmedName[0].toUpperCase();
+
+    final fallback = Center(
+      child: Text(
+        initial,
+        style: theme.textTheme.headlineLarge?.copyWith(
+          color: colorScheme.onPrimaryContainer,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+
+    return Container(
+      width: radius * 2,
+      height: radius * 2,
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: (avatarUrl != null && avatarUrl!.trim().isNotEmpty)
+          ? Image.network(
+              avatarUrl!.trim(),
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => fallback,
+            )
+          : fallback,
+    );
+  }
+}
+
+class _ProfileHeroSection extends StatelessWidget {
+  const _ProfileHeroSection({
+    required this.user,
+    required this.isLoading,
+    required this.onEditPhoto,
+    required this.onEditProfile,
+  });
+
+  final AccountIdentity user;
+  final bool isLoading;
+  final VoidCallback onEditPhoto;
+  final VoidCallback onEditProfile;
+
+  String _roleLabel(AppRole role) {
+    return switch (role) {
+      AppRole.admin => 'Administrator',
+      AppRole.influencer => 'Creator',
+      AppRole.tourist => 'Tourist',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final fullName = user.fullName;
+    final email = user.email;
+    final avatarUrl = user.avatarUrl;
+    final appRole = user.appRole;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Column(
+          children: [
+            // AVATAR WITH CAMERA BUTTON
+            Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                _UserAvatar(
+                  fullName: fullName,
+                  avatarUrl: avatarUrl,
+                  radius: 46,
+                ),
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: IconButton.filledTonal(
+                    tooltip: 'Change profile photo',
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: isLoading ? null : onEditPhoto,
+                    icon: const Icon(Icons.photo_camera_outlined),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // FULL NAME
+            Text(
+              fullName.isEmpty ? 'LiveLocal Member' : fullName,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+
+            // EMAIL
+            Text(
+              email,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+
+            // ROLE & VERIFIED BADGES
+            Wrap(
+              spacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: colorScheme.secondaryContainer,
+                  side: BorderSide.none,
+                  avatar: Icon(
+                    appRole == AppRole.admin
+                        ? Icons.admin_panel_settings_outlined
+                        : (appRole == AppRole.influencer
+                            ? Icons.stars_outlined
+                            : Icons.explore_outlined),
+                    size: 16,
+                    color: colorScheme.onSecondaryContainer,
+                  ),
+                  label: Text(
+                    _roleLabel(appRole),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                ),
+                if (user.emailVerified)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor:
+                        colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+                    side: BorderSide.none,
+                    avatar: Icon(
+                      Icons.check_circle_outline,
+                      size: 16,
+                      color: colorScheme.onTertiaryContainer,
+                    ),
+                    label: Text(
+                      'Verified',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // EDIT PROFILE BUTTON
+            OutlinedButton.icon(
+              onPressed: isLoading ? null : onEditProfile,
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Edit profile'),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditProfileBottomSheet extends StatefulWidget {
+  const _EditProfileBottomSheet({
+    required this.initialDisplayName,
+    required this.email,
+    required this.controller,
+  });
+
+  final String initialDisplayName;
+  final String email;
+  final AccountController controller;
+
+  @override
+  State<_EditProfileBottomSheet> createState() =>
+      _EditProfileBottomSheetState();
+}
+
+class _EditProfileBottomSheetState extends State<_EditProfileBottomSheet> {
+  late final TextEditingController _nameController;
+  final _formKey = GlobalKey<FormState>();
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialDisplayName);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSave() async {
+    if (!_formKey.currentState!.validate() || _isSaving) return;
+    final name = _nameController.text.trim();
+    setState(() => _isSaving = true);
+    final saved = await widget.controller.updateDisplayName(name);
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    if (saved) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Edit profile',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameController,
+              autofocus: true,
+              maxLength: 80,
+              decoration: const InputDecoration(
+                labelText: 'Display name',
+                hintText: 'Enter your name',
+                prefixIcon: Icon(Icons.person_outline),
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                final trimmed = value?.trim() ?? '';
+                if (trimmed.length < 2 || trimmed.length > 80) {
+                  return 'Use a display name between 2 and 80 characters.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Email (${widget.email}) changes are not currently available here.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: _isSaving ? null : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _isSaving ? null : _handleSave,
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Save changes'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CreatorCalloutCard extends StatelessWidget {
+  const _CreatorCalloutCard({
+    this.application,
+    required this.onApply,
+  });
+
+  final InfluencerApplication? application;
+  final VoidCallback onApply;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final hasActiveApplication = application != null &&
+        ['submitted', 'under_review', 'needs_information', 'rejected']
+            .contains(application!.status);
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.secondaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.auto_awesome,
+                color: colorScheme.onSecondaryContainer,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Become a LiveLocal Creator',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (hasActiveApplication)
+                        ContributionStatusChip(
+                          status: application!.status,
+                          compact: true,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Creators share trusted restaurant recommendations and help travellers discover great local food.\n\nApplications are reviewed before Creator tools are unlocked.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.tonal(
+                    onPressed: onApply,
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: Text(
+                      hasActiveApplication
+                          ? 'View application status'
+                          : 'Apply to become a Creator',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GuestProfileView extends StatelessWidget {
+  const _GuestProfileView({this.launcher});
   final AppLauncher? launcher;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
-        title: const Text('Your account'),
-        backgroundColor: const Color(0xFFF7F5F0),
+        title: const Text('Profile'),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.person_outline,
-                          size: 56,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Sign in for personal features',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Browsing stays public. Sign in to save places, create itineraries, review, submit and manage your account.',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        FilledButton(
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/login'),
-                          child: const Text('Sign in'),
-                        ),
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.pushNamed(context, '/register'),
-                          child: const Text('Create account'),
-                        ),
-                      ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              children: [
+                const SizedBox(height: 16),
+                Center(
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.person_outline,
+                      size: 44,
+                      color: colorScheme.onPrimaryContainer,
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                Text(
+                  'Sign in to make LiveLocal yours',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Save places, build itineraries, review local favourites and manage your submissions.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => Navigator.pushNamed(context, '/login'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text('Sign in'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/register'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text('Create account'),
+                ),
+                const SizedBox(height: 16),
+                _LegalFooter(launcher: launcher),
+              ],
             ),
-            _LegalFooter(launcher: launcher),
-          ],
+          ),
         ),
       ),
     );
@@ -453,7 +902,6 @@ class _GuestAccountPrompt extends StatelessWidget {
 
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message});
-
   final String message;
 
   @override
@@ -490,7 +938,8 @@ class _LegalFooter extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-                'Could not open the link. Please visit livelocal.app/support'),
+              'Could not open the link. Please visit livelocal.app/support',
+            ),
           ),
         );
       }
@@ -499,7 +948,8 @@ class _LegalFooter extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-                'An error occurred while opening the link. Please visit livelocal.app/support'),
+              'An error occurred while opening the link. Please visit livelocal.app/support',
+            ),
           ),
         );
       }
@@ -510,52 +960,46 @@ class _LegalFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final urls = LegalUrls.fromCompileTime();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Column(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextButton(
-                key: const Key('legal_terms'),
-                onPressed: () => _launchUrl(context, urls.terms),
-                child: Semantics(
-                  label: 'Terms of Service',
-                  child: const Text('Terms'),
-                ),
-              ),
-              const Text('·'),
-              TextButton(
-                key: const Key('legal_privacy'),
-                onPressed: () => _launchUrl(context, urls.privacy),
-                child: Semantics(
-                  label: 'Privacy Policy',
-                  child: const Text('Privacy'),
-                ),
-              ),
-            ],
+          TextButton(
+            key: const Key('legal_terms'),
+            onPressed: () => _launchUrl(context, urls.terms),
+            child: Semantics(
+              label: 'Terms of Service',
+              child: const Text('Terms'),
+            ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextButton(
-                key: const Key('legal_rules'),
-                onPressed: () => _launchUrl(context, urls.communityRules),
-                child: Semantics(
-                  label: 'Community Rules',
-                  child: const Text('Community Rules'),
-                ),
-              ),
-              const Text('·'),
-              TextButton(
-                key: const Key('legal_support'),
-                onPressed: () => _launchUrl(context, urls.support),
-                child: Semantics(
-                  label: 'Support',
-                  child: const Text('Support'),
-                ),
-              ),
-            ],
+          const Text('·'),
+          TextButton(
+            key: const Key('legal_privacy'),
+            onPressed: () => _launchUrl(context, urls.privacy),
+            child: Semantics(
+              label: 'Privacy Policy',
+              child: const Text('Privacy'),
+            ),
+          ),
+          const Text('·'),
+          TextButton(
+            key: const Key('legal_rules'),
+            onPressed: () => _launchUrl(context, urls.communityRules),
+            child: Semantics(
+              label: 'Community Rules',
+              child: const Text('Community Rules'),
+            ),
+          ),
+          const Text('·'),
+          TextButton(
+            key: const Key('legal_support'),
+            onPressed: () => _launchUrl(context, urls.support),
+            child: Semantics(
+              label: 'Support',
+              child: const Text('Support'),
+            ),
           ),
         ],
       ),

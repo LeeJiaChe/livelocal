@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
+import '../app/theme/app_spacing.dart';
 import '../controllers/itinerary_controller.dart';
-import '../controllers/localeats_controller.dart';
-import '../controllers/spot_controller.dart';
 import '../features/itinerary/domain/saved_itinerary_repository.dart';
 import '../widgets/timeline_step_card.dart';
 
 class ItineraryScreen extends StatefulWidget {
-  const ItineraryScreen({super.key});
+  const ItineraryScreen({super.key, this.initialCollectionId});
+
+  final String? initialCollectionId;
 
   @override
   State<ItineraryScreen> createState() => _ItineraryScreenState();
@@ -21,6 +24,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<ItineraryController>().loadItineraries();
+      context.read<ItineraryController>().loadCollections();
     });
   }
 
@@ -28,24 +32,56 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   Widget build(BuildContext context) {
     final controller = context.watch<ItineraryController>();
     final steps = controller.itinerarySteps;
+
+    final groupedByDay = <String, List<Map<String, Object>>>{};
+    if (steps.isNotEmpty) {
+      String currentDay = 'Day 1';
+      int dayCounter = 1;
+      groupedByDay[currentDay] = [];
+
+      for (int i = 0; i < steps.length; i++) {
+        final step = steps[i];
+        if (i > 0 && i % 5 == 0) {
+          dayCounter++;
+          currentDay = 'Day $dayCounter';
+          groupedByDay[currentDay] = [];
+        }
+        groupedByDay[currentDay]!.add(step);
+      }
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F5F0),
         title: const Text('Itineraries'),
+        actions: [
+          if (steps.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.map_outlined),
+              onPressed: () => _showMapView(context, groupedByDay, steps),
+              tooltip: 'View on map',
+            ),
+        ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x2,
+          AppSpacing.x1,
+          AppSpacing.x2,
+          112,
+        ),
         children: [
           Text(
             'Plan a route from your saved places',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Choose a manual starting city or request your device location. Route order is an estimate based on straight-line proximity, not travel time.',
+          const SizedBox(height: AppSpacing.x1),
+          Text(
+            'Choose a manual starting city or request your device location. Proximity order is computed to help you organize a smooth day out.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.x2),
           FilledButton.icon(
             onPressed: controller.isGeneratingItinerary
                 ? null
@@ -58,51 +94,77 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             ),
           ),
           if (controller.errorMessage != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.x2),
             Card(
               color: Theme.of(context).colorScheme.errorContainer,
               elevation: 0,
               child: ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: Text(controller.errorMessage!),
+                leading: Icon(
+                  Icons.info_outline,
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+                title: Text(
+                  controller.errorMessage!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                ),
               ),
             ),
           ],
-          if (steps.isNotEmpty) ...[
-            const SizedBox(height: 28),
+          if (groupedByDay.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.x3),
             Text(
-              'New route',
+              'Suggested day itinerary',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 8),
-            ...List.generate(steps.length, (index) {
-              return TimelineStepCard(
-                step: steps[index],
-                index: index,
-                isLast: index == steps.length - 1,
+            const SizedBox(height: AppSpacing.x1),
+            ...groupedByDay.entries.map((entry) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSpacing.x2),
+                  Text(
+                    entry.key,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.x1),
+                  ...List.generate(entry.value.length, (index) {
+                    final step = entry.value[index];
+                    final globalIndex = steps.indexOf(step);
+                    return TimelineStepCard(
+                      step: step,
+                      index: globalIndex >= 0 ? globalIndex : index,
+                      isLast: (globalIndex >= 0 ? globalIndex : index) ==
+                          steps.length - 1,
+                    );
+                  }),
+                ],
               );
             }),
           ],
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.x3),
           Text(
             'Saved itineraries',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.x1),
           if (controller.savedItineraries.isEmpty)
             const Card(
               elevation: 0,
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: EdgeInsets.all(AppSpacing.x3),
                 child: Text(
-                  'No saved itinerary yet. Creating a route saves its order to your account.',
+                  'No saved itineraries yet. Creating a route saves its order to your account.',
                 ),
               ),
             )
           else
             ...controller.savedItineraries.map(
               (itinerary) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: AppSpacing.x1),
                 elevation: 0,
                 child: ListTile(
                   leading: const Icon(Icons.map_outlined),
@@ -118,10 +180,211 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     );
   }
 
+  void _showMapView(
+    BuildContext context,
+    Map<String, List<Map<String, Object>>> groupedByDay,
+    List<Map<String, Object>> steps,
+  ) {
+    final validPoints = <LatLng>[];
+    final markers = <Marker>[];
+
+    for (int i = 0; i < steps.length; i++) {
+      final step = steps[i];
+      final lat = step['lat'];
+      final lng = step['lng'];
+      if (lat is double && lng is double) {
+        final point = LatLng(lat, lng);
+        validPoints.add(point);
+        markers.add(
+          Marker(
+            point: point,
+            width: 36,
+            height: 36,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${i + 1}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    final initialCenter = validPoints.isNotEmpty
+        ? validPoints.first
+        : const LatLng(3.1390, 101.6869);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
+          child: ListView(
+            controller: scrollController,
+            children: [
+              Text(
+                'Itinerary on Map',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.x2),
+              if (validPoints.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    height: 260,
+                    child: FlutterMap(
+                      options: MapOptions(
+                        initialCenter: initialCenter,
+                        initialZoom: 12,
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.livelocal.app',
+                        ),
+                        if (validPoints.length > 1)
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: validPoints,
+                                color: Theme.of(context).colorScheme.primary,
+                                strokeWidth: 3.5,
+                              ),
+                            ],
+                          ),
+                        MarkerLayer(markers: markers),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                const Card(
+                  elevation: 0,
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.x2),
+                    child: Text(
+                      'No verified coordinates available for this route.',
+                    ),
+                  ),
+                ),
+              const SizedBox(height: AppSpacing.x2),
+              Text(
+                'Day breakdown',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: AppSpacing.x1),
+              ...groupedByDay.entries.map((entry) {
+                final dayName = entry.key;
+                final daySteps = entry.value;
+                final dayIndex = groupedByDay.keys.toList().indexOf(dayName);
+                return Card(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.x1),
+                  elevation: 0,
+                  child: ExpansionTile(
+                    initiallyExpanded: true,
+                    leading: CircleAvatar(
+                      child: Text('${dayIndex + 1}'),
+                    ),
+                    title: Text(dayName),
+                    subtitle: Text(
+                      '${daySteps.length} stops',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    children: daySteps.map((step) {
+                      final title = step['title'] as String;
+                      final type = step['type'] as String;
+                      final location = step['location'] as String;
+                      final activity = step['activity'] as String;
+                      final bestTime = step['best_time'] as String;
+                      final isMeal = type.startsWith('Restaurant');
+                      return ListTile(
+                        leading: Icon(
+                          isMeal
+                              ? Icons.restaurant
+                              : Icons.location_on_outlined,
+                          color: isMeal
+                              ? Theme.of(context).colorScheme.secondary
+                              : Theme.of(context).colorScheme.primary,
+                        ),
+                        title: Text(title),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              location,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            if (activity.isNotEmpty)
+                              Text(
+                                activity,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                              ),
+                          ],
+                        ),
+                        trailing: Text(
+                          bestTime,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _chooseOriginAndCreate() async {
-    final title = TextEditingController(text: 'My local day');
-    var mode = 'manual';
-    var city = _manualOrigins.first;
+    final itineraryCtrl = context.read<ItineraryController>();
+    final collections = itineraryCtrl.collections;
+
+    final title = TextEditingController(
+      text: 'Day trip plan (${DateTime.now().month}/${DateTime.now().day})',
+    );
+    String mode = 'manual';
+    _ManualOrigin city = _manualOrigins.first;
+    String? selectedColId = widget.initialCollectionId;
+
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -129,10 +392,10 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) => Padding(
           padding: EdgeInsets.fromLTRB(
-            16,
+            AppSpacing.x2,
             0,
-            16,
-            MediaQuery.viewInsetsOf(context).bottom + 24,
+            AppSpacing.x2,
+            MediaQuery.of(sheetContext).viewInsets.bottom + AppSpacing.x3,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -142,16 +405,39 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 'Create itinerary',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.x2),
               TextField(
                 controller: title,
                 maxLength: 120,
                 decoration: const InputDecoration(
                   labelText: 'Plan title',
-                  border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 8),
+              if (collections.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.x1),
+                DropdownButtonFormField<String?>(
+                  initialValue: selectedColId,
+                  decoration: const InputDecoration(
+                    labelText: 'Source collection',
+                    prefixIcon: Icon(Icons.bookmark_outline),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All saved places'),
+                    ),
+                    ...collections.map(
+                      (c) => DropdownMenuItem<String?>(
+                        value: c.id,
+                        child: Text('${c.name} (${c.itemCount})'),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setSheetState(() => selectedColId = value),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.x2),
               SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(
@@ -169,13 +455,12 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 onSelectionChanged: (values) =>
                     setSheetState(() => mode = values.single),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.x2),
               if (mode == 'manual')
                 DropdownButtonFormField<_ManualOrigin>(
                   initialValue: city,
                   decoration: const InputDecoration(
                     labelText: 'Starting city',
-                    border: OutlineInputBorder(),
                   ),
                   items: _manualOrigins
                       .map(
@@ -192,11 +477,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 const Text(
                   'LiveLocal will ask for foreground location only after you continue. Denying permission will not block discovery; you can return and choose a city.',
                 ),
-              const SizedBox(height: 8),
-              const Text(
-                'If you save the itinerary, its starting coordinates are stored privately with your account so the saved route keeps its origin.',
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.x2),
               FilledButton(
                 onPressed: () {
                   if (title.text.trim().length < 2) return;
@@ -209,6 +490,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         ),
       ),
     );
+
     final planTitle = title.text.trim();
     title.dispose();
     if (confirmed != true || !mounted) return;
@@ -228,12 +510,13 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         city: city.city,
       );
     }
+
     final saved = await controller.generateAndSaveItinerary(
       title: planTitle,
       origin: origin,
-      allSpots: context.read<SpotController>().spots,
-      allRestaurants: context.read<LocalEatsController>().restaurants,
+      collectionId: selectedColId,
     );
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

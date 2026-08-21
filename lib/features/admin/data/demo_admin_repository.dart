@@ -25,7 +25,30 @@ class DemoAdminRepository implements AdminRepository {
   final DemoAuthRepository _authRepository;
   final DemoAccountRepository? _accountRepository;
   final List<AdminAccountSummary> _accounts;
-  final List<AdminAuditEvent> _auditEvents = [];
+  final List<AdminModerationCase> _moderationCases = [
+    AdminModerationCase(
+      id: 'demo-case-1',
+      targetType: 'spot',
+      targetId: 'spot-kl-1',
+      targetPreview: 'Unverified business hours and incorrect address listed',
+      reason: 'inaccurate_info',
+      explanation: 'The place was closed permanently at this address.',
+      status: 'pending',
+      version: 1,
+      createdAt: DateTime(2025, 2, 1, 10, 30),
+    ),
+  ];
+  final List<AdminAuditEvent> _auditEvents = [
+    AdminAuditEvent(
+      id: 'demo-audit-init',
+      action: 'admin.platform_initialized',
+      targetType: 'system',
+      targetId: 'sys-001',
+      reason: 'Baseline platform operations and safety rules established',
+      actorName: 'System Admin',
+      occurredAt: DateTime(2025, 1, 10, 9, 0),
+    ),
+  ];
 
   @override
   Future<List<AdminAccountSummary>> fetchAccounts() async {
@@ -36,7 +59,7 @@ class DemoAdminRepository implements AdminRepository {
   @override
   Future<List<AdminModerationCase>> fetchModerationCases() async {
     _requireAdmin();
-    return const [];
+    return _moderationCases.where((c) => c.status == 'pending').toList();
   }
 
   @override
@@ -50,8 +73,9 @@ class DemoAdminRepository implements AdminRepository {
       restaurantsPublished: SeedDataService.getInitialRestaurants().length,
       guidesPublished: SeedDataService.getInitialGuides().length,
       reviewsPublished: SeedDataService.getInitialReviews().length,
-      moderationPending: 0,
-      creatorApplicationsPending: 0,
+      moderationPending:
+          _moderationCases.where((c) => c.status == 'pending').length,
+      creatorApplicationsPending: 1,
     );
   }
 
@@ -139,7 +163,33 @@ class DemoAdminRepository implements AdminRepository {
     required String decision,
     required String reason,
   }) async {
-    _requireAdmin();
+    final actor = _requireAdmin();
+    final index =
+        _moderationCases.indexWhere((item) => item.id == moderationCase.id);
+    if (index >= 0) {
+      _moderationCases[index] = AdminModerationCase(
+        id: moderationCase.id,
+        targetType: moderationCase.targetType,
+        targetId: moderationCase.targetId,
+        targetPreview: moderationCase.targetPreview,
+        reason: moderationCase.reason,
+        explanation: moderationCase.explanation,
+        status: decision,
+        version: moderationCase.version + 1,
+        createdAt: moderationCase.createdAt,
+      );
+    }
+    _auditEvents.add(
+      AdminAuditEvent(
+        id: 'demo-audit-${DateTime.now().microsecondsSinceEpoch}',
+        action: 'admin.moderation_case_$decision',
+        targetType: 'moderation_case',
+        targetId: moderationCase.id,
+        reason: reason,
+        actorName: actor.fullName,
+        occurredAt: DateTime.now(),
+      ),
+    );
   }
 
   @override
