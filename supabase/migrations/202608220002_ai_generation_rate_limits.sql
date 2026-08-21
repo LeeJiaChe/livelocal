@@ -325,13 +325,13 @@ begin
     insert into public.restaurant_revisions (
       restaurant_id, revision_number, author_id, name, address, state, city,
       cuisine_type, price_range, reviewed_dishes, social_media_url,
-      cover_image_path, latitude, longitude, status, superseded_by_revision_id,
+      cover_image_path, latitude, longitude, status,
       ai_assisted, ai_source_platform
     ) values (
       entity.id, next_number, auth.uid(), btrim(p_name), btrim(p_address),
       btrim(p_state), btrim(p_city), btrim(p_cuisine_type), p_price_range,
       btrim(p_reviewed_dishes), btrim(p_social_media_url), selected_image_path,
-      p_latitude, p_longitude, 'draft', null,
+      p_latitude, p_longitude, 'draft',
       coalesce(p_ai_assisted, false), p_ai_source_platform
     ) returning * into saved;
 
