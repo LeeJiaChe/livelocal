@@ -114,7 +114,7 @@ insert into public.restaurant_revisions (
 )
 values (
   'f0000000-2000-0000-0000-000000000011', 'f0000000-2000-0000-0000-000000000001', 1,
-  'Published Restaurant One', '789 Food Street', 'Penang', 'George Town', 'Malaysian', '$$$', 'Nasi Lemak, Char Kuey Teow', 'https://instagram.com/resto1'
+  'Published Restaurant One', '789 Food Street', 'Penang', 'George Town', 'Malaysian', '$$$', 'Nasi Lemak, Char Kuey Teow', 'https://instagram.com/p/resto1'
 );
 
 -- ============================================================
@@ -130,7 +130,7 @@ values (
   'f0000000-2000-0000-0000-000000000011',
   'Published Restaurant One',
   '789 Food Street', 'Penang', 'George Town', 'Malaysian', '$$$',
-  'Nasi Lemak, Char Kuey Teow', 'https://instagram.com/resto1',
+  'Nasi Lemak, Char Kuey Teow', 'https://instagram.com/p/resto1',
   'f0000000-0000-0000-0000-000000000001/published-resto.jpg',
   'claimed'
 );

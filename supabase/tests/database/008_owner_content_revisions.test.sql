@@ -239,7 +239,7 @@ select lives_ok(
   $sql$select public.create_restaurant_draft(
     'Original Revision Kitchen', '91 Revision Test Road', 'Penang',
     'George Town', 'Malaysian', '$$', 'Noodles and local coffee',
-    'https://www.instagram.com/revision-kitchen',
+    'https://www.instagram.com/reel/revision-kitchen',
     '90000000-0000-0000-0000-000000000003/original-restaurant.jpg',
     5.4142, 100.3289
   )$sql$,
@@ -285,7 +285,7 @@ select lives_ok(
     (select current_revision_id from public.restaurants where owner_id = auth.uid()),
     'Revised Revision Kitchen', '91 Revision Test Road', 'Penang',
     'George Town', 'Malaysian', '$$', 'Revised noodles and coffee',
-    'https://www.instagram.com/revision-kitchen',
+    'https://www.instagram.com/reel/revision-kitchen',
     '90000000-0000-0000-0000-000000000003/revised-restaurant.jpg',
     5.4142, 100.3289
   )$sql$,
@@ -336,7 +336,7 @@ select lives_ok(
     (select current_revision_id from public.restaurants where owner_id = auth.uid()),
     'Discarded Restaurant Draft', '91 Revision Test Road', 'Penang',
     'George Town', 'Malaysian', '$$', 'Temporary edit for discard testing',
-    'https://www.instagram.com/revision-kitchen', null, 5.4142, 100.3289
+    'https://www.instagram.com/reel/revision-kitchen', null, 5.4142, 100.3289
   )$sql$,
   'creator starts another restaurant revision'
 );
@@ -365,7 +365,7 @@ select lives_ok(
     (select current_revision_id from public.restaurants where owner_id = auth.uid()),
     'Discarded Restaurant Draft', '91 Revision Test Road', 'Penang',
     'George Town', 'Malaysian', '$$', 'Another temporary discard edit',
-    'https://www.instagram.com/revision-kitchen', null, 5.4142, 100.3289
+    'https://www.instagram.com/reel/revision-kitchen', null, 5.4142, 100.3289
   )$sql$,
   'creator starts a new restaurant draft for discard testing'
 );
