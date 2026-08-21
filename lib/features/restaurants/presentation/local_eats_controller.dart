@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../models/discount_code_model.dart';
 import '../../../models/restaurant_model.dart';
+import '../domain/generated_restaurant_listing.dart';
 import '../domain/local_eats_repository.dart';
 
 class LocalEatsController with ChangeNotifier {
@@ -25,6 +26,13 @@ class LocalEatsController with ChangeNotifier {
   String _selectedCuisine = 'All';
   String _selectedBudget = 'All';
   String _searchQuery = '';
+  bool _isGeneratingListing = false;
+  String? _generationError;
+  List<GeneratedRestaurantListing> _generatedCandidates = [];
+  GeneratedRestaurantListing? _selectedGeneratedCandidate;
+  bool _isConnectingSocialAccount = false;
+  String? _socialConnectionError;
+  int _generationRequestId = 0;
 
   List<RestaurantModel> get restaurants => List.unmodifiable(_restaurants);
   List<RestaurantModel> get pendingRestaurants =>
@@ -42,7 +50,6 @@ class LocalEatsController with ChangeNotifier {
   String get selectedFoodType => 'All';
   String get selectedBudget => _selectedBudget;
   String get searchQuery => _searchQuery;
-
   bool get hasActiveFilters =>
       _selectedState != 'All' ||
       _selectedCuisine != 'All' ||
@@ -91,6 +98,88 @@ class LocalEatsController with ChangeNotifier {
     if (_selectedState == 'All') return 'All Malaysia';
     if (_selectedState == 'Pulau Pinang') return 'Penang';
     return _selectedState;
+  }
+
+  bool get isGeneratingListing => _isGeneratingListing;
+  String? get generationError => _generationError;
+  List<GeneratedRestaurantListing> get generatedCandidates =>
+      List.unmodifiable(_generatedCandidates);
+  GeneratedRestaurantListing? get selectedGeneratedCandidate =>
+      _selectedGeneratedCandidate;
+  bool get isConnectingSocialAccount => _isConnectingSocialAccount;
+  String? get socialConnectionError => _socialConnectionError;
+
+  Future<bool> generateRestaurantListingFromSource(String sourceUrl) async {
+    final requestId = ++_generationRequestId;
+    _isGeneratingListing = true;
+    _generationError = null;
+    _socialConnectionError = null;
+    _generatedCandidates = [];
+    _selectedGeneratedCandidate = null;
+    notifyListeners();
+    try {
+      final result = await _repository.generateRestaurantListingFromSource(
+        sourceUrl,
+      );
+      if (requestId != _generationRequestId) return false;
+      _generatedCandidates = result.candidates;
+      if (_generatedCandidates.isEmpty) {
+        _generationError =
+            'No likely restaurant-review posts were found in this source.';
+        return false;
+      }
+      if (_generatedCandidates.length == 1) {
+        _selectedGeneratedCandidate = _generatedCandidates.single;
+      }
+      return true;
+    } catch (error) {
+      if (requestId != _generationRequestId) return false;
+      _generationError = _message(
+        error,
+        'The social source could not be analysed. Please try again.',
+      );
+      return false;
+    } finally {
+      if (requestId == _generationRequestId) {
+        _isGeneratingListing = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  void selectGeneratedCandidate(GeneratedRestaurantListing candidate) {
+    if (!_generatedCandidates.contains(candidate)) return;
+    _selectedGeneratedCandidate = candidate;
+    _generationError = null;
+    notifyListeners();
+  }
+
+  void clearGeneratedResult() {
+    _generationRequestId += 1;
+    _isGeneratingListing = false;
+    _generationError = null;
+    _socialConnectionError = null;
+    _generatedCandidates = [];
+    _selectedGeneratedCandidate = null;
+    notifyListeners();
+  }
+
+  Future<Uri?> startSocialAccountConnection(String platform) async {
+    _isConnectingSocialAccount = true;
+    _socialConnectionError = null;
+    notifyListeners();
+    try {
+      return await _repository.startSocialAccountConnection(platform);
+    } catch (error) {
+      _socialConnectionError = _message(
+        error,
+        'The social account connection could not be started.',
+      );
+      return null;
+    } finally {
+      _isConnectingSocialAccount = false;
+      notifyListeners();
+    }
   }
 
   List<RestaurantModel> get filteredRestaurants =>

@@ -2,13 +2,17 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app/theme/app_spacing.dart';
+import '../constants/malaysia_states.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/localeats_controller.dart';
 import '../core/routing/protected_navigation.dart';
 import '../core/validation/social_url_validator.dart';
+import '../features/restaurants/domain/generated_restaurant_listing.dart';
 import '../features/restaurants/domain/local_eats_repository.dart';
+import '../features/restaurants/domain/restaurant_taxonomy.dart';
 import '../models/restaurant_model.dart';
 import '../shared/presentation/contributions/contribution_header.dart';
 import '../shared/presentation/contributions/contribution_image_picker.dart';
@@ -16,9 +20,6 @@ import '../shared/presentation/contributions/contribution_review_summary.dart';
 import '../shared/presentation/contributions/contribution_scaffold.dart';
 import '../shared/presentation/contributions/contribution_section.dart';
 import '../shared/presentation/contributions/contribution_success_view.dart';
-
-import '../constants/malaysia_states.dart';
-import '../features/restaurants/domain/restaurant_taxonomy.dart';
 
 class AddRestaurantScreen extends StatefulWidget {
   const AddRestaurantScreen({super.key, this.source});
@@ -31,6 +32,7 @@ class AddRestaurantScreen extends StatefulWidget {
 
 class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _sourceUrl = TextEditingController();
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _city = TextEditingController();
@@ -53,6 +55,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<LocalEatsController>().clearGeneratedResult();
+    });
     final source = widget.source;
     _displayState =
         source != null ? MalaysiaStates.toDisplay(source.state) : null;
@@ -73,6 +78,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
 
   @override
   void dispose() {
+    _sourceUrl.dispose();
     _name.dispose();
     _address.dispose();
     _city.dispose();
@@ -86,8 +92,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    final user = auth.currentUser;
-    final isCreator = user?.role == 'influencer';
+    final isCreator = auth.currentUser?.role == 'influencer';
 
     if (!auth.canWrite) {
       return Scaffold(
@@ -184,12 +189,11 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                     ),
                     const SizedBox(height: AppSpacing.x1),
                     Text(
-                      'Restaurant recommendations on LiveLocal are submitted by approved Creators to ensure authentic, high-quality local dining tips.',
+                      'Restaurant recommendations are published exclusively by approved Local Food Creators to maintain authentic, quality food guides.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color:
                                 Theme.of(context).colorScheme.onSurfaceVariant,
-                            height: 1.4,
                           ),
                     ),
                     const SizedBox(height: AppSpacing.x2),
@@ -268,6 +272,229 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             ),
             const SizedBox(height: AppSpacing.x2),
 
+            // AI IMPORT SECTION (for new recommendations)
+            if (!_isRevision) ...[
+              ContributionSection(
+                title: 'Import from social review (Optional)',
+                subtitle:
+                    'Auto-fill details from an Instagram or TikTok review post',
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.x2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'AI can help draft restaurant details from the source you provide. Review and correct the information before submitting.',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                        ),
+                        const SizedBox(height: AppSpacing.x2),
+                        TextFormField(
+                          key: const Key('ai_source_field'),
+                          controller: _sourceUrl,
+                          keyboardType: TextInputType.url,
+                          autocorrect: false,
+                          decoration: InputDecoration(
+                            labelText: 'TikTok or Instagram review link',
+                            hintText:
+                                'https://www.tiktok.com/@creator/video/123...',
+                            helperText:
+                                'Paste a TikTok video or Instagram Reel/post link',
+                            prefixIcon: const Icon(Icons.link),
+                            suffixIcon: _sourceUrl.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _sourceUrl.clear();
+                                      controller.clearGeneratedResult();
+                                      setState(() {});
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: AppSpacing.x2),
+                        FilledButton.tonalIcon(
+                          key: const Key('ai_generate_button'),
+                          onPressed: controller.isGeneratingListing
+                              ? null
+                              : _generateListing,
+                          icon: controller.isGeneratingListing
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.auto_awesome_outlined),
+                          label: Text(
+                            controller.isGeneratingListing
+                                ? 'Analyzing review link…'
+                                : 'Generate details with AI',
+                          ),
+                        ),
+                        if (controller.generationError != null) ...[
+                          const SizedBox(height: AppSpacing.x2),
+                          Container(
+                            padding: const EdgeInsets.all(AppSpacing.x2),
+                            decoration: BoxDecoration(
+                              color:
+                                  Theme.of(context).colorScheme.errorContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 20,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onErrorContainer,
+                                ),
+                                const SizedBox(width: AppSpacing.x1),
+                                Expanded(
+                                  child: Text(
+                                    controller.generationError!,
+                                    key: const Key('ai_generation_error'),
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onErrorContainer,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (SocialUrlValidator.detectSourceType(
+                                  _sourceUrl.text) ==
+                              SocialSourceType.profile) ...[
+                            const SizedBox(height: AppSpacing.x1),
+                            OutlinedButton.icon(
+                              onPressed: controller.isConnectingSocialAccount
+                                  ? null
+                                  : _connectSocialAccount,
+                              icon: const Icon(Icons.link),
+                              label: Text(
+                                controller.isConnectingSocialAccount
+                                    ? 'Opening connection…'
+                                    : 'Connect creator account',
+                              ),
+                            ),
+                          ],
+                        ],
+                        if (controller.socialConnectionError != null) ...[
+                          const SizedBox(height: AppSpacing.x1),
+                          Text(
+                            controller.socialConnectionError!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                        if (controller.generatedCandidates.length > 1) ...[
+                          const SizedBox(height: AppSpacing.x2),
+                          Text(
+                            'Choose a restaurant review:',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: AppSpacing.x1),
+                          ...controller.generatedCandidates.map(
+                            (candidate) => _candidateCard(
+                              context,
+                              candidate,
+                              controller.selectedGeneratedCandidate ==
+                                  candidate,
+                            ),
+                          ),
+                        ],
+                        if (controller.selectedGeneratedCandidate != null) ...[
+                          const SizedBox(height: AppSpacing.x2),
+                          Container(
+                            padding: const EdgeInsets.all(AppSpacing.x2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      size: 18,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: AppSpacing.x1),
+                                    Expanded(
+                                      child: Text(
+                                        'AI-assisted draft generated. Review and edit all fields below.',
+                                        key: const Key('ai_draft_notice'),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (controller.selectedGeneratedCandidate!
+                                    .missingFields.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Missing in post (please provide): ${controller.selectedGeneratedCandidate!.missingFields.map(_fieldLabel).join(', ')}.',
+                                    key: const Key('ai_missing_fields'),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.x2),
+            ],
+
             // BASICS SECTION
             ContributionSection(
               title: 'Restaurant info',
@@ -279,6 +506,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   hintText: 'e.g. Line Clear Nasi Kandar',
                   minLength: 2,
                   maxLength: 120,
+                  key: const Key('restaurant_name_field'),
                 ),
                 const SizedBox(height: AppSpacing.x2),
                 RawAutocomplete<String>(
@@ -435,6 +663,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   hintText: 'e.g. George Town, Petaling Jaya',
                   minLength: 2,
                   maxLength: 100,
+                  key: const Key('restaurant_city_field'),
                 ),
                 const SizedBox(height: AppSpacing.x2),
                 _field(
@@ -443,6 +672,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   hintText: 'e.g. 161 & 163 Lebuh Campbell, 10100 George Town',
                   minLength: 5,
                   maxLength: 300,
+                  key: const Key('restaurant_address_field'),
                 ),
               ],
             ),
@@ -461,6 +691,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   minLength: 3,
                   maxLength: 300,
                   maxLines: 2,
+                  key: const Key('restaurant_dishes_field'),
                 ),
                 const SizedBox(height: AppSpacing.x2),
                 _field(
@@ -469,8 +700,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   hintText: 'https://www.tiktok.com/@creator/video/123...',
                   minLength: 8,
                   maxLength: 500,
+                  key: const Key('social_review_url_field'),
                   validator: (value) {
-                    if (!SocialUrlValidator.isSupported(value ?? '')) {
+                    if (!SocialUrlValidator.isReviewPost(value ?? '')) {
                       return 'Enter a supported TikTok or Instagram HTTPS URL.';
                     }
                     return null;
@@ -516,7 +748,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
               items: [
                 MapEntry('Restaurant', _name.text.trim()),
                 MapEntry('Cuisine', _cuisine.text.trim()),
-                MapEntry('Location', '${_city.text.trim()}, $_displayState'),
+                MapEntry(
+                    'Location', '${_city.text.trim()}, ${_displayState ?? ''}'),
                 MapEntry('Price', _price),
                 MapEntry('Top dishes', _dishes.text.trim()),
               ],
@@ -545,6 +778,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       bottomAction: SizedBox(
         width: double.infinity,
         child: FilledButton(
+          key: const Key('restaurant_submit_button'),
           onPressed: _submitting ? null : _submit,
           child: _submitting
               ? const SizedBox.square(
@@ -554,9 +788,139 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                     color: Colors.white,
                   ),
                 )
-              : const Text('Submit restaurant for review'),
+              : Text(_isRevision
+                  ? 'Save changes'
+                  : 'Submit restaurant for review'),
         ),
       ),
+    );
+  }
+
+  Future<void> _generateListing() async {
+    final source = _sourceUrl.text.trim();
+    final controller = context.read<LocalEatsController>();
+    if (SocialUrlValidator.detectSourceType(source) ==
+        SocialSourceType.unsupported) {
+      controller.clearGeneratedResult();
+      _message(
+        'Paste a valid TikTok or Instagram post or creator profile URL.',
+      );
+      return;
+    }
+    final generated =
+        await controller.generateRestaurantListingFromSource(source);
+    if (!mounted || !generated) return;
+    final candidate = controller.selectedGeneratedCandidate;
+    if (candidate != null) _applyCandidate(candidate);
+  }
+
+  Future<void> _connectSocialAccount() async {
+    final platform = SocialUrlValidator.detectPlatform(_sourceUrl.text);
+    if (platform == null) return;
+    final controller = context.read<LocalEatsController>();
+    final authorizationUrl =
+        await controller.startSocialAccountConnection(platform);
+    if (!mounted || authorizationUrl == null) return;
+    final opened = await launchUrl(
+      authorizationUrl,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!mounted) return;
+    if (!opened) {
+      _message('Could not open the $platform connection page.');
+      return;
+    }
+    _message(
+      'Complete the $platform connection, then return and tap Generate details with AI again.',
+    );
+  }
+
+  Widget _candidateCard(
+    BuildContext context,
+    GeneratedRestaurantListing candidate,
+    bool selected,
+  ) {
+    return Card(
+      key: ValueKey('generated-candidate-${candidate.sourcePostUrl}'),
+      color: selected ? Theme.of(context).colorScheme.secondaryContainer : null,
+      child: InkWell(
+        onTap: () => _applyCandidate(candidate),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                candidate.restaurantName ?? 'Restaurant name not identified',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(candidate.reviewedDishes ?? 'Dishes not identified'),
+              const SizedBox(height: 4),
+              Text(
+                '${SocialUrlValidator.platformLabel(candidate.sourcePostUrl)} · ${(candidate.confidence * 100).round()}% confidence',
+              ),
+              const SizedBox(height: 4),
+              Text(
+                candidate.sourcePostUrl,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _applyCandidate(GeneratedRestaurantListing candidate) {
+    if (!SocialUrlValidator.isReviewPost(candidate.sourcePostUrl)) {
+      _message('The generated candidate did not contain a valid review post.');
+      return;
+    }
+    context.read<LocalEatsController>().selectGeneratedCandidate(candidate);
+    setState(() {
+      _name.text = candidate.restaurantName ?? '';
+      _address.text = candidate.address ?? '';
+      _city.text = candidate.city ?? '';
+      _dishes.text = candidate.reviewedDishes ?? '';
+      _socialUrl.text = candidate.sourcePostUrl;
+      if (candidate.cuisineType?.isNotEmpty == true) {
+        _cuisine.text = candidate.cuisineType!;
+      }
+      if (candidate.state != null && candidate.state!.trim().isNotEmpty) {
+        final display = MalaysiaStates.toDisplay(candidate.state!);
+        if (display.isNotEmpty) {
+          _displayState = display;
+          if (!_states.contains(display)) {
+            _states =
+                MalaysiaStates.getDisplayList(existingRawOrDisplay: display);
+          }
+        }
+      }
+      _price =
+          const [r'$', r'$$', r'$$$', r'$$$$'].contains(candidate.priceRange)
+              ? candidate.priceRange!
+              : _price;
+    });
+  }
+
+  static String _fieldLabel(String value) {
+    const labels = {
+      'restaurantName': 'restaurant name',
+      'address': 'address',
+      'state': 'state',
+      'city': 'city',
+      'cuisineType': 'cuisine',
+      'priceRange': 'price range',
+      'reviewedDishes': 'reviewed dishes',
+    };
+    return labels[value] ?? value;
+  }
+
+  void _message(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text)),
     );
   }
 
@@ -564,25 +928,27 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     TextEditingController controller,
     String label, {
     String? hintText,
-    required int minLength,
-    required int maxLength,
+    int minLength = 0,
+    int maxLength = 100,
     int maxLines = 1,
     String? Function(String?)? validator,
+    Key? key,
   }) {
     return TextFormField(
+      key: key,
       controller: controller,
       maxLines: maxLines,
-      maxLength: maxLength,
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,
-        alignLabelWithHint: maxLines > 1,
       ),
       validator: validator ??
           (value) {
-            final length = value?.trim().length ?? 0;
-            if (length < minLength) {
-              return 'Enter at least $minLength characters.';
+            if (minLength > 0 && (value?.trim().length ?? 0) < minLength) {
+              return 'Enter $label (at least $minLength characters).';
+            }
+            if (maxLength > 0 && (value?.trim().length ?? 0) > maxLength) {
+              return '$label cannot exceed $maxLength characters.';
             }
             return null;
           },
@@ -599,30 +965,22 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     String? Function(String?)? validator,
   }) {
     return DropdownButtonFormField<String>(
-      isExpanded: true,
       initialValue: value,
-      hint: hintText != null
-          ? Text(hintText, overflow: TextOverflow.ellipsis)
-          : null,
+      hint: hintText != null ? Text(hintText) : null,
       decoration: InputDecoration(labelText: label),
-      validator: validator,
       items: values
-          .map((item) => DropdownMenuItem(
-                value: item,
-                child: Text(item, overflow: TextOverflow.ellipsis),
-              ))
+          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
           .toList(),
+      validator: validator,
       onChanged: onChanged,
     );
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_imageBytes == null &&
-        widget.source?.coverPhotoUrl.isNotEmpty != true) {
+    if (_imageBytes == null && !_isRevision) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Choose a clear photo of the restaurant.')),
+        const SnackBar(content: Text('Please select a cover photo.')),
       );
       return;
     }

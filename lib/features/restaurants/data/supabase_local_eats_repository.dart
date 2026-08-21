@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -5,12 +8,115 @@ import '../../../core/errors/app_exception.dart';
 import '../../../core/validation/social_url_validator.dart';
 import '../../../models/discount_code_model.dart';
 import '../../../models/restaurant_model.dart';
+import '../domain/generated_restaurant_listing.dart';
 import '../domain/local_eats_repository.dart';
 
 class SupabaseLocalEatsRepository implements LocalEatsRepository {
   SupabaseLocalEatsRepository(this._client);
 
   final SupabaseClient _client;
+
+  @override
+  Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
+    String sourceUrl,
+  ) async {
+    if (!SocialUrlValidator.isSupported(sourceUrl)) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage:
+            'Paste a valid TikTok or Instagram post or creator profile URL.',
+      );
+    }
+    if (_client.auth.currentSession == null) {
+      throw const AppException(
+        code: AppErrorCode.authentication,
+        userMessage: 'Your session has expired. Sign in and try again.',
+      );
+    }
+
+    try {
+      final response = await _client.functions.invoke(
+        'generate-restaurant-listing',
+        body: {'sourceUrl': sourceUrl.trim()},
+      ).timeout(const Duration(seconds: 50));
+      if (response.data is! Map) {
+        throw const FormatException('Generation response is not an object');
+      }
+      return SocialSourceAnalysisResult.fromJson(
+        Map<String, dynamic>.from(response.data as Map),
+      );
+    } on FunctionException catch (error) {
+      throw _generationFunctionError(error);
+    } on TimeoutException catch (error) {
+      throw AppException(
+        code: AppErrorCode.unavailable,
+        userMessage:
+            'The analysis timed out. Check your connection and try again.',
+        cause: error,
+      );
+    } on FormatException catch (error) {
+      throw AppException(
+        code: AppErrorCode.unavailable,
+        userMessage: 'The AI returned an unreadable result. Please try again.',
+        technicalMessage: error.message,
+        cause: error,
+      );
+    } catch (error) {
+      throw AppException(
+        code: AppErrorCode.network,
+        userMessage:
+            'The social source could not be analysed. Please try again.',
+        cause: error,
+      );
+    }
+  }
+
+  @override
+  Future<Uri> startSocialAccountConnection(String platform) async {
+    if (!SocialUrlValidator.supportedPlatforms.contains(platform)) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage: 'Choose TikTok or Instagram.',
+      );
+    }
+    if (_client.auth.currentSession == null) {
+      throw const AppException(
+        code: AppErrorCode.authentication,
+        userMessage: 'Your session has expired. Sign in and try again.',
+      );
+    }
+    try {
+      final response = await _client.functions.invoke(
+        'social-account-oauth',
+        body: {'platform': platform},
+      ).timeout(const Duration(seconds: 20));
+      if (response.data is! Map) {
+        throw const FormatException('OAuth response is not an object');
+      }
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final uri = Uri.tryParse(data['authorizationUrl'] as String? ?? '');
+      if (uri == null || uri.scheme != 'https') {
+        throw const FormatException('Missing authorization URL');
+      }
+      return uri;
+    } on FunctionException catch (error) {
+      throw _generationFunctionError(error);
+    } on TimeoutException catch (error) {
+      throw AppException(
+        code: AppErrorCode.unavailable,
+        userMessage:
+            'The social account connection timed out. Please try again.',
+        cause: error,
+      );
+    } catch (error) {
+      throw AppException(
+        code: AppErrorCode.unavailable,
+        userMessage:
+            'The social account connection could not be started. Try again.',
+        cause: error,
+      );
+    }
+  }
 
   @override
   Future<List<RestaurantModel>> fetchPublicRestaurants() async {
@@ -528,6 +634,69 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
           ? 'This item changed. Refresh and try again.'
           : message,
       technicalMessage: error.message,
+      cause: error,
+    );
+  }
+
+  AppException _generationFunctionError(FunctionException error) {
+    Object? details = error.details;
+    if (details is String) {
+      try {
+        details = jsonDecode(details);
+      } on FormatException {
+        // Non-JSON gateway failures are mapped by status below.
+      }
+    }
+    String? code;
+    if (details is Map) {
+      final payload = Map<String, dynamic>.from(details);
+      final nested = payload['error'];
+      if (nested is Map) {
+        code = nested['code'] as String?;
+      } else {
+        code = payload['code'] as String?;
+      }
+    }
+    final message = switch (code) {
+      'INVALID_SOURCE_URL' =>
+        'Paste a valid TikTok or Instagram post or creator profile URL.',
+      'AUTHENTICATION_REQUIRED' ||
+      'SESSION_EXPIRED' =>
+        'Your session has expired. Sign in and try again.',
+      'INFLUENCER_REQUIRED' =>
+        'An approved influencer account is required to generate listings.',
+      'SOCIAL_ACCOUNT_NOT_CONNECTED' =>
+        'Connect your TikTok/Instagram creator account before importing from a profile.',
+      'SOCIAL_API_NOT_CONFIGURED' =>
+        'Social-media import is not configured yet. Please contact support.',
+      'POST_UNAVAILABLE' =>
+        'That post is private, deleted, or unavailable to LiveLocal.',
+      'SOCIAL_API_UNAVAILABLE' =>
+        'The social platform is temporarily unavailable. Please try again.',
+      'NO_RESTAURANT_REVIEWS' =>
+        'No likely restaurant-review posts were found in the recent posts.',
+      'AI_PROVIDER_UNAVAILABLE' =>
+        'AI generation is temporarily unavailable. Please try again.',
+      'MALFORMED_AI_RESPONSE' =>
+        'The AI returned an unreadable result. Please try again.',
+      'GENERATION_TIMEOUT' => 'The analysis timed out. Please try again.',
+      _ when error.status == 401 =>
+        'Your session has expired. Sign in and try again.',
+      _ when error.status == 403 =>
+        'An approved influencer account is required to generate listings.',
+      _ => 'The social source could not be analysed. Please try again.',
+    };
+    return AppException(
+      code: switch (error.status) {
+        401 => AppErrorCode.authentication,
+        403 => AppErrorCode.forbidden,
+        400 => AppErrorCode.validation,
+        404 => AppErrorCode.notFound,
+        409 => AppErrorCode.conflict,
+        _ => AppErrorCode.unavailable,
+      },
+      userMessage: message,
+      technicalMessage: code,
       cause: error,
     );
   }

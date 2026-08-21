@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../../../models/discount_code_model.dart';
 import '../../../models/restaurant_model.dart';
+import 'generated_restaurant_listing.dart';
 
 class RestaurantDraftInput {
   const RestaurantDraftInput({
@@ -68,6 +69,11 @@ abstract interface class LocalEatsRepository {
   Future<List<DiscountCodeModel>> fetchOwnedDiscounts();
   Future<List<RestaurantModel>> fetchPendingRestaurants();
   Future<List<RestaurantModel>> fetchOwnedRestaurantSubmissions();
+
+  Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
+    String sourceUrl,
+  );
+  Future<Uri> startSocialAccountConnection(String platform);
 
   Future<RestaurantDraftResult> createRestaurantDraft({
     required RestaurantDraftInput input,
