@@ -6,8 +6,11 @@ import '../app/theme/app_spacing.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/itinerary_controller.dart';
 import '../controllers/localeats_controller.dart';
+import '../core/routing/protected_navigation.dart';
+import '../features/influencer_applications/presentation/influencer_application_controller.dart';
 import '../models/restaurant_model.dart';
 import '../shared/presentation/app_state_view.dart';
+import '../shared/presentation/contributions/contribution_status_chip.dart';
 import '../shared/presentation/save_to_collection_sheet.dart';
 import 'add_restaurant_screen.dart';
 import 'manage_discount_screen.dart';
@@ -321,14 +324,153 @@ class _LocalEatsScreenState extends State<LocalEatsScreen> {
           ],
         ),
       ),
-      floatingActionButton: isInfluencer
-          ? FloatingActionButton.extended(
-              heroTag: 'localeats_fab',
-              onPressed: _showCreatorActions,
-              icon: const Icon(Icons.add),
-              label: const Text('Creator tools'),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'localeats_fab',
+        onPressed: () => _handleRecommendRestaurant(context, isInfluencer),
+        icon: const Icon(Icons.restaurant_outlined),
+        label: const Text('Recommend a restaurant'),
+      ),
+    );
+  }
+
+  void _handleRecommendRestaurant(BuildContext context, bool isInfluencer) {
+    final auth = context.read<AuthController>();
+    if (!auth.canWrite) {
+      context.read<ProtectedNavigation>().open(
+            context,
+            '/recommend-restaurant',
+          );
+      return;
+    }
+
+    if (isInfluencer) {
+      _showCreatorActions();
+    } else {
+      _showCreatorEligibilitySheet();
+    }
+  }
+
+  Future<void> _showCreatorEligibilitySheet() async {
+    final influencerCtrl = context.read<InfluencerApplicationController>();
+    await influencerCtrl.loadMine();
+    if (!mounted) return;
+    final application = influencerCtrl.mine;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome,
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'LiveLocal Creator Program',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Restaurant recommendations are submitted by approved LiveLocal Creators.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Apply to become a Creator. Once your application is approved by our team, Creator tools and restaurant recommendations will be unlocked.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+              ),
+              const SizedBox(height: 20),
+              if (application != null &&
+                  ['submitted', 'under_review', 'approved']
+                      .contains(application.status)) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Application status:',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 8),
+                      ContributionStatusChip(
+                        status: application.status,
+                        compact: true,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(sheetCtx);
+                      Navigator.pushNamed(context, '/creator-application');
+                    },
+                    child: const Text('View application status'),
+                  ),
+                ),
+              ] else ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(sheetCtx);
+                      Navigator.pushNamed(context, '/creator-application');
+                    },
+                    child: const Text('Apply to become a Creator'),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(sheetCtx),
+                  child: const Text('Maybe later'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

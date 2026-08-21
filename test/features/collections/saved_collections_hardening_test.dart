@@ -142,11 +142,11 @@ void main() {
           findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
 
-      // Done button must be disabled
-      final doneBtnFinder = find.widgetWithText(FilledButton, 'Done');
-      expect(doneBtnFinder, findsOneWidget);
-      final FilledButton doneButton = tester.widget(doneBtnFinder);
-      expect(doneButton.onPressed, isNull);
+      // Bottom CTA button must be disabled during error
+      final buttonFinder = find.byType(FilledButton);
+      expect(buttonFinder, findsOneWidget);
+      final FilledButton disabledButton = tester.widget(buttonFinder);
+      expect(disabledButton.onPressed, isNull);
 
       // 2. Test retry recovery
       failingRepo.shouldFailFetchMemberships = false;
@@ -155,16 +155,16 @@ void main() {
 
       expect(find.text('Could not load collection memberships. Please retry.'),
           findsNothing);
-      final FilledButton activeDoneButton = tester.widget(doneBtnFinder);
-      expect(activeDoneButton.onPressed, isNotNull);
+      expect(find.text('No changes'), findsOneWidget);
 
-      // 3. Deselect collection and tap Done
+      // 3. Deselect collection -> CTA becomes 'Remove from Saved'
       final checkboxFinder = find.byType(CheckboxListTile);
       expect(checkboxFinder, findsWidgets);
       await tester.tap(checkboxFinder.first);
       await tester.pumpAndSettle();
 
-      await tester.tap(doneBtnFinder);
+      expect(find.text('Remove from Saved'), findsOneWidget);
+      await tester.tap(find.text('Remove from Saved'));
       await tester.pumpAndSettle();
 
       // Verify spot was unsaved

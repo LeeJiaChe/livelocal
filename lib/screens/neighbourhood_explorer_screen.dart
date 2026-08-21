@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
 import '../controllers/guide_controller.dart';
+import '../core/routing/protected_navigation.dart';
 import '../features/guides/presentation/submit_guide_screen.dart';
 import '../models/guide_model.dart';
 import '../shared/presentation/app_state_view.dart';
@@ -234,14 +235,10 @@ class _NeighbourhoodExplorerScreenState
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'submit_guide_fab',
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => const SubmitGuideScreen(),
-          ),
-        ),
-        icon: const Icon(Icons.add_location_alt_outlined),
-        label: const Text('Submit guide'),
+        onPressed: () =>
+            context.read<ProtectedNavigation>().open(context, '/submit-guide'),
+        icon: const Icon(Icons.add_road_outlined),
+        label: const Text('Create a guide'),
       ),
     );
   }

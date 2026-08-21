@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -55,7 +56,7 @@ class SaveToCollectionSheet extends StatefulWidget {
               ),
             );
       } else {
-        context.read<ProtectedNavigation>().open(context, '/home');
+        context.read<ProtectedNavigation>().open(context, '/saved-places');
       }
       return;
     }
@@ -82,11 +83,18 @@ class SaveToCollectionSheet extends StatefulWidget {
 }
 
 class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
+  final Set<String> _initialCollectionIds = {};
   final Set<String> _selectedCollectionIds = {};
   bool _isLoading = true;
   bool _isSaving = false;
   bool _initialLoadFailed = false;
   String? _inlineError;
+
+  bool get _wasInitiallySaved => _initialCollectionIds.isNotEmpty;
+  bool get _hasChanges =>
+      !setEquals(_initialCollectionIds, _selectedCollectionIds);
+  bool get _isRemovingAll =>
+      _wasInitiallySaved && _selectedCollectionIds.isEmpty;
 
   @override
   void initState() {
@@ -117,6 +125,8 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
 
       if (!mounted) return;
       setState(() {
+        _initialCollectionIds.clear();
+        _initialCollectionIds.addAll(memberships);
         _selectedCollectionIds.clear();
         _selectedCollectionIds.addAll(memberships);
         _isLoading = false;
@@ -145,7 +155,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
   }
 
   Future<void> _saveMemberships() async {
-    if (_initialLoadFailed) return;
+    if (_initialLoadFailed || !_hasChanges) return;
 
     setState(() {
       _isSaving = true;
@@ -167,7 +177,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
       Navigator.pop(context);
 
       String successMsg;
-      if (!result.saved || targetCollectionIds.isEmpty) {
+      if (_isRemovingAll || !result.saved || targetCollectionIds.isEmpty) {
         successMsg = 'Removed from Saved';
       } else if (targetCollectionIds.length == 1) {
         final colName = controller.collections
@@ -202,83 +212,10 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
   }
 
   Future<void> _showCreateCollectionDialog() async {
-    final nameCtrl = TextEditingController();
-    String? dialogError;
-
     final createdId = await showDialog<String>(
       context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('New collection'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                maxLength: 80,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Weekend in Penang, KL Coffee',
-                  labelText: 'Collection name',
-                  errorText: dialogError,
-                ),
-                textCapitalization: TextCapitalization.words,
-                onChanged: (_) {
-                  if (dialogError != null) {
-                    setDialogState(() => dialogError = null);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final text = nameCtrl.text.trim();
-                if (text.isEmpty) {
-                  setDialogState(
-                      () => dialogError = 'Please enter a collection name.');
-                  return;
-                }
-                if (text.length > 80) {
-                  setDialogState(() =>
-                      dialogError = 'Name must be 80 characters or fewer.');
-                  return;
-                }
-
-                final controller = dialogCtx.read<ItineraryController>();
-                final existing = controller.collections.any(
-                  (c) => c.name.trim().toLowerCase() == text.toLowerCase(),
-                );
-                if (existing) {
-                  setDialogState(() => dialogError =
-                      'A collection with this name already exists.');
-                  return;
-                }
-
-                final created = await controller.createCollection(name: text);
-                if (created != null && dialogCtx.mounted) {
-                  Navigator.pop(dialogCtx, created.id);
-                } else if (dialogCtx.mounted) {
-                  setDialogState(() {
-                    dialogError = controller.errorMessage ??
-                        'Could not create collection.';
-                  });
-                }
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        ),
-      ),
+      builder: (dialogCtx) => const _CreateCollectionDialog(),
     );
-
-    nameCtrl.dispose();
 
     if (createdId != null && mounted) {
       setState(() {
@@ -289,8 +226,52 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final controller = context.watch<ItineraryController>();
     final collections = controller.collections;
+
+    // Primary CTA configuration based on user state:
+    final bool isActionEnabled;
+    final String actionLabel;
+    final Color? actionBgColor;
+    final Color? actionFgColor;
+
+    if (_isLoading || _isSaving || _initialLoadFailed) {
+      isActionEnabled = false;
+      actionLabel = 'Save';
+      actionBgColor = null;
+      actionFgColor = null;
+    } else if (!_wasInitiallySaved) {
+      if (_selectedCollectionIds.isEmpty) {
+        isActionEnabled = false;
+        actionLabel = 'Select a collection';
+        actionBgColor = null;
+        actionFgColor = null;
+      } else {
+        isActionEnabled = true;
+        actionLabel = 'Save';
+        actionBgColor = null;
+        actionFgColor = null;
+      }
+    } else {
+      if (!_hasChanges) {
+        isActionEnabled = false;
+        actionLabel = 'No changes';
+        actionBgColor = null;
+        actionFgColor = null;
+      } else if (_isRemovingAll) {
+        isActionEnabled = true;
+        actionLabel = 'Remove from Saved';
+        actionBgColor = colorScheme.errorContainer;
+        actionFgColor = colorScheme.onErrorContainer;
+      } else {
+        isActionEnabled = true;
+        actionLabel = 'Save';
+        actionBgColor = null;
+        actionFgColor = null;
+      }
+    }
 
     return SafeArea(
       child: Padding(
@@ -318,26 +299,23 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                         children: [
                           Text(
                             'Save to a collection',
-                            style: Theme.of(context).textTheme.titleLarge,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             widget.placeName,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
+                    IconButton.filledTonal(
                       tooltip: 'New collection',
                       icon: const Icon(Icons.create_new_folder_outlined),
                       onPressed: _showCreateCollectionDialog,
@@ -357,7 +335,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                         child: Text(
                           _inlineError!,
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
+                            color: colorScheme.error,
                             fontSize: 13,
                           ),
                         ),
@@ -384,22 +362,22 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                       Icon(
                         Icons.collections_bookmark_outlined,
                         size: 48,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(height: AppSpacing.x2),
                       Text(
                         'No collections yet',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.x1),
                       Text(
                         'Create your first collection to start organizing places.',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.x2),
                       FilledButton.icon(
@@ -429,36 +407,27 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                         ),
                         subtitle: Text(
                           '${collection.itemCount} ${collection.itemCount == 1 ? "place" : "places"}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
                         secondary: Container(
-                          width: 40,
-                          height: 40,
+                          width: 44,
+                          height: 44,
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
+                                ? colorScheme.primaryContainer
+                                : colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             isSelected
                                 ? Icons.bookmark
                                 : Icons.bookmark_outline,
                             color: isSelected
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                            size: 20,
+                                ? colorScheme.onPrimaryContainer
+                                : colorScheme.onSurfaceVariant,
+                            size: 22,
                           ),
                         ),
                       );
@@ -480,10 +449,15 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                     const SizedBox(width: AppSpacing.x2),
                     Expanded(
                       child: FilledButton(
-                        onPressed:
-                            (_isSaving || _initialLoadFailed || _isLoading)
-                                ? null
-                                : _saveMemberships,
+                        onPressed: isActionEnabled && !_isSaving
+                            ? _saveMemberships
+                            : null,
+                        style: actionBgColor != null
+                            ? FilledButton.styleFrom(
+                                backgroundColor: actionBgColor,
+                                foregroundColor: actionFgColor,
+                              )
+                            : null,
                         child: _isSaving
                             ? const SizedBox(
                                 width: 20,
@@ -493,7 +467,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text('Done'),
+                            : Text(actionLabel),
                       ),
                     ),
                   ],
@@ -503,6 +477,125 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CreateCollectionDialog extends StatefulWidget {
+  const _CreateCollectionDialog();
+
+  @override
+  State<_CreateCollectionDialog> createState() =>
+      _CreateCollectionDialogState();
+}
+
+class _CreateCollectionDialogState extends State<_CreateCollectionDialog> {
+  late final TextEditingController _nameCtrl;
+  String? _dialogError;
+  bool _isCreating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleCreate() async {
+    final text = _nameCtrl.text.trim();
+    if (text.isEmpty) {
+      setState(() => _dialogError = 'Please enter a collection name.');
+      return;
+    }
+    if (text.length > 80) {
+      setState(() => _dialogError = 'Name must be 80 characters or fewer.');
+      return;
+    }
+
+    final controller = context.read<ItineraryController>();
+    final existing = controller.collections.any(
+      (c) => c.name.trim().toLowerCase() == text.toLowerCase(),
+    );
+    if (existing) {
+      setState(
+          () => _dialogError = 'A collection with this name already exists.');
+      return;
+    }
+
+    setState(() {
+      _isCreating = true;
+      _dialogError = null;
+    });
+
+    try {
+      final created = await controller.createCollection(name: text);
+      if (!mounted) return;
+      if (created != null) {
+        Navigator.of(context).pop(created.id);
+      } else {
+        setState(() {
+          _isCreating = false;
+          _dialogError =
+              controller.errorMessage ?? 'Could not create collection.';
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isCreating = false;
+        _dialogError = 'Could not create collection. Please try again.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New collection'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _nameCtrl,
+            autofocus: true,
+            maxLength: 80,
+            decoration: InputDecoration(
+              hintText: 'e.g. Weekend in Penang, KL Coffee',
+              labelText: 'Collection name',
+              errorText: _dialogError,
+            ),
+            textCapitalization: TextCapitalization.words,
+            onChanged: (_) {
+              if (_dialogError != null) {
+                setState(() => _dialogError = null);
+              }
+            },
+            onSubmitted: (_) => _handleCreate(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isCreating ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isCreating ? null : _handleCreate,
+          child: _isCreating
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create'),
+        ),
+      ],
     );
   }
 }

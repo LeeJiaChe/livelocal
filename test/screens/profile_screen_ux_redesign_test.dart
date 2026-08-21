@@ -206,8 +206,8 @@ void main() {
       expect(find.text('Edit profile'), findsOneWidget);
 
       // Creator Callout (tourist only)
-      expect(find.text('Become a local creator'), findsOneWidget);
-      expect(find.text('Apply as creator'), findsOneWidget);
+      expect(find.text('Become a LiveLocal Creator'), findsOneWidget);
+      expect(find.text('Apply to become a Creator'), findsOneWidget);
 
       // Your activity
       expect(find.text('Your activity'), findsOneWidget);

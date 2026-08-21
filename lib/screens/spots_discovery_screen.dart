@@ -311,7 +311,7 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
         onPressed: () =>
             context.read<ProtectedNavigation>().open(context, '/submit-spot'),
         icon: const Icon(Icons.add_location_alt_outlined),
-        label: const Text('Submit a place'),
+        label: const Text('Share a local place'),
       ),
     );
   }

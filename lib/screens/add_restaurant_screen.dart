@@ -1,14 +1,21 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../app/theme/app_spacing.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/localeats_controller.dart';
+import '../core/routing/protected_navigation.dart';
 import '../core/validation/social_url_validator.dart';
 import '../features/restaurants/domain/local_eats_repository.dart';
 import '../models/restaurant_model.dart';
+import '../shared/presentation/contributions/contribution_header.dart';
+import '../shared/presentation/contributions/contribution_image_picker.dart';
+import '../shared/presentation/contributions/contribution_review_summary.dart';
+import '../shared/presentation/contributions/contribution_scaffold.dart';
+import '../shared/presentation/contributions/contribution_section.dart';
+import '../shared/presentation/contributions/contribution_success_view.dart';
 
 class AddRestaurantScreen extends StatefulWidget {
   const AddRestaurantScreen({super.key, this.source});
@@ -26,12 +33,15 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   final _city = TextEditingController();
   final _dishes = TextEditingController();
   final _socialUrl = TextEditingController();
+
   String _state = 'Kuala Lumpur';
   String _cuisine = 'Malay';
   String _price = r'$';
   Uint8List? _imageBytes;
   String? _imageMimeType;
   bool _submitting = false;
+  bool _imageRightsConfirmed = false;
+  bool _submittedSuccess = false;
 
   static const _states = [
     'Johor',
@@ -78,6 +88,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       _cuisine = source.cuisineType;
     }
     _price = source.priceRange;
+    _imageRightsConfirmed = true;
   }
 
   @override
@@ -92,202 +103,439 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<AuthController>().currentUser?.role;
-    if (role != 'influencer') {
-      return const Scaffold(
-        body: Center(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Text(
-              'An approved creator account is required to submit a restaurant.',
-              textAlign: TextAlign.center,
+    final auth = context.watch<AuthController>();
+    final user = auth.currentUser;
+    final isCreator = user?.role == 'influencer';
+
+    if (!auth.canWrite) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Recommend a restaurant')),
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.x4),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.lock_outline,
+                        size: 40,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.x2),
+                    Text(
+                      'Sign in to recommend a restaurant',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.x1),
+                    Text(
+                      'Restaurant recommendations are submitted by approved LiveLocal Creators.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.x3),
+                    FilledButton(
+                      onPressed: () {
+                        context.read<ProtectedNavigation>().open(
+                              context,
+                              '/recommend-restaurant',
+                            );
+                      },
+                      child: const Text('Sign in'),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _isRevision ? 'Revise your restaurant' : 'Submit a restaurant',
+    if (!isCreator) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Recommend a restaurant')),
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.x4),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.auto_awesome,
+                        size: 44,
+                        color:
+                            Theme.of(context).colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.x3),
+                    Text(
+                      'Creator tools required',
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.x1),
+                    Text(
+                      'Restaurant recommendations on LiveLocal are submitted by approved Creators to ensure authentic, high-quality local dining tips.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            height: 1.4,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.x2),
+                    Text(
+                      'Apply to become a Creator. Once approved by our team, Creator tools and restaurant submissions will be unlocked.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.x4),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/creator-application');
+                        },
+                        child: const Text('Apply to become a Creator'),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.x1),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Maybe later'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
+      );
+    }
+
+    if (_submittedSuccess) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Submission sent')),
+        body: ContributionSuccessView(
+          title: 'Thanks for the recommendation',
+          message:
+              'Your restaurant submission has been sent for moderation. Once approved by an administrator, it will appear in Local Eats.',
+          primaryActionLabel: 'View my submissions',
+          onPrimaryAction: () {
+            Navigator.pushReplacementNamed(context, '/my-submissions');
+          },
+          secondaryActionLabel: 'Back to Local Eats',
+          onSecondaryAction: () {
+            Navigator.pop(context);
+          },
+        ),
+      );
+    }
+
+    final controller = context.watch<LocalEatsController>();
+
+    return ContributionScaffold(
+      appBarTitle: _isRevision ? 'Revise restaurant' : 'Recommend a restaurant',
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x2,
+            AppSpacing.x2,
+            AppSpacing.x2,
+            AppSpacing.x4,
+          ),
           children: [
-            Text(
-              _isRevision ? 'Restaurant revision' : 'Restaurant submission',
-              style: Theme.of(context).textTheme.headlineSmall,
+            ContributionHeader(
+              icon: Icons.restaurant_outlined,
+              title:
+                  _isRevision ? 'Revise restaurant' : 'Recommend a restaurant',
+              subtitle: _isRevision
+                  ? 'Your current live listing remains active while updates are reviewed.'
+                  : 'Share a local food spot you think travellers should know.',
             ),
-            const SizedBox(height: 8),
-            Text(
-              _isRevision
-                  ? 'Your approved listing stays public while these material changes are reviewed. Prior decisions remain in history.'
-                  : 'Add public business details and the TikTok or Instagram post that supports your recommendation. The listing is reviewed before publication.',
+            const SizedBox(height: AppSpacing.x2),
+
+            // BASICS SECTION
+            ContributionSection(
+              title: 'Restaurant info',
+              subtitle: 'Basic details and cuisine style',
+              children: [
+                _field(
+                  _name,
+                  'Restaurant name',
+                  hintText: 'e.g. Line Clear Nasi Kandar',
+                  minLength: 2,
+                  maxLength: 120,
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _dropdown(
+                        label: 'Cuisine type',
+                        value: _cuisine,
+                        values: _cuisines,
+                        onChanged: (val) => setState(() => _cuisine = val),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.x2),
+                    Expanded(
+                      child: _dropdown(
+                        label: 'Price range',
+                        value: _price,
+                        values: const [r'$', r'$$', r'$$$', r'$$$$'],
+                        onChanged: (val) => setState(() => _price = val),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            TextFormField(
-              controller: _name,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Restaurant name',
-                border: OutlineInputBorder(),
+            const SizedBox(height: AppSpacing.x2),
+
+            // LOCATION SECTION
+            ContributionSection(
+              title: 'Location details',
+              subtitle: 'Address and state in Malaysia',
+              children: [
+                _dropdown(
+                  label: 'State',
+                  value: _state,
+                  values: _states,
+                  onChanged: (val) => setState(() => _state = val),
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                _field(
+                  _city,
+                  'City or district',
+                  hintText: 'e.g. George Town, Petaling Jaya',
+                  minLength: 2,
+                  maxLength: 100,
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                _field(
+                  _address,
+                  'Full address',
+                  hintText: 'e.g. 161 & 163 Lebuh Campbell, 10100 George Town',
+                  minLength: 5,
+                  maxLength: 300,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.x2),
+
+            // WHAT TO TRY SECTION
+            ContributionSection(
+              title: 'Recommended dishes & social source',
+              subtitle: 'Highlight your top recommendations and video link',
+              children: [
+                _field(
+                  _dishes,
+                  'Reviewed / recommended dishes',
+                  hintText:
+                      'e.g. Nasi Kandar with fried chicken and salted egg',
+                  minLength: 3,
+                  maxLength: 300,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                _field(
+                  _socialUrl,
+                  'TikTok or Instagram video link',
+                  hintText: 'https://www.tiktok.com/@creator/video/123...',
+                  minLength: 8,
+                  maxLength: 500,
+                  validator: (value) {
+                    if (!SocialUrlValidator.isSupported(value ?? '')) {
+                      return 'Enter a supported TikTok or Instagram HTTPS URL.';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.x2),
+
+            // COVER PHOTO SECTION
+            ContributionSection(
+              title: 'Cover photo',
+              subtitle: 'Add an appetizing photo of the food or venue',
+              children: [
+                ContributionImagePicker(
+                  imageBytes: _imageBytes,
+                  existingImageUrl: widget.source?.coverPhotoUrl,
+                  onImagePicked: (bytes) {
+                    setState(() {
+                      _imageBytes = bytes;
+                      _imageMimeType = 'image/jpeg';
+                      _imageRightsConfirmed = false;
+                    });
+                  },
+                  onImageCleared: () {
+                    setState(() {
+                      _imageBytes = null;
+                      _imageMimeType = null;
+                      _imageRightsConfirmed = false;
+                    });
+                  },
+                  rightsConfirmed: _imageRightsConfirmed,
+                  onRightsChanged: (val) =>
+                      setState(() => _imageRightsConfirmed = val),
+                  requireRightsConfirmation: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.x2),
+
+            // REVIEW SUMMARY SECTION
+            ContributionReviewSummary(
+              items: [
+                MapEntry('Restaurant', _name.text.trim()),
+                MapEntry('Cuisine', _cuisine),
+                MapEntry('Location', '${_city.text.trim()}, $_state'),
+                MapEntry('Price', _price),
+                MapEntry('Top dishes', _dishes.text.trim()),
+              ],
+              moderationNotice:
+                  'All creator recommendations are verified by LiveLocal before publication.',
+            ),
+            if (controller.errorMessage != null) ...[
+              const SizedBox(height: AppSpacing.x2),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  controller.errorMessage!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                ),
               ),
-              validator: _required,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _cuisine,
-              decoration: const InputDecoration(
-                labelText: 'Cuisine',
-                border: OutlineInputBorder(),
-              ),
-              items: _cuisines
-                  .map((value) =>
-                      DropdownMenuItem(value: value, child: Text(value)))
-                  .toList(),
-              onChanged: (value) =>
-                  setState(() => _cuisine = value ?? _cuisine),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _state,
-              decoration: const InputDecoration(
-                labelText: 'State or territory',
-                border: OutlineInputBorder(),
-              ),
-              items: _states
-                  .map((value) =>
-                      DropdownMenuItem(value: value, child: Text(value)))
-                  .toList(),
-              onChanged: (value) => setState(() => _state = value ?? _state),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _city,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'City or area',
-                border: OutlineInputBorder(),
-              ),
-              validator: _required,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _address,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Public address',
-                border: OutlineInputBorder(),
-              ),
-              validator: _required,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _price,
-              decoration: const InputDecoration(
-                labelText: 'Typical price range',
-                border: OutlineInputBorder(),
-              ),
-              items: const [r'$', r'$$', r'$$$', r'$$$$']
-                  .map((value) =>
-                      DropdownMenuItem(value: value, child: Text(value)))
-                  .toList(),
-              onChanged: (value) => setState(() => _price = value ?? _price),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _dishes,
-              minLines: 2,
-              maxLines: 4,
-              maxLength: 1000,
-              decoration: const InputDecoration(
-                labelText: 'Recommended dishes',
-                hintText: 'What should visitors try?',
-                border: OutlineInputBorder(),
-              ),
-              validator: _required,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _socialUrl,
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              decoration: const InputDecoration(
-                labelText: 'TikTok or Instagram post URL',
-                helperText:
-                    'HTTPS links from tiktok.com or instagram.com only.',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (!SocialUrlValidator.isSupported(value ?? '')) {
-                  return 'Enter a supported TikTok or Instagram HTTPS URL.';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _submitting ? null : _pickImage,
-              icon: const Icon(Icons.add_photo_alternate_outlined),
-              label: Text(
-                _imageBytes == null
-                    ? _isRevision
-                        ? 'Keep or replace cover photo'
-                        : 'Choose cover photo'
-                    : 'Change cover photo',
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _imageBytes == null
-                  ? _isRevision
-                      ? 'The current photo will be kept unless replaced.'
-                      : 'JPEG, PNG or WebP · maximum 8 MB'
-                  : 'Photo selected · ${(_imageBytes!.length / 1024).ceil()} KB',
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _submitting ? null : _submit,
-              child: Text(_submitting ? 'Submitting…' : 'Submit for review'),
-            ),
+            ],
           ],
+        ),
+      ),
+      bottomAction: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: _submitting
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Submit restaurant for review'),
         ),
       ),
     );
   }
 
-  String? _required(String? value) {
-    return value == null || value.trim().isEmpty
-        ? 'This field is required.'
-        : null;
+  Widget _field(
+    TextEditingController controller,
+    String label, {
+    String? hintText,
+    required int minLength,
+    required int maxLength,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      maxLength: maxLength,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        alignLabelWithHint: maxLines > 1,
+      ),
+      validator: validator ??
+          (value) {
+            final length = value?.trim().length ?? 0;
+            if (length < minLength) {
+              return 'Enter at least $minLength characters.';
+            }
+            return null;
+          },
+      onChanged: (_) => setState(() {}),
+    );
   }
 
-  Future<void> _pickImage() async {
-    final image = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 90,
+  Widget _dropdown({
+    required String label,
+    required String value,
+    required List<String> values,
+    required ValueChanged<String> onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      decoration: InputDecoration(labelText: label),
+      items: values
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .toList(),
+      onChanged: (next) {
+        if (next != null) onChanged(next);
+      },
     );
-    if (image == null) return;
-    final bytes = await image.readAsBytes();
-    if (!mounted) return;
-    setState(() {
-      _imageBytes = bytes;
-      _imageMimeType = image.mimeType ?? _mimeFromName(image.name);
-    });
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_isRevision && (_imageBytes == null || _imageMimeType == null)) {
-      _message('Choose a cover photo.');
+    if (_imageBytes == null &&
+        widget.source?.coverPhotoUrl.isNotEmpty != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Choose a clear photo of the restaurant.')),
+      );
       return;
     }
+    if (!_imageRightsConfirmed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Confirm that you have permission to share the photo.'),
+        ),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
-    final controller = context.read<LocalEatsController>();
+
     final input = RestaurantDraftInput(
       name: _name.text.trim(),
       address: _address.text.trim(),
@@ -298,40 +546,49 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       reviewedDishes: _dishes.text.trim(),
       socialMediaUrl: _socialUrl.text.trim(),
     );
+
+    final controller = context.read<LocalEatsController>();
     final result = _isRevision
         ? await controller.reviseRestaurant(
             source: widget.source!,
             input: input,
             imageBytes: _imageBytes,
-            imageMimeType: _imageMimeType,
+            imageMimeType: _imageMimeType ?? 'image/jpeg',
           )
         : await controller.createRestaurantDraft(
             input: input,
             imageBytes: _imageBytes!,
-            imageMimeType: _imageMimeType!,
+            imageMimeType: _imageMimeType ?? 'image/jpeg',
           );
+
     if (!mounted) return;
     if (result == null) {
       setState(() => _submitting = false);
-      _message(controller.errorMessage ?? 'The submission could not be saved.');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            controller.errorMessage ?? 'The submission could not be saved.',
+          ),
+        ),
+      );
       return;
     }
+
     if (result.probableDuplicates.isNotEmpty) {
       final resolved = await _resolveDuplicates(result);
       if (!mounted) return;
       setState(() => _submitting = false);
       if (!resolved) return;
     }
-    _message(
-      _isRevision
-          ? 'Restaurant revision submitted for review.'
-          : 'Restaurant submitted for review.',
-    );
-    Navigator.pop(context);
+
+    setState(() {
+      _submitting = false;
+      _submittedSuccess = true;
+    });
   }
 
   Future<bool> _resolveDuplicates(RestaurantDraftResult draft) async {
-    final reason = TextEditingController();
+    final reasonCtrl = TextEditingController();
     final action = await showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -356,7 +613,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 ),
               ),
               TextField(
-                controller: reason,
+                controller: reasonCtrl,
                 maxLength: 500,
                 decoration: const InputDecoration(
                   labelText: 'Why this is a different listing',
@@ -373,7 +630,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
           ),
           FilledButton(
             onPressed: () {
-              if (reason.text.trim().length < 10) return;
+              if (reasonCtrl.text.trim().length < 10) return;
               Navigator.pop(dialogContext, 'submit');
             },
             child: const Text('Submit with explanation'),
@@ -381,9 +638,10 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
         ],
       ),
     );
-    final overrideReason = reason.text.trim();
-    reason.dispose();
+    final overrideReason = reasonCtrl.text.trim();
+    reasonCtrl.dispose();
     if (!mounted || action == null) return false;
+    final messenger = ScaffoldMessenger.of(context);
     final controller = context.read<LocalEatsController>();
     final saved = await controller.resolveRestaurantDuplicate(
       draft,
@@ -391,26 +649,27 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       overrideReason: action == 'submit' ? overrideReason : null,
     );
     if (!mounted || !saved) {
-      _message(controller.errorMessage ??
-          'The duplicate decision could not be saved.');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            controller.errorMessage ??
+                'The duplicate decision could not be saved.',
+          ),
+        ),
+      );
       return false;
     }
     if (action == 'discard') {
-      _message('Draft discarded. You can use the existing listing.');
-      Navigator.pop(context);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Draft discarded. You can use the existing listing.'),
+        ),
+      );
+      if (mounted) {
+        Navigator.pop(context);
+      }
       return false;
     }
     return true;
-  }
-
-  String _mimeFromName(String name) {
-    final lower = name.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    return 'image/jpeg';
-  }
-
-  void _message(String value) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
   }
 }

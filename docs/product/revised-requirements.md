@@ -19,7 +19,7 @@ interpretation without claiming implementation completion.
 | Restaurants | `EAT-01` approved creator listings; `EAT-02` filters/detail/recent review ordering; `EAT-03` owner-only revisions; `EAT-04` admin approval; `EAT-05` validated TikTok/Instagram links; `EAT-06` duplicate handling |
 | Discounts | `DSC-01` owner/approved-restaurant scope; `DSC-02` lifecycle and server-time validity; `DSC-03` visible terms/disclaimer; `DSC-04` no MVP payment/redemption tracking |
 | Saves/itinerary | `SAV-01` unique private saves; `SAV-02` consolidated recoverable list; `ITI-01` persistent suggested itinerary; `ITI-02` optional/manual location; `ITI-03` no optimality/silent-fallback claim |
-| Guides | `GDE-01` approved public guide browsing; `GDE-02` complete ordered guide detail; `GDE-03` admin-only MVP authorship; `GDE-04` revision/audit history |
+| Guides | `GDE-01` approved public guide browsing; `GDE-02` complete ordered guide detail; `GDE-03` community & creator submission with mandatory admin moderation; `GDE-04` revision/audit history |
 | Reviews | `REV-01` public eligible reviews; `REV-02` one editable text review per user/target; `REV-03` transactional aggregates; `REV-04` restricted edit history; `REV-05` review photos deferred |
 | Moderation | `MOD-01` pending case, no one-report global hide; `MOD-02` personal hide/block; `MOD-03` duplicate/rate limits; `MOD-04` audited decisions/evidence; `MOD-05` 180-day configurable retention; `MOD-06` transactional content action |
 | Notifications/admin | `NOT-01` private in-app history/read state; `NOT-02` typed/idempotent events; `ADM-01` backend authorization; `ADM-02` reason/version/audit; `ADM-03` self/last-admin safeguards; `ADM-04` future permission separation |
@@ -76,7 +76,7 @@ interpretation without claiming implementation completion.
 | FR45 | GDE-01 | Retained |
 | FR46 | GDE-01 | Retained |
 | FR47 | GDE-02 | Clarified ordered content |
-| FR48 | GDE-03, GDE-04 | Admin-curated revision workflow |
+| FR48 | GDE-03, GDE-04 | Community & creator submission with admin moderation and audit workflow |
 | FR49 | GDE-04 | Reasoned/audited rejection |
 | FR50 | NOT-02 | Approval events retained; trend alerts deferred |
 | FR51 | — | Deferred with push/proximity strategy |
