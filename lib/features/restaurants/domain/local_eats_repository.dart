@@ -73,7 +73,6 @@ abstract interface class LocalEatsRepository {
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
     String sourceUrl,
   );
-  Future<Uri> startSocialAccountConnection(String platform);
 
   Future<RestaurantDraftResult> createRestaurantDraft({
     required RestaurantDraftInput input,

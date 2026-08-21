@@ -25,10 +25,10 @@ void main() {
     final controller = LocalEatsController(repository: repository);
 
     final future = controller.generateRestaurantListingFromSource(
-      'https://instagram.com/creator/',
+      'https://instagram.com/reel/123/',
     );
     expect(controller.isGeneratingListing, isTrue);
-    completion.complete(_profileResult);
+    completion.complete(_candidatesResult);
     expect(await future, isTrue);
     expect(controller.isGeneratingListing, isFalse);
     expect(controller.generatedCandidates, hasLength(2));
@@ -46,13 +46,13 @@ void main() {
     final controller = LocalEatsController(repository: repository);
 
     final future = controller.generateRestaurantListingFromSource(
-      'https://instagram.com/creator/',
+      'https://instagram.com/reel/123/',
     );
     completion.completeError(
       const AppException(
         code: AppErrorCode.unavailable,
         userMessage:
-            'Connect your TikTok/Instagram creator account before importing from a profile.',
+            'Paste a valid TikTok review video or Instagram post/Reel link.',
       ),
     );
     expect(
@@ -60,7 +60,7 @@ void main() {
       isFalse,
     );
     expect(controller.isGeneratingListing, isFalse);
-    expect(controller.generationError, contains('Connect your TikTok'));
+    expect(controller.generationError, contains('Paste a valid TikTok'));
     expect(controller.errorMessage, isNull);
   });
 
@@ -70,10 +70,10 @@ void main() {
     final controller = LocalEatsController(repository: repository);
 
     final future = controller.generateRestaurantListingFromSource(
-      'https://instagram.com/creator/',
+      'https://instagram.com/reel/123/',
     );
     controller.clearGeneratedResult();
-    completion.complete(_profileResult);
+    completion.complete(_candidatesResult);
 
     expect(await future, isFalse);
     expect(controller.isGeneratingListing, isFalse);
@@ -94,8 +94,8 @@ class _GenerationRepository extends DemoLocalEatsRepository {
       result;
 }
 
-const _profileResult = SocialSourceAnalysisResult(
-  sourceType: 'profile',
+const _candidatesResult = SocialSourceAnalysisResult(
+  sourceType: 'post',
   platform: 'instagram',
   candidates: [
     GeneratedRestaurantListing(

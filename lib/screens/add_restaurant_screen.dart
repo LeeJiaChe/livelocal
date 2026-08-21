@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app/theme/app_spacing.dart';
 import '../constants/malaysia_states.dart';
@@ -380,32 +379,6 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
-                          if (SocialUrlValidator.detectSourceType(
-                                  _sourceUrl.text) ==
-                              SocialSourceType.profile) ...[
-                            const SizedBox(height: AppSpacing.x1),
-                            OutlinedButton.icon(
-                              onPressed: controller.isConnectingSocialAccount
-                                  ? null
-                                  : _connectSocialAccount,
-                              icon: const Icon(Icons.link),
-                              label: Text(
-                                controller.isConnectingSocialAccount
-                                    ? 'Opening connection…'
-                                    : 'Connect creator account',
-                              ),
-                            ),
-                          ],
-                        ],
-                        if (controller.socialConnectionError != null) ...[
-                          const SizedBox(height: AppSpacing.x1),
-                          Text(
-                            controller.socialConnectionError!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -800,10 +773,17 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     final source = _sourceUrl.text.trim();
     final controller = context.read<LocalEatsController>();
     if (SocialUrlValidator.detectSourceType(source) ==
-        SocialSourceType.unsupported) {
+        SocialSourceType.profile) {
       controller.clearGeneratedResult();
       _message(
-        'Paste a valid TikTok or Instagram post or creator profile URL.',
+        'Paste a TikTok review video or Instagram post/Reel link, not a profile link.',
+      );
+      return;
+    }
+    if (!SocialUrlValidator.isReviewPost(source)) {
+      controller.clearGeneratedResult();
+      _message(
+        'Paste a valid TikTok or Instagram review video or post link.',
       );
       return;
     }
@@ -811,28 +791,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
         await controller.generateRestaurantListingFromSource(source);
     if (!mounted || !generated) return;
     final candidate = controller.selectedGeneratedCandidate;
-    if (candidate != null) _applyCandidate(candidate);
-  }
-
-  Future<void> _connectSocialAccount() async {
-    final platform = SocialUrlValidator.detectPlatform(_sourceUrl.text);
-    if (platform == null) return;
-    final controller = context.read<LocalEatsController>();
-    final authorizationUrl =
-        await controller.startSocialAccountConnection(platform);
-    if (!mounted || authorizationUrl == null) return;
-    final opened = await launchUrl(
-      authorizationUrl,
-      mode: LaunchMode.externalApplication,
-    );
-    if (!mounted) return;
-    if (!opened) {
-      _message('Could not open the $platform connection page.');
-      return;
-    }
-    _message(
-      'Complete the $platform connection, then return and tap Generate details with AI again.',
-    );
+    if (candidate != null) await _promptAndApplyCandidate(candidate);
   }
 
   Widget _candidateCard(
@@ -844,7 +803,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       key: ValueKey('generated-candidate-${candidate.sourcePostUrl}'),
       color: selected ? Theme.of(context).colorScheme.secondaryContainer : null,
       child: InkWell(
-        onTap: () => _applyCandidate(candidate),
+        onTap: () => _promptAndApplyCandidate(candidate),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -871,6 +830,46 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
         ),
       ),
     );
+  }
+
+  bool get _hasMeaningfulFormEntries =>
+      _name.text.trim().isNotEmpty ||
+      _address.text.trim().isNotEmpty ||
+      _city.text.trim().isNotEmpty ||
+      _cuisine.text.trim().isNotEmpty ||
+      _dishes.text.trim().isNotEmpty;
+
+  Future<void> _promptAndApplyCandidate(
+    GeneratedRestaurantListing candidate,
+  ) async {
+    if (!SocialUrlValidator.isReviewPost(candidate.sourcePostUrl)) {
+      _message('The generated candidate did not contain a valid review post.');
+      return;
+    }
+    if (_hasMeaningfulFormEntries) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Replace current details with this AI draft?'),
+          content: const Text(
+            'Applying this AI draft will replace the restaurant details you entered.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Apply draft'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
+    if (!mounted) return;
+    _applyCandidate(candidate);
   }
 
   void _applyCandidate(GeneratedRestaurantListing candidate) {
@@ -964,12 +963,25 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     String? hintText,
     String? Function(String?)? validator,
   }) {
+    final safeValue = values.contains(value) ? value : null;
     return DropdownButtonFormField<String>(
-      initialValue: value,
-      hint: hintText != null ? Text(hintText) : null,
+      initialValue: safeValue,
+      isExpanded: true,
+      hint: hintText != null
+          ? Text(
+              hintText,
+              overflow: TextOverflow.ellipsis,
+            )
+          : null,
       decoration: InputDecoration(labelText: label),
       items: values
-          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+          .map((v) => DropdownMenuItem(
+                value: v,
+                child: Text(
+                  v,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ))
           .toList(),
       validator: validator,
       onChanged: onChanged,
@@ -978,7 +990,10 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_imageBytes == null && !_isRevision) {
+    final sourceCover = widget.source?.coverPhotoUrl;
+    final hasExistingCover =
+        sourceCover != null && sourceCover.trim().isNotEmpty;
+    if (_imageBytes == null && !hasExistingCover) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a cover photo.')),
       );

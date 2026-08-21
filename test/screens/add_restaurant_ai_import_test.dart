@@ -129,7 +129,7 @@ void main() {
   );
 
   testWidgets(
-    'profile candidate selection stores the individual review URL',
+    'candidate selection from multiple options updates form fields and stores review post URL',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 2000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -160,24 +160,28 @@ void main() {
 
       await tester.enterText(
         find.byKey(const Key('ai_source_field')),
-        'https://instagram.com/creator/',
+        'https://instagram.com/reel/MULTI_REVIEW/',
       );
       await tester.tap(find.byKey(const Key('ai_generate_button')));
       await tester.pumpAndSettle();
-      const selectedPost = 'https://instagram.com/p/PROFILE_TWO/';
+
+      const selectedPost = 'https://instagram.com/p/REVIEW_TWO/';
       final candidate = find.byKey(
         const ValueKey('generated-candidate-$selectedPost'),
       );
       await tester.ensureVisible(candidate);
       await tester.tap(candidate);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       final socialFieldFinder =
           find.byKey(const Key('social_review_url_field'));
       await tester.ensureVisible(socialFieldFinder);
       final socialField = tester.widget<TextFormField>(socialFieldFinder);
       expect(socialField.controller?.text, selectedPost);
-      expect(socialField.controller?.text, isNot(contains('/creator/')));
+      final nameField = tester.widget<TextFormField>(
+        find.byKey(const Key('restaurant_name_field')),
+      );
+      expect(nameField.controller?.text, 'Cafe Two');
     },
   );
 }
@@ -192,16 +196,16 @@ class _WidgetGenerationRepository extends DemoLocalEatsRepository {
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
     String sourceUrl,
   ) async {
-    if (sourceUrl.endsWith('/creator/')) {
+    if (sourceUrl.contains('MULTI_REVIEW')) {
       return const SocialSourceAnalysisResult(
-        sourceType: 'profile',
+        sourceType: 'post',
         platform: 'instagram',
         candidates: [
           GeneratedRestaurantListing(
             restaurantName: 'Cafe One',
             reviewedDishes: 'Laksa',
             sourcePlatform: 'instagram',
-            sourcePostUrl: 'https://instagram.com/reel/PROFILE_ONE/',
+            sourcePostUrl: 'https://instagram.com/reel/REVIEW_ONE/',
             confidence: 0.8,
             missingFields: ['address'],
           ),
@@ -209,7 +213,7 @@ class _WidgetGenerationRepository extends DemoLocalEatsRepository {
             restaurantName: 'Cafe Two',
             reviewedDishes: 'Nasi lemak',
             sourcePlatform: 'instagram',
-            sourcePostUrl: 'https://instagram.com/p/PROFILE_TWO/',
+            sourcePostUrl: 'https://instagram.com/p/REVIEW_TWO/',
             confidence: 0.7,
             missingFields: ['priceRange'],
           ),

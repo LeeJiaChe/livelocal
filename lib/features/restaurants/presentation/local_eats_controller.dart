@@ -30,8 +30,6 @@ class LocalEatsController with ChangeNotifier {
   String? _generationError;
   List<GeneratedRestaurantListing> _generatedCandidates = [];
   GeneratedRestaurantListing? _selectedGeneratedCandidate;
-  bool _isConnectingSocialAccount = false;
-  String? _socialConnectionError;
   int _generationRequestId = 0;
 
   List<RestaurantModel> get restaurants => List.unmodifiable(_restaurants);
@@ -106,14 +104,11 @@ class LocalEatsController with ChangeNotifier {
       List.unmodifiable(_generatedCandidates);
   GeneratedRestaurantListing? get selectedGeneratedCandidate =>
       _selectedGeneratedCandidate;
-  bool get isConnectingSocialAccount => _isConnectingSocialAccount;
-  String? get socialConnectionError => _socialConnectionError;
 
   Future<bool> generateRestaurantListingFromSource(String sourceUrl) async {
     final requestId = ++_generationRequestId;
     _isGeneratingListing = true;
     _generationError = null;
-    _socialConnectionError = null;
     _generatedCandidates = [];
     _selectedGeneratedCandidate = null;
     notifyListeners();
@@ -158,28 +153,9 @@ class LocalEatsController with ChangeNotifier {
     _generationRequestId += 1;
     _isGeneratingListing = false;
     _generationError = null;
-    _socialConnectionError = null;
     _generatedCandidates = [];
     _selectedGeneratedCandidate = null;
     notifyListeners();
-  }
-
-  Future<Uri?> startSocialAccountConnection(String platform) async {
-    _isConnectingSocialAccount = true;
-    _socialConnectionError = null;
-    notifyListeners();
-    try {
-      return await _repository.startSocialAccountConnection(platform);
-    } catch (error) {
-      _socialConnectionError = _message(
-        error,
-        'The social account connection could not be started.',
-      );
-      return null;
-    } finally {
-      _isConnectingSocialAccount = false;
-      notifyListeners();
-    }
   }
 
   List<RestaurantModel> get filteredRestaurants =>

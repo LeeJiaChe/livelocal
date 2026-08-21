@@ -54,21 +54,14 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
     String sourceUrl,
   ) async {
     _requireInfluencer();
-    final detection = SocialUrlValidator.detectSource(sourceUrl);
-    if (detection.type == SocialSourceType.unsupported) {
+    if (!SocialUrlValidator.isReviewPost(sourceUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
         userMessage:
-            'Paste a valid TikTok or Instagram post or creator profile URL.',
+            'Paste a valid TikTok review video or Instagram post/Reel link.',
       );
     }
-    if (detection.type == SocialSourceType.profile) {
-      throw const AppException(
-        code: AppErrorCode.unavailable,
-        userMessage:
-            'Connect your TikTok/Instagram creator account before importing from a profile.',
-      );
-    }
+    final detection = SocialUrlValidator.detectSource(sourceUrl);
     const missing = [
       'restaurantName',
       'address',
@@ -80,25 +73,15 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
     ];
     return SocialSourceAnalysisResult(
       sourceType: 'post',
-      platform: detection.platform!,
+      platform: detection.platform ?? 'tiktok',
       candidates: [
         GeneratedRestaurantListing(
-          sourcePlatform: detection.platform!,
+          sourcePlatform: detection.platform ?? 'tiktok',
           sourcePostUrl: sourceUrl.trim(),
           confidence: 0,
           missingFields: missing,
         ),
       ],
-    );
-  }
-
-  @override
-  Future<Uri> startSocialAccountConnection(String platform) async {
-    _requireInfluencer();
-    throw const AppException(
-      code: AppErrorCode.unavailable,
-      userMessage:
-          'Social account connection is available with the Supabase backend.',
     );
   }
 

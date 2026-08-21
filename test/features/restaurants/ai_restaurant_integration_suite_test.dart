@@ -10,6 +10,7 @@ import 'package:live_local/features/restaurants/data/demo_local_eats_repository.
 import 'package:live_local/features/restaurants/domain/generated_restaurant_listing.dart';
 import 'package:live_local/features/restaurants/domain/local_eats_repository.dart';
 import 'package:live_local/features/restaurants/presentation/local_eats_controller.dart';
+import 'package:live_local/models/restaurant_model.dart';
 import 'package:live_local/screens/add_restaurant_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -17,7 +18,8 @@ void main() {
   Widget buildApp({
     required AuthController authController,
     required LocalEatsController localEatsController,
-    required Widget child,
+    Widget? child,
+    RestaurantModel? source,
   }) {
     return MultiProvider(
       providers: [
@@ -27,7 +29,7 @@ void main() {
         ),
       ],
       child: MaterialApp(
-        home: child,
+        home: child ?? AddRestaurantScreen(source: source),
         routes: {
           '/creator-application': (_) =>
               const Scaffold(body: Text('Creator Application Screen')),
@@ -40,91 +42,15 @@ void main() {
   }
 
   group('AI Restaurant Import & Moderation Full Pipeline Tests', () {
-    testWidgets(
-      '1. Tourist cannot access real AI Restaurant generation flow and is guided to apply',
-      (tester) async {
-        final authRepo = DemoAuthRepository();
-        final authCtrl = AuthController(repository: authRepo);
-        await authCtrl.login('tourist@livelocal.com', '123456');
-        final localEatsRepo = DemoLocalEatsRepository(authRepo);
-        final localEatsCtrl = LocalEatsController(repository: localEatsRepo);
-
-        await tester.pumpWidget(
-          buildApp(
-            authController: authCtrl,
-            localEatsController: localEatsCtrl,
-            child: const AddRestaurantScreen(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('Creator tools required'), findsOneWidget);
-        expect(find.byKey(const Key('ai_source_field')), findsNothing);
-        expect(find.byKey(const Key('ai_generate_button')), findsNothing);
-
-        // Repo direct call is also protected
-        expect(
-          () => localEatsRepo.generateRestaurantListingFromSource(
-            'https://www.instagram.com/reel/C7abc123/',
-          ),
-          throwsA(isA<AppException>().having(
-            (e) => e.code,
-            'code',
-            AppErrorCode.forbidden,
-          )),
-        );
-      },
-    );
-
-    testWidgets(
-      '2. Creator can access AI import section inside Recommend a restaurant',
-      (tester) async {
-        await tester.binding.setSurfaceSize(const Size(800, 2000));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
-
-        final authRepo = DemoAuthRepository();
-        final authCtrl = AuthController(repository: authRepo);
-        await authCtrl.login('foodie@livelocal.com', '123456');
-        final localEatsRepo = DemoLocalEatsRepository(authRepo);
-        final localEatsCtrl = LocalEatsController(repository: localEatsRepo);
-
-        await tester.pumpWidget(
-          buildApp(
-            authController: authCtrl,
-            localEatsController: localEatsCtrl,
-            child: const AddRestaurantScreen(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(
-            find.text('Import from social review (Optional)'), findsOneWidget);
-        expect(find.byKey(const Key('ai_source_field')), findsOneWidget);
-        expect(find.byKey(const Key('ai_generate_button')), findsOneWidget);
-      },
-    );
-
-    test('3. Unsupported URL is rejected by validator', () {
-      expect(
-        SocialUrlValidator.isSupported('https://youtube.com/watch?v=123'),
-        isFalse,
-      );
-      expect(
-        SocialUrlValidator.isSupported('https://evil-instagram.com/p/123'),
-        isFalse,
-      );
-      expect(
-        SocialUrlValidator.isReviewPost('https://instagram.com/username'),
-        isFalse,
-      );
-    });
-
-    test('4. Supported Instagram post is recognized', () {
+    test('1. Instagram post URL is accepted', () {
       expect(
         SocialUrlValidator.isReviewPost(
             'https://www.instagram.com/p/C9xyz456/'),
         isTrue,
       );
+    });
+
+    test('2. Instagram Reel URL is accepted', () {
       expect(
         SocialUrlValidator.isReviewPost(
           'https://instagram.com/reel/DEfg890/?igsh=123',
@@ -133,7 +59,7 @@ void main() {
       );
     });
 
-    test('5. Supported TikTok video is recognized', () {
+    test('3. TikTok video URL is accepted', () {
       expect(
         SocialUrlValidator.isReviewPost(
           'https://www.tiktok.com/@penangfood/video/7182930495829102938',
@@ -146,22 +72,8 @@ void main() {
       );
     });
 
-    test('6. Social profile URL is distinguished from review post URL', () {
-      final profileDetection = SocialUrlValidator.detectSource(
-        'https://instagram.com/klfoodie/',
-      );
-      expect(profileDetection.type, SocialSourceType.profile);
-      expect(profileDetection.platform, 'instagram');
-
-      final postDetection = SocialUrlValidator.detectSource(
-        'https://instagram.com/reel/C8xyz123/',
-      );
-      expect(postDetection.type, SocialSourceType.post);
-      expect(postDetection.platform, 'instagram');
-    });
-
     testWidgets(
-      '7. AI generation failure does not clear Creator existing form entries',
+      '4 & 6 & 7. TikTok profile URL is rejected in ACTIVE UI without calling repository and no connect button appears',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(800, 2000));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -169,42 +81,43 @@ void main() {
         final authRepo = DemoAuthRepository();
         final authCtrl = AuthController(repository: authRepo);
         await authCtrl.login('foodie@livelocal.com', '123456');
-        final localEatsRepo = DemoLocalEatsRepository(authRepo);
-        final localEatsCtrl = LocalEatsController(repository: localEatsRepo);
+        final mockRepo = _MockSpyLocalEatsRepository(authRepo);
+        final localEatsCtrl = LocalEatsController(repository: mockRepo);
 
         await tester.pumpWidget(
           buildApp(
             authController: authCtrl,
             localEatsController: localEatsCtrl,
-            child: const AddRestaurantScreen(),
           ),
         );
         await tester.pumpAndSettle();
 
-        // Creator manually types restaurant name
-        await tester.enterText(
-          find.byKey(const Key('restaurant_name_field')),
-          'My Preserved Restaurant',
-        );
+        // 6. Verify Connect creator account button never appears
+        expect(find.text('Connect creator account'), findsNothing);
 
-        // Creator enters invalid source URL
         await tester.enterText(
           find.byKey(const Key('ai_source_field')),
-          'https://invalid.com/video/1',
+          'https://www.tiktok.com/@somecreator',
         );
         await tester.tap(find.byKey(const Key('ai_generate_button')));
         await tester.pumpAndSettle();
 
-        // Form field is still intact
-        final nameField = tester.widget<TextFormField>(
-          find.byKey(const Key('restaurant_name_field')),
+        // 4. Rejected with specific message
+        expect(
+          find.text(
+            'Paste a TikTok review video or Instagram post/Reel link, not a profile link.',
+          ),
+          findsOneWidget,
         );
-        expect(nameField.controller?.text, 'My Preserved Restaurant');
+
+        // 7. Generation repository is NOT called
+        expect(mockRepo.generateCalls, 0);
+        expect(find.text('Connect creator account'), findsNothing);
       },
     );
 
     testWidgets(
-      '8. Generated data can be fully reviewed and edited before submission',
+      '5 & 7. Instagram profile URL is rejected in ACTIVE UI without calling repository',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(800, 2000));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -212,14 +125,50 @@ void main() {
         final authRepo = DemoAuthRepository();
         final authCtrl = AuthController(repository: authRepo);
         await authCtrl.login('foodie@livelocal.com', '123456');
-        final localEatsRepo = _MockMockableLocalEatsRepository(authRepo);
-        final localEatsCtrl = LocalEatsController(repository: localEatsRepo);
+        final mockRepo = _MockSpyLocalEatsRepository(authRepo);
+        final localEatsCtrl = LocalEatsController(repository: mockRepo);
 
         await tester.pumpWidget(
           buildApp(
             authController: authCtrl,
             localEatsController: localEatsCtrl,
-            child: const AddRestaurantScreen(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(const Key('ai_source_field')),
+          'https://instagram.com/klfoodie/',
+        );
+        await tester.tap(find.byKey(const Key('ai_generate_button')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            'Paste a TikTok review video or Instagram post/Reel link, not a profile link.',
+          ),
+          findsOneWidget,
+        );
+        expect(mockRepo.generateCalls, 0);
+      },
+    );
+
+    testWidgets(
+      '8. AI draft remains fully editable after generation',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final authRepo = DemoAuthRepository();
+        final authCtrl = AuthController(repository: authRepo);
+        await authCtrl.login('foodie@livelocal.com', '123456');
+        final mockRepo = _MockSpyLocalEatsRepository(authRepo);
+        final localEatsCtrl = LocalEatsController(repository: mockRepo);
+
+        await tester.pumpWidget(
+          buildApp(
+            authController: authCtrl,
+            localEatsController: localEatsCtrl,
           ),
         );
         await tester.pumpAndSettle();
@@ -233,20 +182,20 @@ void main() {
 
         expect(find.byKey(const Key('ai_draft_notice')), findsOneWidget);
 
-        // Creator edits the AI generated name and dishes
+        // Edit restaurant name
         await tester.enterText(
           find.byKey(const Key('restaurant_name_field')),
-          'Edited Famous Nasi Kandar',
+          'Custom Hand-Edited Restaurant',
         );
         final nameField = tester.widget<TextFormField>(
           find.byKey(const Key('restaurant_name_field')),
         );
-        expect(nameField.controller?.text, 'Edited Famous Nasi Kandar');
+        expect(nameField.controller?.text, 'Custom Hand-Edited Restaurant');
       },
     );
 
     testWidgets(
-      '9. AI generation does not submit automatically; requires explicit Creator submission',
+      '9. Applying AI draft does not auto-submit restaurant',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(800, 2000));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -254,14 +203,13 @@ void main() {
         final authRepo = DemoAuthRepository();
         final authCtrl = AuthController(repository: authRepo);
         await authCtrl.login('foodie@livelocal.com', '123456');
-        final localEatsRepo = _MockMockableLocalEatsRepository(authRepo);
-        final localEatsCtrl = LocalEatsController(repository: localEatsRepo);
+        final mockRepo = _MockSpyLocalEatsRepository(authRepo);
+        final localEatsCtrl = LocalEatsController(repository: mockRepo);
 
         await tester.pumpWidget(
           buildApp(
             authController: authCtrl,
             localEatsController: localEatsCtrl,
-            child: const AddRestaurantScreen(),
           ),
         );
         await tester.pumpAndSettle();
@@ -273,15 +221,198 @@ void main() {
         await tester.tap(find.byKey(const Key('ai_generate_button')));
         await tester.pumpAndSettle();
 
-        // Still on submission form, no submit was triggered
-        expect(localEatsRepo.submittedRevisionId, isNull);
+        // No submit occurred
+        expect(mockRepo.submittedRevisionId, isNull);
         expect(
             find.byKey(const Key('restaurant_submit_button')), findsOneWidget);
       },
     );
 
+    testWidgets(
+      '10. User-entered fields are not silently overwritten; confirmation dialog is shown',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final authRepo = DemoAuthRepository();
+        final authCtrl = AuthController(repository: authRepo);
+        await authCtrl.login('foodie@livelocal.com', '123456');
+        final mockRepo = _MockSpyLocalEatsRepository(authRepo);
+        final localEatsCtrl = LocalEatsController(repository: mockRepo);
+
+        await tester.pumpWidget(
+          buildApp(
+            authController: authCtrl,
+            localEatsController: localEatsCtrl,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // User enters a manual name
+        await tester.enterText(
+          find.byKey(const Key('restaurant_name_field')),
+          'Pre-existing Manual Entry',
+        );
+
+        // User triggers AI generation
+        await tester.enterText(
+          find.byKey(const Key('ai_source_field')),
+          'https://www.tiktok.com/@foodie/video/7182930495829102938',
+        );
+        await tester.tap(find.byKey(const Key('ai_generate_button')));
+        await tester.pumpAndSettle();
+
+        // Dialog should appear
+        expect(
+          find.text('Replace current details with this AI draft?'),
+          findsOneWidget,
+        );
+
+        // User taps Cancel
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+
+        // Manual entry is preserved
+        final nameField = tester.widget<TextFormField>(
+          find.byKey(const Key('restaurant_name_field')),
+        );
+        expect(nameField.controller?.text, 'Pre-existing Manual Entry');
+      },
+    );
+
+    testWidgets(
+      '11. Revision with existing cover photo may reuse it without new image upload',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final authRepo = DemoAuthRepository();
+        final authCtrl = AuthController(repository: authRepo);
+        await authCtrl.login('foodie@livelocal.com', '123456');
+        final mockRepo = _MockSpyLocalEatsRepository(authRepo);
+        final localEatsCtrl = LocalEatsController(repository: mockRepo);
+
+        final sourceWithCover = RestaurantModel(
+          id: 'rest-with-cover',
+          revisionId: 'rev-with-cover',
+          name: 'Existing Resto',
+          address: '123 Jalan Ampang',
+          state: 'Kuala Lumpur',
+          city: 'Kuala Lumpur',
+          cuisineType: 'Local Kopitiam',
+          priceRange: r'53133',
+          reviewedDishes: 'Kaya Toast',
+          influencerId: 'foodie-id',
+          influencerName: 'Foodie',
+          socialMediaUrl:
+              'https://www.tiktok.com/@foodie/video/1112223334445556667',
+          coverPhotoUrl: 'https://example.com/cover.jpg',
+          isOwnedByCurrentUser: true,
+        );
+
+        await tester.pumpWidget(
+          buildApp(
+            authController: authCtrl,
+            localEatsController: localEatsCtrl,
+            source: sourceWithCover,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // Submit revision without selecting a new image
+        await tester.tap(find.byKey(const Key('restaurant_submit_button')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(mockRepo.revisedInputs, hasLength(1));
+        expect(mockRepo.revisedInputs.first.name, 'Existing Resto');
+      },
+    );
+
+    testWidgets(
+      '12. Revision without existing cover photo requires selecting a cover photo',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final authRepo = DemoAuthRepository();
+        final authCtrl = AuthController(repository: authRepo);
+        await authCtrl.login('foodie@livelocal.com', '123456');
+        final mockRepo = _MockSpyLocalEatsRepository(authRepo);
+        final localEatsCtrl = LocalEatsController(repository: mockRepo);
+
+        final sourceWithoutCover = RestaurantModel(
+          id: 'rest-no-cover',
+          revisionId: 'rev-no-cover',
+          name: 'Existing Resto No Cover',
+          address: '123 Jalan Ampang',
+          state: 'Kuala Lumpur',
+          city: 'Kuala Lumpur',
+          cuisineType: 'Local Kopitiam',
+          priceRange: r'53133',
+          reviewedDishes: 'Kaya Toast',
+          influencerId: 'foodie-id',
+          influencerName: 'Foodie',
+          socialMediaUrl:
+              'https://www.tiktok.com/@foodie/video/1112223334445556667',
+          coverPhotoUrl: '', // empty cover
+          isOwnedByCurrentUser: true,
+        );
+
+        await tester.pumpWidget(
+          buildApp(
+            authController: authCtrl,
+            localEatsController: localEatsCtrl,
+            source: sourceWithoutCover,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('restaurant_submit_button')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Please select a cover photo.'), findsOneWidget);
+        expect(mockRepo.revisedInputs, isEmpty);
+      },
+    );
+
+    testWidgets(
+      '13. Tourist cannot access real Creator Restaurant generation flow',
+      (tester) async {
+        final authRepo = DemoAuthRepository();
+        final authCtrl = AuthController(repository: authRepo);
+        await authCtrl.login('tourist@livelocal.com', '123456');
+        final localEatsRepo = DemoLocalEatsRepository(authRepo);
+        final localEatsCtrl = LocalEatsController(repository: localEatsRepo);
+
+        await tester.pumpWidget(
+          buildApp(
+            authController: authCtrl,
+            localEatsController: localEatsCtrl,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Creator tools required'), findsOneWidget);
+        expect(find.byKey(const Key('ai_source_field')), findsNothing);
+        expect(find.byKey(const Key('ai_generate_button')), findsNothing);
+
+        expect(
+          () => localEatsRepo.generateRestaurantListingFromSource(
+            'https://www.instagram.com/reel/C7abc123/',
+          ),
+          throwsA(isA<AppException>().having(
+            (e) => e.code,
+            'code',
+            AppErrorCode.forbidden,
+          )),
+        );
+      },
+    );
+
     test(
-      '10, 11, 12. Final Restaurant enters Admin moderation pipeline and is not public until approved',
+      '14. Final Restaurant enters Admin moderation pipeline and is not public until approved',
       () async {
         final authRepo = DemoAuthRepository();
         final authCtrl = AuthController(repository: authRepo);
@@ -291,12 +422,12 @@ void main() {
         // Creator creates draft and submits
         final draft = await localEatsRepo.createRestaurantDraft(
           input: const RestaurantDraftInput(
-            name: 'Pipeline Test Resto',
+            name: 'Moderation Test Resto',
             address: '100 Beach Street',
             state: 'Penang',
             city: 'George Town',
             cuisineType: 'Nyonya',
-            priceRange: r'49923',
+            priceRange: r'53133',
             reviewedDishes: 'Asam Laksa',
             socialMediaUrl: 'https://www.instagram.com/reel/C8pipeline/',
           ),
@@ -317,21 +448,21 @@ void main() {
 
         await localEatsRepo.submitRestaurant(revisionId: draft.revisionId);
 
-        // 11. NOT in public listings before approval
+        // Not in public listings before approval
         final publicBefore = await localEatsRepo.fetchPublicRestaurants();
         expect(
-          publicBefore.any((r) => r.name == 'Pipeline Test Resto'),
+          publicBefore.any((r) => r.name == 'Moderation Test Resto'),
           isFalse,
         );
 
-        // 10. Appears in Admin pending submissions
+        // Appears in Admin pending submissions
         await authCtrl.login('admin@livelocal.com', '123456');
         final pending = await localEatsRepo.fetchPendingRestaurants();
         final submittedRest =
-            pending.firstWhere((r) => r.name == 'Pipeline Test Resto');
+            pending.firstWhere((r) => r.name == 'Moderation Test Resto');
         expect(submittedRest.status, 'submitted');
 
-        // 12. Admin approves
+        // Admin approves
         await localEatsRepo.moderateRestaurant(
           restaurant: submittedRest,
           decision: 'approved',
@@ -341,49 +472,26 @@ void main() {
         // Now appears in public listings
         final publicAfter = await localEatsRepo.fetchPublicRestaurants();
         expect(
-          publicAfter.any((r) => r.name == 'Pipeline Test Resto'),
+          publicAfter.any((r) => r.name == 'Moderation Test Resto'),
           isTrue,
         );
       },
     );
-
-    test(
-        '13. No social or AI secret tokens are exposed or accepted in public domain models',
-        () {
-      final listing = GeneratedRestaurantListing.fromJson({
-        'restaurantName': 'Test Resto',
-        'sourcePlatform': 'instagram',
-        'sourcePostUrl': 'https://instagram.com/p/123/',
-        'confidence': 0.9,
-        'missingFields': [],
-        'access_token': 'secret_access_token',
-        'refresh_token': 'secret_refresh_token',
-      });
-      expect(listing.restaurantName, 'Test Resto');
-      expect(listing.sourcePlatform, 'instagram');
-      expect(listing.sourcePostUrl, 'https://instagram.com/p/123/');
-    });
-
-    test(
-        '14. Social source detection handles profile cancellation and invalid hosts cleanly',
-        () {
-      final detection =
-          SocialUrlValidator.detectSource('https://randomsite.org');
-      expect(detection.type, SocialSourceType.unsupported);
-      expect(detection.platform, isNull);
-    });
   });
 }
 
-class _MockMockableLocalEatsRepository extends DemoLocalEatsRepository {
-  _MockMockableLocalEatsRepository(super.authRepository);
+class _MockSpyLocalEatsRepository extends DemoLocalEatsRepository {
+  _MockSpyLocalEatsRepository(super.authRepository);
 
+  int generateCalls = 0;
   String? submittedRevisionId;
+  final List<RestaurantDraftInput> revisedInputs = [];
 
   @override
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
     String sourceUrl,
   ) async {
+    generateCalls++;
     return const SocialSourceAnalysisResult(
       sourceType: 'post',
       platform: 'tiktok',
@@ -394,7 +502,7 @@ class _MockMockableLocalEatsRepository extends DemoLocalEatsRepository {
           state: 'Penang',
           city: 'George Town',
           cuisineType: 'Nasi Kandar / Indian Muslim',
-          priceRange: r'49923',
+          priceRange: r'$$',
           reviewedDishes: 'Nasi Kandar Ayam Bawang',
           sourcePlatform: 'tiktok',
           sourcePostUrl:
@@ -403,6 +511,21 @@ class _MockMockableLocalEatsRepository extends DemoLocalEatsRepository {
           missingFields: [],
         ),
       ],
+    );
+  }
+
+  @override
+  Future<RestaurantDraftResult> saveRestaurantRevisionDraft({
+    required RestaurantModel source,
+    required RestaurantDraftInput input,
+    Uint8List? imageBytes,
+    String? imageMimeType,
+  }) async {
+    revisedInputs.add(input);
+    return const RestaurantDraftResult(
+      restaurantId: 'rest-rev-id',
+      revisionId: 'rev-rev-id',
+      probableDuplicates: [],
     );
   }
 

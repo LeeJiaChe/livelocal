@@ -20,11 +20,11 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
     String sourceUrl,
   ) async {
-    if (!SocialUrlValidator.isSupported(sourceUrl)) {
+    if (!SocialUrlValidator.isReviewPost(sourceUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
         userMessage:
-            'Paste a valid TikTok or Instagram post or creator profile URL.',
+            'Paste a valid TikTok review video or Instagram post/Reel link.',
       );
     }
     if (_client.auth.currentSession == null) {
@@ -66,53 +66,6 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         code: AppErrorCode.network,
         userMessage:
             'The social source could not be analysed. Please try again.',
-        cause: error,
-      );
-    }
-  }
-
-  @override
-  Future<Uri> startSocialAccountConnection(String platform) async {
-    if (!SocialUrlValidator.supportedPlatforms.contains(platform)) {
-      throw const AppException(
-        code: AppErrorCode.validation,
-        userMessage: 'Choose TikTok or Instagram.',
-      );
-    }
-    if (_client.auth.currentSession == null) {
-      throw const AppException(
-        code: AppErrorCode.authentication,
-        userMessage: 'Your session has expired. Sign in and try again.',
-      );
-    }
-    try {
-      final response = await _client.functions.invoke(
-        'social-account-oauth',
-        body: {'platform': platform},
-      ).timeout(const Duration(seconds: 20));
-      if (response.data is! Map) {
-        throw const FormatException('OAuth response is not an object');
-      }
-      final data = Map<String, dynamic>.from(response.data as Map);
-      final uri = Uri.tryParse(data['authorizationUrl'] as String? ?? '');
-      if (uri == null || uri.scheme != 'https') {
-        throw const FormatException('Missing authorization URL');
-      }
-      return uri;
-    } on FunctionException catch (error) {
-      throw _generationFunctionError(error);
-    } on TimeoutException catch (error) {
-      throw AppException(
-        code: AppErrorCode.unavailable,
-        userMessage:
-            'The social account connection timed out. Please try again.',
-        cause: error,
-      );
-    } catch (error) {
-      throw AppException(
-        code: AppErrorCode.unavailable,
-        userMessage:
-            'The social account connection could not be started. Try again.',
         cause: error,
       );
     }
@@ -659,14 +612,14 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     }
     final message = switch (code) {
       'INVALID_SOURCE_URL' =>
-        'Paste a valid TikTok or Instagram post or creator profile URL.',
+        'Paste a valid TikTok review video or Instagram post/Reel link.',
       'AUTHENTICATION_REQUIRED' ||
       'SESSION_EXPIRED' =>
         'Your session has expired. Sign in and try again.',
       'INFLUENCER_REQUIRED' =>
-        'An approved influencer account is required to generate listings.',
+        'An approved Creator account is required to generate restaurant drafts.',
       'SOCIAL_ACCOUNT_NOT_CONNECTED' =>
-        'Connect your TikTok/Instagram creator account before importing from a profile.',
+        'Connect your TikTok or Instagram creator account before importing from a profile.',
       'SOCIAL_API_NOT_CONFIGURED' =>
         'Social-media import is not configured yet. Please contact support.',
       'POST_UNAVAILABLE' =>
@@ -683,7 +636,7 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
       _ when error.status == 401 =>
         'Your session has expired. Sign in and try again.',
       _ when error.status == 403 =>
-        'An approved influencer account is required to generate listings.',
+        'An approved Creator account is required to generate restaurant drafts.',
       _ => 'The social source could not be analysed. Please try again.',
     };
     return AppException(

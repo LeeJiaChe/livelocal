@@ -71,7 +71,7 @@ Deno.serve(async (request) => {
     ) {
       throw new GenerationError(
         "INFLUENCER_REQUIRED",
-        "Approved influencer required",
+        "Approved Creator required",
         403,
       );
     }
