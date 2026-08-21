@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(33);
 
 -- 1. Create Tourist, Creator, and Admin users
 insert into auth.users (
@@ -24,7 +24,7 @@ insert into auth.users (
    clock_timestamp(), '{"provider":"email","providers":["email"]}'::jsonb,
    '{"display_name":"Pipeline Admin"}'::jsonb, clock_timestamp(), clock_timestamp());
 
--- Assign roles: creator = influencer, admin = admin
+-- Assign roles: user 2 = influencer, user 3 = admin. User 1 remains default tourist.
 update public.user_roles
 set role = 'influencer', granted_by = 'b1300000-0000-0000-0000-000000000003'
 where user_id = 'b1300000-0000-0000-0000-000000000002' and revoked_at is null;
@@ -122,7 +122,7 @@ select lives_ok(
     '2 hours')$cmd$,
   'creator can submit a guide');
 
--- TEST 3: Tourist Creator Application lifecycle
+-- TEST 3: Tourist Creator Application lifecycle & Promotion
 reset role;
 select set_config('request.jwt.claims',
   '{"sub":"b1300000-0000-0000-0000-000000000001","role":"authenticated"}', true);
@@ -146,7 +146,7 @@ select lives_ok(
 select is((select status::text from public.influencer_applications where user_id = auth.uid()),
   'submitted', 'application is marked submitted');
 
--- Admin reviews and approves tourist application
+-- Admin reviews and approves tourist application (real promotion lifecycle)
 reset role;
 select set_config('request.jwt.claims',
   '{"sub":"b1300000-0000-0000-0000-000000000003","role":"authenticated"}', true);
@@ -159,10 +159,16 @@ select lives_ok(
   'admin approves creator application');
 
 -- Verify role was promoted to influencer
-select is((select role from public.user_roles where user_id = 'b1300000-0000-0000-0000-000000000001' and revoked_at is null),
+select is(
+  (select role from public.user_roles where user_id = 'b1300000-0000-0000-0000-000000000001' and revoked_at is null),
   'influencer', 'tourist role was promoted to influencer');
 
--- TEST 4: Newly approved creator can now submit restaurant
+-- Verify role history contains both revoked tourist row and active influencer row
+select is(
+  (select count(*) from public.user_roles where user_id = 'b1300000-0000-0000-0000-000000000001'),
+  2::bigint, 'promoted user has 2 role rows in history (revoked tourist + active influencer)');
+
+-- TEST 4: Newly promoted creator restaurant & guide submissions with role history
 reset role;
 select set_config('request.jwt.claims',
   '{"sub":"b1300000-0000-0000-0000-000000000001","role":"authenticated"}', true);
@@ -176,12 +182,88 @@ select lives_ok(
     'b1300000-0000-0000-0000-000000000001/tohsoon.jpg', null, null)$cmd$,
   'newly approved creator can now submit restaurant draft');
 
--- TEST 5: Admin Moderation & Attribution verification
+-- Promoted creator submits a 2-stop guide
+select lives_ok(
+  $cmd$select public.submit_guide(
+    'Promoted Creator Heritage Walk', 'George Town', 'Pulau Pinang',
+    'A curated walk created after achieving creator status.',
+    '["Cheong Fatt Tze Mansion", "Pinang Peranakan Mansion"]'::jsonb,
+    '["Start at Blue Mansion", "Walk 800m to Peranakan Mansion"]'::jsonb,
+    '2 hours')$cmd$,
+  'promoted creator can submit a guide');
+
+-- Admin approves Promoted Creator's guide
 reset role;
 select set_config('request.jwt.claims',
   '{"sub":"b1300000-0000-0000-0000-000000000003","role":"authenticated"}', true);
 set local role authenticated;
 
+select lives_ok(
+  $cmd$select public.admin_moderate_guide_revision(
+    (select id from public.guide_revisions where title = 'Promoted Creator Heritage Walk'),
+    'approved', 'High quality route verified', 1)$cmd$,
+  'admin approves promoted creator guide');
+
+select is(
+  (select author_display_name from public.published_guides where title = 'Promoted Creator Heritage Walk'),
+  'Pipeline Tourist',
+  'promoted creator guide attribution has author display name');
+
+select is(
+  (select author_is_creator from public.published_guides where title = 'Promoted Creator Heritage Walk'),
+  true,
+  'promoted creator guide attribution has author_is_creator = true despite revoked tourist history');
+
+-- TEST 5: Revoked Creator (active Tourist) MUST NOT receive Creator badge
+-- Admin revokes Creator 2 influencer role and restores tourist
+reset role;
+select set_config('request.jwt.claims',
+  '{"sub":"b1300000-0000-0000-0000-000000000003","role":"authenticated"}', true);
+set local role authenticated;
+
+select lives_ok(
+  $cmd$
+  update public.user_roles
+  set revoked_at = clock_timestamp(), revoked_by = auth.uid()
+  where user_id = 'b1300000-0000-0000-0000-000000000002' and revoked_at is null;
+  insert into public.user_roles (user_id, role, granted_by)
+  values ('b1300000-0000-0000-0000-000000000002', 'tourist', auth.uid());
+  $cmd$,
+  'admin revokes influencer role and restores tourist role for user 2');
+
+-- Demoted user 2 submits a guide as tourist
+reset role;
+select set_config('request.jwt.claims',
+  '{"sub":"b1300000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+set local role authenticated;
+
+select lives_ok(
+  $cmd$select public.submit_guide(
+    'Demoted User Sunset Trail', 'Batu Ferringhi', 'Pulau Pinang',
+    'A scenic beach route submitted after role change to tourist.',
+    '["Batu Ferringhi Beach", "Miami Beach Penang"]'::jsonb,
+    '["Start at Batu Ferringhi Beach", "Walk 1km south to Miami Beach"]'::jsonb,
+    '1.5 hours')$cmd$,
+  'demoted user submits guide');
+
+-- Admin approves demoted user's guide
+reset role;
+select set_config('request.jwt.claims',
+  '{"sub":"b1300000-0000-0000-0000-000000000003","role":"authenticated"}', true);
+set local role authenticated;
+
+select lives_ok(
+  $cmd$select public.admin_moderate_guide_revision(
+    (select id from public.guide_revisions where title = 'Demoted User Sunset Trail'),
+    'approved', 'Route verified for publication', 1)$cmd$,
+  'admin approves demoted user guide');
+
+select is(
+  (select author_is_creator from public.published_guides where title = 'Demoted User Sunset Trail'),
+  false,
+  'demoted user guide has author_is_creator = false because active role is tourist');
+
+-- TEST 6: Moderation & Attribution verification for other submissions
 -- Admin approves Creator's Campbell Street guide
 select lives_ok(
   $cmd$select public.admin_moderate_guide_revision(
@@ -189,7 +271,6 @@ select lives_ok(
     'approved', 'High quality route verified', 1)$cmd$,
   'admin approves Campbell Street guide');
 
--- Verify published guide attribution: author name & creator badge
 select is(
   (select author_display_name from public.published_guides where title = 'Campbell Street Food Trail'),
   'Pipeline Creator',
@@ -197,8 +278,8 @@ select is(
 
 select is(
   (select author_is_creator from public.published_guides where title = 'Campbell Street Food Trail'),
-  true,
-  'creator guide attribution has author_is_creator = true');
+  false,
+  'creator guide approved after demotion correctly receives author_is_creator = false');
 
 -- Admin approves Spot draft
 select lives_ok(

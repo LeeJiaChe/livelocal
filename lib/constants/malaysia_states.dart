@@ -49,10 +49,11 @@ class MalaysiaStates {
 
   /// Maps display names or aliases to canonical database raw values.
   /// E.g. 'Penang' -> 'Pulau Pinang', 'Pulau Pinang' -> 'Pulau Pinang'.
+  /// Returns empty string for empty input.
   /// Preserves unknown/legacy raw strings cleanly.
   static String toCanonical(String rawOrDisplay) {
     final trimmed = rawOrDisplay.trim();
-    if (trimmed.isEmpty) return canonicalPenang;
+    if (trimmed.isEmpty) return '';
     if (trimmed.toLowerCase() == 'penang' ||
         trimmed.toLowerCase() == 'pulau pinang') {
       return canonicalPenang;
@@ -68,10 +69,11 @@ class MalaysiaStates {
 
   /// Maps raw database values to user-facing display names.
   /// E.g. 'Pulau Pinang' -> 'Penang', 'Penang' -> 'Penang'.
+  /// Returns empty string for empty input.
   /// Preserves unknown raw strings.
   static String toDisplay(String rawOrDisplay) {
     final trimmed = rawOrDisplay.trim();
-    if (trimmed.isEmpty) return displayPenang;
+    if (trimmed.isEmpty) return '';
     if (trimmed.toLowerCase() == 'pulau pinang' ||
         trimmed.toLowerCase() == 'penang') {
       return displayPenang;

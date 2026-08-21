@@ -26,7 +26,7 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _location = TextEditingController();
-  String _displayState = MalaysiaStates.displayPenang;
+  String? _displayState;
   final _overview = TextEditingController();
   final _duration = TextEditingController(text: '1 day');
   final List<_StopDraft> _stops = [_StopDraft(), _StopDraft()];
@@ -199,16 +199,28 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: _displayState,
+                        hint: const Text(
+                          'Select state',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         decoration: const InputDecoration(labelText: 'State'),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Select state.';
+                          }
+                          return null;
+                        },
                         items: _states
-                            .map((s) =>
-                                DropdownMenuItem(value: s, child: Text(s)))
+                            .map((s) => DropdownMenuItem(
+                                  value: s,
+                                  child:
+                                      Text(s, overflow: TextOverflow.ellipsis),
+                                ))
                             .toList(),
                         onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _displayState = val);
-                          }
+                          setState(() => _displayState = val);
                         },
                       ),
                     ),
@@ -441,7 +453,7 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
     final input = GuideDraftInput(
       title: _title.text.trim(),
       locationName: _location.text.trim(),
-      state: MalaysiaStates.toCanonical(_displayState),
+      state: MalaysiaStates.toCanonical(_displayState ?? ''),
       routeOverview: _overview.text.trim(),
       stops: _stops.map((s) => s.stopName.text.trim()).toList(),
       walkingSequence:

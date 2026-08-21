@@ -37,8 +37,8 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   final _bestTime = TextEditingController();
   final _thingsToDo = TextEditingController();
 
-  late String _displayState;
-  late String _category;
+  String? _displayState;
+  String? _category;
   late List<String> _states;
   late List<String> _categories;
   String _priceRange = r'$';
@@ -55,13 +55,12 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   void initState() {
     super.initState();
     final source = widget.source;
-    _displayState = MalaysiaStates.toDisplay(
-      source?.state ?? MalaysiaStates.canonicalPenang,
-    );
+    _displayState =
+        source != null ? MalaysiaStates.toDisplay(source.state) : null;
     _states = MalaysiaStates.getDisplayList(
       existingRawOrDisplay: source?.state,
     );
-    _category = source?.category ?? SpotTaxonomy.defaultCategory;
+    _category = source?.category;
     _categories = SpotTaxonomy.getCategoriesForRevision(source?.category);
 
     if (source == null) return;
@@ -207,7 +206,14 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                       child: _dropdown(
                         label: 'Category',
                         value: _category,
+                        hintText: 'Select category',
                         values: _categories,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Select category.';
+                          }
+                          return null;
+                        },
                         onChanged: (val) => setState(() => _category = val),
                       ),
                     ),
@@ -216,7 +222,14 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                       child: _dropdown(
                         label: 'State',
                         value: _displayState,
+                        hintText: 'Select state',
                         values: _states,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Select state.';
+                          }
+                          return null;
+                        },
                         onChanged: (val) => setState(() => _displayState = val),
                       ),
                     ),
@@ -288,7 +301,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                   label: 'Price range',
                   value: _priceRange,
                   values: const [r'$', r'$$', r'$$$', r'$$$$'],
-                  onChanged: (val) => setState(() => _priceRange = val),
+                  onChanged: (val) => setState(() => _priceRange = val ?? r'$'),
                 ),
               ],
             ),
@@ -330,8 +343,9 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
             ContributionReviewSummary(
               items: [
                 MapEntry('Place name', _name.text.trim()),
-                MapEntry('Category', _category),
-                MapEntry('Location', '${_city.text.trim()}, $_displayState'),
+                MapEntry('Category', _category ?? ''),
+                MapEntry(
+                    'Location', '${_city.text.trim()}, ${_displayState ?? ''}'),
                 MapEntry('Price', _priceRange),
               ],
               moderationNotice:
@@ -406,23 +420,27 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
 
   Widget _dropdown({
     required String label,
-    required String value,
+    required String? value,
     required List<String> values,
-    required ValueChanged<String> onChanged,
+    required ValueChanged<String?> onChanged,
+    String? hintText,
+    String? Function(String?)? validator,
   }) {
     return DropdownButtonFormField<String>(
       isExpanded: true,
       initialValue: value,
+      hint: hintText != null
+          ? Text(hintText, overflow: TextOverflow.ellipsis)
+          : null,
       decoration: InputDecoration(labelText: label),
+      validator: validator,
       items: values
           .map((item) => DropdownMenuItem(
                 value: item,
                 child: Text(item, overflow: TextOverflow.ellipsis),
               ))
           .toList(),
-      onChanged: (next) {
-        if (next != null) onChanged(next);
-      },
+      onChanged: onChanged,
     );
   }
 
@@ -443,9 +461,9 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
     setState(() => _submitting = true);
     final input = SpotDraftInput(
       name: _name.text.trim(),
-      category: _category,
+      category: _category ?? '',
       description: _description.text.trim(),
-      state: MalaysiaStates.toCanonical(_displayState),
+      state: MalaysiaStates.toCanonical(_displayState ?? ''),
       city: _city.text.trim(),
       address: _address.text.trim(),
       priceRange: _priceRange,

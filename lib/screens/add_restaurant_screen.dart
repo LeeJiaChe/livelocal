@@ -38,8 +38,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   final _socialUrl = TextEditingController();
   final _cuisine = TextEditingController();
 
-  late String _displayState;
+  String? _displayState;
   late List<String> _states;
+  final _cuisineFocusNode = FocusNode();
   String _price = r'$';
   Uint8List? _imageBytes;
   String? _imageMimeType;
@@ -53,13 +54,12 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   void initState() {
     super.initState();
     final source = widget.source;
-    _displayState = MalaysiaStates.toDisplay(
-      source?.state ?? 'Kuala Lumpur',
-    );
+    _displayState =
+        source != null ? MalaysiaStates.toDisplay(source.state) : null;
     _states = MalaysiaStates.getDisplayList(
       existingRawOrDisplay: source?.state,
     );
-    _cuisine.text = source?.cuisineType ?? RestaurantTaxonomy.defaultCuisine;
+    _cuisine.text = source?.cuisineType ?? '';
 
     if (source == null) return;
     _name.text = source.name;
@@ -79,6 +79,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     _dishes.dispose();
     _socialUrl.dispose();
     _cuisine.dispose();
+    _cuisineFocusNode.dispose();
     super.dispose();
   }
 
@@ -280,17 +281,20 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   maxLength: 120,
                 ),
                 const SizedBox(height: AppSpacing.x2),
-                Autocomplete<String>(
-                  initialValue: TextEditingValue(text: _cuisine.text),
+                RawAutocomplete<String>(
+                  textEditingController: _cuisine,
+                  focusNode: _cuisineFocusNode,
                   optionsBuilder: (textEditingValue) {
                     return RestaurantTaxonomy.filterSuggestions(
                       textEditingValue.text,
                     );
                   },
                   onSelected: (selection) {
-                    setState(() {
-                      _cuisine.text = selection;
-                    });
+                    _cuisine.text = selection;
+                    _cuisine.selection = TextSelection.fromPosition(
+                      TextPosition(offset: selection.length),
+                    );
+                    setState(() {});
                   },
                   fieldViewBuilder: (
                     context,
@@ -312,10 +316,45 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                         }
                         return null;
                       },
-                      onChanged: (val) {
-                        _cuisine.text = val;
-                        setState(() {});
-                      },
+                      onChanged: (_) => setState(() {}),
+                    );
+                  },
+                  optionsViewBuilder: (
+                    context,
+                    onSelected,
+                    options,
+                  ) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        borderRadius: BorderRadius.circular(12),
+                        color: Theme.of(context).colorScheme.surface,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxHeight: 200,
+                            maxWidth: 320,
+                          ),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (context, index) {
+                              final option = options.elementAt(index);
+                              return InkWell(
+                                onTap: () => onSelected(option),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0,
+                                    vertical: 12.0,
+                                  ),
+                                  child: Text(option),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -350,6 +389,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                           onPressed: () {
                             setState(() {
                               _cuisine.text = suggestion;
+                              _cuisine.selection = TextSelection.fromPosition(
+                                TextPosition(offset: suggestion.length),
+                              );
                             });
                           },
                         ),
@@ -362,7 +404,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   label: 'Price range',
                   value: _price,
                   values: const [r'$', r'$$', r'$$$', r'$$$$'],
-                  onChanged: (val) => setState(() => _price = val),
+                  onChanged: (val) => setState(() => _price = val ?? r'$'),
                 ),
               ],
             ),
@@ -376,7 +418,14 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 _dropdown(
                   label: 'State',
                   value: _displayState,
+                  hintText: 'Select state',
                   values: _states,
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Select state.';
+                    }
+                    return null;
+                  },
                   onChanged: (val) => setState(() => _displayState = val),
                 ),
                 const SizedBox(height: AppSpacing.x2),
@@ -543,23 +592,27 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
 
   Widget _dropdown({
     required String label,
-    required String value,
+    required String? value,
     required List<String> values,
-    required ValueChanged<String> onChanged,
+    required ValueChanged<String?> onChanged,
+    String? hintText,
+    String? Function(String?)? validator,
   }) {
     return DropdownButtonFormField<String>(
       isExpanded: true,
       initialValue: value,
+      hint: hintText != null
+          ? Text(hintText, overflow: TextOverflow.ellipsis)
+          : null,
       decoration: InputDecoration(labelText: label),
+      validator: validator,
       items: values
           .map((item) => DropdownMenuItem(
                 value: item,
                 child: Text(item, overflow: TextOverflow.ellipsis),
               ))
           .toList(),
-      onChanged: (next) {
-        if (next != null) onChanged(next);
-      },
+      onChanged: onChanged,
     );
   }
 
@@ -587,7 +640,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     final input = RestaurantDraftInput(
       name: _name.text.trim(),
       address: _address.text.trim(),
-      state: MalaysiaStates.toCanonical(_displayState),
+      state: MalaysiaStates.toCanonical(_displayState ?? ''),
       city: _city.text.trim(),
       cuisineType: _cuisine.text.trim(),
       priceRange: _price,

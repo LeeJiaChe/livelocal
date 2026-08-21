@@ -452,6 +452,15 @@ void main() {
           'Walk 400m north along Church Street to the mansion');
       await tester.pumpAndSettle();
 
+      // Select state
+      final stateDropdown = find.byType(DropdownButtonFormField<String>);
+      if (stateDropdown.evaluate().isNotEmpty) {
+        await tester.tap(stateDropdown.first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Penang').last);
+        await tester.pumpAndSettle();
+      }
+
       // Submit
       final submitBtn =
           find.widgetWithText(FilledButton, 'Submit guide for review');
@@ -555,6 +564,105 @@ void main() {
       expect(find.text('Contribution history'), findsOneWidget);
       expect(find.text('Local spots'), findsOneWidget);
       expect(find.text('Travel guides'), findsOneWidget);
+    });
+
+    testWidgets(
+        '21. Restaurant quick cuisine chips update visible field text and source of truth',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await authCtrl.login('foodie@livelocal.com', '123456');
+
+      await tester.pumpWidget(createTestApp(home: const AddRestaurantScreen()));
+      await tester.pumpAndSettle();
+
+      final cuisineField = find.widgetWithText(TextFormField, 'Cuisine type');
+      expect(cuisineField, findsOneWidget);
+
+      // Tap 'Peranakan / Nyonya' chip
+      await tester.tap(find.text('Peranakan / Nyonya'));
+      await tester.pumpAndSettle();
+
+      // Visible text field should now show 'Peranakan / Nyonya'
+      expect(
+          find.descendant(
+              of: cuisineField, matching: find.text('Peranakan / Nyonya')),
+          findsOneWidget);
+
+      // Tap 'Hainanese' chip
+      await tester.tap(find.text('Hainanese'));
+      await tester.pumpAndSettle();
+
+      // Visible text field should now show 'Hainanese'
+      expect(
+          find.descendant(of: cuisineField, matching: find.text('Hainanese')),
+          findsOneWidget);
+    });
+
+    testWidgets(
+        '22. Initial Hainanese revision visibly displays cuisine in AddRestaurantScreen',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await authCtrl.login('foodie@livelocal.com', '123456');
+
+      final hainaneseRest = RestaurantModel(
+        id: 'rest-hainan-1',
+        influencerId: 'foodie-id',
+        influencerName: 'Foodie Creator',
+        name: 'Uncle Lim Hainan Chicken Rice',
+        address: '15 Bishop Street',
+        state: 'Pulau Pinang',
+        city: 'George Town',
+        cuisineType: 'Hainanese',
+        priceRange: r'$',
+        reviewedDishes: 'Steamed chicken, fragrance rice',
+        socialMediaUrl:
+            'https://www.tiktok.com/@foodie/video/998877665544332211',
+        coverPhotoUrl: '',
+        status: 'approved',
+      );
+
+      await tester.pumpWidget(
+        createTestApp(home: AddRestaurantScreen(source: hainaneseRest)),
+      );
+      await tester.pumpAndSettle();
+
+      final cuisineField = find.widgetWithText(TextFormField, 'Cuisine type');
+      expect(
+          find.descendant(of: cuisineField, matching: find.text('Hainanese')),
+          findsOneWidget);
+    });
+
+    testWidgets(
+        '23. New Spot and Guide forms require explicit non-default category and state selection',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await authCtrl.login('tourist@livelocal.com', '123456');
+
+      // 1. SubmitSpotScreen
+      await tester.pumpWidget(createTestApp(home: const SubmitSpotScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select category'), findsOneWidget);
+      expect(find.text('Select state'), findsOneWidget);
+
+      await tester
+          .tap(find.widgetWithText(FilledButton, 'Submit place for review'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select category.'), findsOneWidget);
+      expect(find.text('Select state.'), findsOneWidget);
+
+      // 2. SubmitGuideScreen
+      await tester.pumpWidget(createTestApp(home: const SubmitGuideScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select state'), findsOneWidget);
     });
   });
 }
