@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(21);
 
 -- 1. Create Tourist, Creator, and Admin users
 insert into auth.users (
@@ -103,15 +103,23 @@ select set_config('request.jwt.claims',
   '{"sub":"b1300000-0000-0000-0000-000000000001","role":"authenticated"}', true);
 set local role authenticated;
 
--- Tourist applies for creator status
+-- Tourist saves draft and submits creator application
 select lives_ok(
-  $$select public.apply_for_influencer(
-    'https://www.tiktok.com/@touristfoodie',
-    'I create curated Penang food guides and weekly reviews.')$$,
-  'tourist applies for creator status');
+  $$select public.save_influencer_application_draft(
+    null, 'Pipeline Tourist', 'tiktok',
+    'https://tiktok.com/@touristfoodie', 1200, 'Local food',
+    'I create curated Penang food guides and weekly reviews for the community.', true, null
+  )$$,
+  'tourist saves creator application draft');
 
-select is((select status from public.influencer_applications where user_id = auth.uid()),
-  'pending', 'application is marked pending');
+select lives_ok(
+  $$select public.submit_influencer_application(
+    (select id from public.influencer_applications where user_id = auth.uid()), 1
+  )$$,
+  'tourist submits creator application');
+
+select is((select status::text from public.influencer_applications where user_id = auth.uid()),
+  'submitted', 'application is marked submitted');
 
 -- Admin reviews and approves tourist application
 reset role;
@@ -120,9 +128,9 @@ select set_config('request.jwt.claims',
 set local role authenticated;
 
 select lives_ok(
-  $$select public.admin_review_influencer_application(
+  $$select public.admin_decide_influencer_application(
     (select id from public.influencer_applications where user_id = 'b1300000-0000-0000-0000-000000000001'),
-    'approved', 'Active and verified food creator profile', 1)$$,
+    'approved', 'Active and verified food creator profile', 2)$$,
   'admin approves creator application');
 
 -- Verify role was promoted to influencer
