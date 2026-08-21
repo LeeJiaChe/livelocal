@@ -130,6 +130,7 @@ select is(
 
 -- Create collection and save places for User 1
 select public.create_saved_collection('Penang Weekend', 'Weekend spots');
+select set_config('test.user1_col_id', (select id::text from public.saved_collections where name = 'Penang Weekend'), true);
 
 select public.set_place_collections(
   'spot',
@@ -212,7 +213,7 @@ select is(
 select throws_ok(
   format(
     'select public.fetch_saved_route_candidates(%L::uuid)',
-    (select id from public.saved_collections where name = 'Penang Weekend')
+    current_setting('test.user1_col_id')
   ),
   'P0002', 'Collection not found',
   'cannot access another user collection route candidates'
