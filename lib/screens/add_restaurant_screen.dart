@@ -42,12 +42,16 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   String? _displayState;
   late List<String> _states;
   final _cuisineFocusNode = FocusNode();
+  final _nameFocusNode = FocusNode();
+  final _scrollController = ScrollController();
   String _price = r'$';
   Uint8List? _imageBytes;
   String? _imageMimeType;
   bool _submitting = false;
   bool _imageRightsConfirmed = false;
   bool _submittedSuccess = false;
+  bool _aiAssisted = false;
+  String? _aiSourcePlatform;
 
   bool get _isRevision => widget.source != null;
 
@@ -58,6 +62,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       if (mounted) context.read<LocalEatsController>().clearGeneratedResult();
     });
     final source = widget.source;
+    _aiAssisted = source?.aiAssisted ?? false;
+    _aiSourcePlatform = source?.aiSourcePlatform;
     _displayState =
         source != null ? MalaysiaStates.toDisplay(source.state) : null;
     _states = MalaysiaStates.getDisplayList(
@@ -85,6 +91,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     _socialUrl.dispose();
     _cuisine.dispose();
     _cuisineFocusNode.dispose();
+    _nameFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -254,6 +262,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
+          controller: _scrollController,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.x2,
             AppSpacing.x2,
@@ -274,7 +283,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             // AI IMPORT SECTION (for new recommendations)
             if (!_isRevision) ...[
               ContributionSection(
-                title: 'Import from social review (Optional)',
+                title: 'Import from a review (Optional)',
                 subtitle:
                     'Auto-fill details from an Instagram or TikTok review post',
                 children: [
@@ -294,7 +303,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'AI can help draft restaurant details from the source you provide. Review and correct the information before submitting.',
+                          'AI uses the review to suggest details. You\'ll review everything before submitting.',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context)
@@ -356,27 +365,56 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                                   Theme.of(context).colorScheme.errorContainer,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 20,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onErrorContainer,
-                                ),
-                                const SizedBox(width: AppSpacing.x1),
-                                Expanded(
-                                  child: Text(
-                                    controller.generationError!,
-                                    key: const Key('ai_generation_error'),
-                                    style: TextStyle(
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 20,
                                       color: Theme.of(context)
                                           .colorScheme
                                           .onErrorContainer,
-                                      fontSize: 13,
                                     ),
-                                  ),
+                                    const SizedBox(width: AppSpacing.x1),
+                                    Expanded(
+                                      child: Text(
+                                        controller.generationError!,
+                                        key: const Key('ai_generation_error'),
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onErrorContainer,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.x1),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton.icon(
+                                      key:
+                                          const Key('continue_manually_button'),
+                                      onPressed: _scrollToManualEntry,
+                                      icon: const Icon(Icons.edit_outlined,
+                                          size: 16),
+                                      label: const Text('Continue manually'),
+                                    ),
+                                    const SizedBox(width: AppSpacing.x1),
+                                    FilledButton.tonalIcon(
+                                      key: const Key('try_again_ai_button'),
+                                      onPressed: controller.isGeneratingListing
+                                          ? null
+                                          : _generateListing,
+                                      icon: const Icon(Icons.refresh, size: 16),
+                                      label: const Text('Try again'),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -479,6 +517,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   hintText: 'e.g. Line Clear Nasi Kandar',
                   minLength: 2,
                   maxLength: 120,
+                  focusNode: _nameFocusNode,
                   key: const Key('restaurant_name_field'),
                 ),
                 const SizedBox(height: AppSpacing.x2),
@@ -879,6 +918,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     }
     context.read<LocalEatsController>().selectGeneratedCandidate(candidate);
     setState(() {
+      _aiAssisted = true;
+      _aiSourcePlatform = candidate.sourcePlatform;
       _name.text = candidate.restaurantName ?? '';
       _address.text = candidate.address ?? '';
       _city.text = candidate.city ?? '';
@@ -902,6 +943,17 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
               ? candidate.priceRange!
               : _price;
     });
+  }
+
+  void _scrollToManualEntry() {
+    _nameFocusNode.requestFocus();
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        350,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   static String _fieldLabel(String value) {
@@ -930,12 +982,14 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     int minLength = 0,
     int maxLength = 100,
     int maxLines = 1,
+    FocusNode? focusNode,
     String? Function(String?)? validator,
     Key? key,
   }) {
     return TextFormField(
       key: key,
       controller: controller,
+      focusNode: focusNode,
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
@@ -1019,6 +1073,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       priceRange: _price,
       reviewedDishes: _dishes.text.trim(),
       socialMediaUrl: _socialUrl.text.trim(),
+      aiAssisted: _aiAssisted,
+      aiSourcePlatform: _aiSourcePlatform,
     );
 
     final controller = context.read<LocalEatsController>();
