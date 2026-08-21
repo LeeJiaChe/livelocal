@@ -3,7 +3,6 @@ import {
   type SupabaseClient,
 } from "npm:@supabase/supabase-js@2.112.0";
 import type { EdgeDatabase } from "../_shared/database_types.ts";
-import { decryptSocialToken } from "../_shared/social_tokens.ts";
 import { generateStructuredRestaurantCandidates } from "./ai_extractor.ts";
 import {
   canonicalizeSourceUrlForQuota,
@@ -11,7 +10,6 @@ import {
   fetchInstagramSource,
   fetchTikTokSource,
 } from "./social_source.ts";
-import type { SocialConnection, SocialPlatform } from "./types.ts";
 import { GenerationError } from "./types.ts";
 
 const corsHeaders = {
@@ -20,11 +18,11 @@ const corsHeaders = {
   "content-type": "application/json; charset=utf-8",
 };
 
-function reply(body: unknown, status = 200): Response {
+export function reply(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
-async function computeSha256(text: string): Promise<string> {
+export async function computeSha256(text: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(text.trim());
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -32,7 +30,13 @@ async function computeSha256(text: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-Deno.serve(async (request) => {
+export async function handleGenerateRequest(
+  request: Request,
+  deps?: {
+    adminClient?: SupabaseClient<EdgeDatabase>;
+    fetcher?: typeof fetch;
+  },
+): Promise<Response> {
   if (request.method === "OPTIONS") return reply({}, 200);
   if (request.method !== "POST") {
     return reply({ error: { code: "METHOD_NOT_ALLOWED" } }, 405);
@@ -44,8 +48,7 @@ Deno.serve(async (request) => {
   try {
     const projectUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const encryptionSecret = Deno.env.get("SOCIAL_TOKEN_ENCRYPTION_KEY");
-    if (!projectUrl || !serviceRoleKey) {
+    if (!deps?.adminClient && (!projectUrl || !serviceRoleKey)) {
       throw new GenerationError(
         "SOCIAL_API_NOT_CONFIGURED",
         "Server configuration missing",
@@ -62,9 +65,10 @@ Deno.serve(async (request) => {
       );
     }
     const jwt = authorization.slice(7).trim();
-    const admin = createClient<EdgeDatabase>(projectUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const admin = deps?.adminClient ??
+      createClient<EdgeDatabase>(projectUrl!, serviceRoleKey!, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
     adminClient = admin;
 
     const { data: userData, error: userError } = await admin.auth.getUser(jwt);
@@ -100,6 +104,16 @@ Deno.serve(async (request) => {
     }
 
     const detection = detectPlatformAndSourceType(sourceUrl);
+
+    // Enforce post-only contract immediately after detection (BEFORE quota, connection lookup, API or AI work)
+    if (detection.sourceType !== "post") {
+      throw new GenerationError(
+        "PROFILE_IMPORT_NOT_SUPPORTED",
+        "Profile import is not available",
+        400,
+      );
+    }
+
     const canonicalSourceUrl = canonicalizeSourceUrlForQuota(sourceUrl);
     const sourceHash = await computeSha256(canonicalSourceUrl);
 
@@ -139,26 +153,14 @@ Deno.serve(async (request) => {
       usageId = quota.usage_id;
     }
 
-    const connection = await loadConnection(
-      admin,
-      userData.user.id,
-      detection.platform,
-      encryptionSecret,
-    );
+    // Public post fetching without OAuth dependency
+    const fetcher = deps?.fetcher ?? fetch;
     const source = detection.platform === "tiktok"
-      ? await fetchTikTokSource(detection, connection)
-      : await fetchInstagramSource(detection, connection, {
+      ? await fetchTikTokSource(detection, null, fetcher)
+      : await fetchInstagramSource(detection, null, {
         graphApiVersion: Deno.env.get("META_GRAPH_API_VERSION"),
         oEmbedAccessToken: Deno.env.get("INSTAGRAM_OEMBED_ACCESS_TOKEN"),
-      });
-
-    if (detection.sourceType === "profile" && source.posts.length === 0) {
-      throw new GenerationError(
-        "NO_RESTAURANT_REVIEWS",
-        "No recent posts available",
-        404,
-      );
-    }
+      }, fetcher);
 
     const provider = Deno.env.get("AI_PROVIDER")?.trim();
     const apiKey = Deno.env.get("AI_API_KEY")?.trim() ||
@@ -176,20 +178,13 @@ Deno.serve(async (request) => {
       apiKey,
       model,
       baseUrl,
-    });
+    }, fetcher);
 
-    if (detection.sourceType === "post" && candidates.length !== 1) {
+    if (candidates.length !== 1) {
       throw new GenerationError(
         "MALFORMED_AI_RESPONSE",
         "Single-post extraction did not return one candidate",
         502,
-      );
-    }
-    if (detection.sourceType === "profile" && candidates.length === 0) {
-      throw new GenerationError(
-        "NO_RESTAURANT_REVIEWS",
-        "No restaurant reviews found",
-        404,
       );
     }
 
@@ -233,45 +228,8 @@ Deno.serve(async (request) => {
       typed.status,
     );
   }
-});
+}
 
-async function loadConnection(
-  admin: SupabaseClient<EdgeDatabase>,
-  userId: string,
-  platform: SocialPlatform,
-  encryptionSecret: string | undefined,
-): Promise<SocialConnection | null> {
-  const { data, error } = await admin.from("social_account_connections")
-    .select(
-      "profile_url, access_token_ciphertext, access_token_iv, token_expires_at",
-    )
-    .eq("user_id", userId).eq("platform", platform).maybeSingle();
-  if (error) {
-    throw new GenerationError(
-      "SOCIAL_API_UNAVAILABLE",
-      "Social connection lookup failed",
-      503,
-    );
-  }
-  if (!data) return null;
-  if (
-    data.token_expires_at &&
-    new Date(data.token_expires_at).getTime() <= Date.now()
-  ) return null;
-  if (!encryptionSecret) {
-    throw new GenerationError(
-      "SOCIAL_API_NOT_CONFIGURED",
-      "Social token encryption is not configured",
-      503,
-    );
-  }
-  return {
-    platform,
-    profileUrl: data.profile_url,
-    accessToken: await decryptSocialToken(
-      data.access_token_ciphertext,
-      data.access_token_iv,
-      encryptionSecret,
-    ),
-  };
+if (import.meta.main) {
+  Deno.serve((req) => handleGenerateRequest(req));
 }
