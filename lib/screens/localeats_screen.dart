@@ -149,6 +149,7 @@ class _LocalEatsScreenState extends State<LocalEatsScreen> {
       ),
       floatingActionButton: isInfluencer
           ? FloatingActionButton.extended(
+              heroTag: 'localeats_fab',
               onPressed: _showCreatorActions,
               icon: const Icon(Icons.add),
               label: const Text('Creator tools'),

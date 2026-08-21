@@ -231,6 +231,7 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'spots_discovery_fab',
         onPressed: () =>
             context.read<ProtectedNavigation>().open(context, '/submit-spot'),
         icon: const Icon(Icons.add_location_alt_outlined),

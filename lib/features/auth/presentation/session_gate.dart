@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../core/config/app_environment.dart';
+import '../../../core/routing/protected_navigation.dart';
 import '../../../screens/main_navigation_screen.dart';
 import '../../admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../profile/domain/account_repository.dart';
@@ -36,7 +37,22 @@ class SessionGate extends StatelessWidget {
         return const MainNavigationScreen();
       case AuthStatus.authenticated:
         if (auth.currentUser?.role == 'admin') {
+          context.read<ProtectedNavigation?>()?.clearPending();
           return const AdminDashboardScreen();
+        }
+        final protectedNav =
+            Provider.of<ProtectedNavigation?>(context, listen: false);
+        if (protectedNav != null && protectedNav.hasPending && auth.canWrite) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            final pending = protectedNav.consumePending();
+            if (pending != null && auth.canWrite) {
+              Navigator.of(context).pushNamed(
+                pending.routeName,
+                arguments: pending.arguments,
+              );
+            }
+          });
         }
         return const MainNavigationScreen();
     }
@@ -207,6 +223,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                     onPressed: auth.isLoading
                         ? null
                         : () async {
+                            context
+                                .read<ProtectedNavigation?>()
+                                ?.clearPending();
                             await auth.logout();
                             if (!context.mounted) return;
                             Navigator.of(context).pushNamedAndRemoveUntil(
