@@ -81,7 +81,7 @@ values (
   '70000000-0000-0000-0000-000000000001', 'approved',
   'Line Clear Nasi Kandar', 'Malaysian',
   '$$', 'Nasi Kandar with Fried Chicken', 'Penang Road', 'Pulau Pinang', 'George Town',
-  5.4188, 100.3328, 'https://instagram.com/lineclear',
+  5.4188, 100.3328, 'https://instagram.com/p/lineclear',
   clock_timestamp(), clock_timestamp()
 );
 
@@ -100,7 +100,7 @@ values (
   '74000000-0000-0000-0000-000000000001',
   'Line Clear Nasi Kandar', 'Penang Road', 'Pulau Pinang', 'George Town',
   'Malaysian', '$$', 'Nasi Kandar with Fried Chicken',
-  'https://instagram.com/lineclear', 'restaurants/line_clear.jpg', 'unclaimed',
+  'https://instagram.com/p/lineclear', 'restaurants/line_clear.jpg', 'unclaimed',
   5.4188, 100.3328
 );
 
