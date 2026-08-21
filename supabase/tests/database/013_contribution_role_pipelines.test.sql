@@ -33,6 +33,13 @@ update public.user_roles
 set role = 'admin', granted_by = 'b1300000-0000-0000-0000-000000000003'
 where user_id = 'b1300000-0000-0000-0000-000000000003' and revoked_at is null;
 
+-- Seed storage objects for uploads
+insert into storage.objects (bucket_id, name, owner)
+values
+  ('spot-images', 'b1300000-0000-0000-0000-000000000001/mansion.jpg', 'b1300000-0000-0000-0000-000000000001'),
+  ('restaurant-images', 'b1300000-0000-0000-0000-000000000002/hameediyah.jpg', 'b1300000-0000-0000-0000-000000000002'),
+  ('restaurant-images', 'b1300000-0000-0000-0000-000000000001/tohsoon.jpg', 'b1300000-0000-0000-0000-000000000001');
+
 -- TEST 1: Tourist flow
 select set_config('request.jwt.claims',
   '{"sub":"b1300000-0000-0000-0000-000000000001","role":"authenticated"}', true);
@@ -197,7 +204,7 @@ select is(
 select lives_ok(
   $cmd$select public.admin_moderate_spot_revision(
     (select current_revision_id from public.spots where owner_id = 'b1300000-0000-0000-0000-000000000001'),
-    'approved', 'Verified location and photo', 2)$cmd$,
+    'approved', 'Verified location and photo', 1)$cmd$,
   'admin approves spot draft');
 
 select is((select count(*) from public.published_spots where name = 'Heritage Mansion'),
@@ -207,7 +214,7 @@ select is((select count(*) from public.published_spots where name = 'Heritage Ma
 select lives_ok(
   $cmd$select public.admin_moderate_restaurant_revision(
     (select current_revision_id from public.restaurants where owner_id = 'b1300000-0000-0000-0000-000000000002'),
-    'approved', 'Verified video and dishes', 2)$cmd$,
+    'approved', 'Verified video and dishes', 1)$cmd$,
   'admin approves restaurant draft');
 
 select is((select count(*) from public.published_restaurants where name = 'Hameediyah Restaurant'),
