@@ -106,9 +106,9 @@ alter table public.restaurant_revisions
 
 alter table public.restaurant_revisions
   add constraint restaurant_revisions_ai_provenance_check check (
-    (ai_assisted = true and ai_source_platform in ('instagram', 'tiktok'))
+    (ai_assisted = true and coalesce(ai_source_platform in ('instagram', 'tiktok'), false))
     or
-    (ai_assisted = false and ai_source_platform is null)
+    (coalesce(ai_assisted, false) = false and ai_source_platform is null)
   );
 
 -- 4. Update create_restaurant_draft with strict provenance validation and explicit ACL
