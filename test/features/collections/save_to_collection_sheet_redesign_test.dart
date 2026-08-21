@@ -100,10 +100,11 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Tap first collection checkbox
-      final checkboxFinder = find.byType(CheckboxListTile);
-      expect(checkboxFinder, findsWidgets);
-      await tester.tap(checkboxFinder.first);
+      // Tap first collection row
+      final firstCol = itineraryCtrl.collections.first;
+      final colFinder = find.text(firstCol.name);
+      expect(colFinder, findsOneWidget);
+      await tester.tap(colFinder);
       await tester.pumpAndSettle();
 
       // Verify button says "Save" and is enabled
@@ -164,8 +165,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Deselect the collection
-      final checkboxFinder = find.byType(CheckboxListTile);
-      await tester.tap(checkboxFinder.first);
+      final colFinder = find.text(defaultCol.name);
+      expect(colFinder, findsOneWidget);
+      await tester.tap(colFinder);
       await tester.pumpAndSettle();
 
       // Button should say "Remove from Saved" and be enabled

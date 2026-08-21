@@ -17,6 +17,9 @@ import '../shared/presentation/contributions/contribution_scaffold.dart';
 import '../shared/presentation/contributions/contribution_section.dart';
 import '../shared/presentation/contributions/contribution_success_view.dart';
 
+import '../constants/malaysia_states.dart';
+import '../features/restaurants/domain/restaurant_taxonomy.dart';
+
 class AddRestaurantScreen extends StatefulWidget {
   const AddRestaurantScreen({super.key, this.source});
 
@@ -33,9 +36,10 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   final _city = TextEditingController();
   final _dishes = TextEditingController();
   final _socialUrl = TextEditingController();
+  final _cuisine = TextEditingController();
 
-  String _state = 'Kuala Lumpur';
-  String _cuisine = 'Malay';
+  late String _displayState;
+  late List<String> _states;
   String _price = r'$';
   Uint8List? _imageBytes;
   String? _imageMimeType;
@@ -43,50 +47,26 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   bool _imageRightsConfirmed = false;
   bool _submittedSuccess = false;
 
-  static const _states = [
-    'Johor',
-    'Kedah',
-    'Kuala Lumpur',
-    'Melaka',
-    'Negeri Sembilan',
-    'Pahang',
-    'Penang',
-    'Perak',
-    'Sabah',
-    'Sarawak',
-    'Selangor',
-  ];
-  static const _cuisines = [
-    'Malay',
-    'Chinese',
-    'Indian',
-    'Japanese',
-    'Korean',
-    'Thai',
-    'Italian',
-    'Kopitiam',
-    'Hawker Food',
-    'Western',
-    'Fusion',
-    'Other',
-  ];
-
   bool get _isRevision => widget.source != null;
 
   @override
   void initState() {
     super.initState();
     final source = widget.source;
+    _displayState = MalaysiaStates.toDisplay(
+      source?.state ?? 'Kuala Lumpur',
+    );
+    _states = MalaysiaStates.getDisplayList(
+      existingRawOrDisplay: source?.state,
+    );
+    _cuisine.text = source?.cuisineType ?? RestaurantTaxonomy.defaultCuisine;
+
     if (source == null) return;
     _name.text = source.name;
     _address.text = source.address;
     _city.text = source.city;
     _dishes.text = source.reviewedDishes;
     _socialUrl.text = source.socialMediaUrl;
-    if (_states.contains(source.state)) _state = source.state;
-    if (_cuisines.contains(source.cuisineType)) {
-      _cuisine = source.cuisineType;
-    }
     _price = source.priceRange;
     _imageRightsConfirmed = true;
   }
@@ -98,6 +78,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     _city.dispose();
     _dishes.dispose();
     _socialUrl.dispose();
+    _cuisine.dispose();
     super.dispose();
   }
 
@@ -299,26 +280,89 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   maxLength: 120,
                 ),
                 const SizedBox(height: AppSpacing.x2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _dropdown(
-                        label: 'Cuisine type',
-                        value: _cuisine,
-                        values: _cuisines,
-                        onChanged: (val) => setState(() => _cuisine = val),
+                Autocomplete<String>(
+                  initialValue: TextEditingValue(text: _cuisine.text),
+                  optionsBuilder: (textEditingValue) {
+                    return RestaurantTaxonomy.filterSuggestions(
+                      textEditingValue.text,
+                    );
+                  },
+                  onSelected: (selection) {
+                    setState(() {
+                      _cuisine.text = selection;
+                    });
+                  },
+                  fieldViewBuilder: (
+                    context,
+                    textEditingController,
+                    focusNode,
+                    onFieldSubmitted,
+                  ) {
+                    return TextFormField(
+                      controller: textEditingController,
+                      focusNode: focusNode,
+                      decoration: const InputDecoration(
+                        labelText: 'Cuisine type',
+                        hintText:
+                            'e.g. Hainanese, Peranakan / Nyonya, Kopitiam',
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.x2),
-                    Expanded(
-                      child: _dropdown(
-                        label: 'Price range',
-                        value: _price,
-                        values: const [r'$', r'$$', r'$$$', r'$$$$'],
-                        onChanged: (val) => setState(() => _price = val),
-                      ),
-                    ),
-                  ],
+                      validator: (value) {
+                        if ((value?.trim().length ?? 0) < 2) {
+                          return 'Enter a cuisine type (at least 2 characters).';
+                        }
+                        return null;
+                      },
+                      onChanged: (val) {
+                        _cuisine.text = val;
+                        setState(() {});
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: AppSpacing.x1),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      'Hainanese',
+                      'Peranakan / Nyonya',
+                      'Chinese / Kopitiam',
+                      'Malay / Traditional',
+                      'Nasi Kandar / Indian Muslim',
+                      'Bakery / Traditional',
+                    ].map((suggestion) {
+                      final isSelected = _cuisine.text.trim() == suggestion;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          label: Text(
+                            suggestion,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : null,
+                            ),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _cuisine.text = suggestion;
+                            });
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                _dropdown(
+                  label: 'Price range',
+                  value: _price,
+                  values: const [r'$', r'$$', r'$$$', r'$$$$'],
+                  onChanged: (val) => setState(() => _price = val),
                 ),
               ],
             ),
@@ -331,9 +375,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
               children: [
                 _dropdown(
                   label: 'State',
-                  value: _state,
+                  value: _displayState,
                   values: _states,
-                  onChanged: (val) => setState(() => _state = val),
+                  onChanged: (val) => setState(() => _displayState = val),
                 ),
                 const SizedBox(height: AppSpacing.x2),
                 _field(
@@ -422,8 +466,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             ContributionReviewSummary(
               items: [
                 MapEntry('Restaurant', _name.text.trim()),
-                MapEntry('Cuisine', _cuisine),
-                MapEntry('Location', '${_city.text.trim()}, $_state'),
+                MapEntry('Cuisine', _cuisine.text.trim()),
+                MapEntry('Location', '${_city.text.trim()}, $_displayState'),
                 MapEntry('Price', _price),
                 MapEntry('Top dishes', _dishes.text.trim()),
               ],
@@ -504,10 +548,14 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     required ValueChanged<String> onChanged,
   }) {
     return DropdownButtonFormField<String>(
+      isExpanded: true,
       initialValue: value,
       decoration: InputDecoration(labelText: label),
       items: values
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .map((item) => DropdownMenuItem(
+                value: item,
+                child: Text(item, overflow: TextOverflow.ellipsis),
+              ))
           .toList(),
       onChanged: (next) {
         if (next != null) onChanged(next);
@@ -539,9 +587,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     final input = RestaurantDraftInput(
       name: _name.text.trim(),
       address: _address.text.trim(),
-      state: _state,
+      state: MalaysiaStates.toCanonical(_displayState),
       city: _city.text.trim(),
-      cuisineType: _cuisine,
+      cuisineType: _cuisine.text.trim(),
       priceRange: _price,
       reviewedDishes: _dishes.text.trim(),
       socialMediaUrl: _socialUrl.text.trim(),

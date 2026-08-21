@@ -188,6 +188,8 @@ class SupabaseGuideRepository implements GuideRepository {
       estimatedDuration: row['estimated_duration'] as String,
       status: status,
       decisionReason: row['decision_reason'] as String?,
+      authorDisplayName: row['author_display_name'] as String?,
+      authorIsCreator: row['author_is_creator'] == true,
     );
   }
 
@@ -196,6 +198,15 @@ class SupabaseGuideRepository implements GuideRepository {
       return AppException(
         code: AppErrorCode.forbidden,
         userMessage: 'UGC_RULES_ACCEPTANCE_REQUIRED',
+        technicalMessage: error.message,
+        cause: error,
+      );
+    }
+    if (error.message.contains('GUIDE_MINIMUM_STOPS_REQUIRED') ||
+        error.message.contains('Invalid guide stops')) {
+      return AppException(
+        code: AppErrorCode.validation,
+        userMessage: 'A travel guide requires at least 2 stops.',
         technicalMessage: error.message,
         cause: error,
       );

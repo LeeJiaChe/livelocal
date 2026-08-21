@@ -7,6 +7,7 @@ import '../../controllers/auth_controller.dart';
 import '../../controllers/itinerary_controller.dart';
 import '../../core/routing/protected_navigation.dart';
 import '../../models/restaurant_model.dart';
+import '../../models/saved_collection_model.dart';
 import '../../models/spot_model.dart';
 import '../../screens/restaurant_detail_screen.dart';
 import '../../screens/spot_detail_screen.dart';
@@ -163,6 +164,8 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
     });
 
     final controller = context.read<ItineraryController>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     final targetCollectionIds = _selectedCollectionIds.toList();
 
     try {
@@ -174,7 +177,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
 
       if (!mounted) return;
 
-      Navigator.pop(context);
+      navigator.pop();
 
       String successMsg;
       if (_isRemovingAll || !result.saved || targetCollectionIds.isEmpty) {
@@ -190,7 +193,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
         successMsg = 'Saved to ${targetCollectionIds.length} collections';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text(successMsg)),
       );
     } catch (error) {
@@ -398,38 +401,10 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                       final isSelected =
                           _selectedCollectionIds.contains(collection.id);
 
-                      return CheckboxListTile(
-                        value: isSelected,
-                        onChanged: (_) => _toggleCollection(collection.id),
-                        title: Text(
-                          collection.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          '${collection.itemCount} ${collection.itemCount == 1 ? "place" : "places"}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        secondary: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? colorScheme.primaryContainer
-                                : colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            isSelected
-                                ? Icons.bookmark
-                                : Icons.bookmark_outline,
-                            color: isSelected
-                                ? colorScheme.onPrimaryContainer
-                                : colorScheme.onSurfaceVariant,
-                            size: 22,
-                          ),
-                        ),
+                      return _CollectionWishlistRow(
+                        collection: collection,
+                        isSelected: isSelected,
+                        onTap: () => _toggleCollection(collection.id),
                       );
                     },
                   ),
@@ -596,6 +571,159 @@ class _CreateCollectionDialogState extends State<_CreateCollectionDialog> {
               : const Text('Create'),
         ),
       ],
+    );
+  }
+}
+
+class _CollectionWishlistRow extends StatelessWidget {
+  const _CollectionWishlistRow({
+    required this.collection,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final SavedCollectionModel collection;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final coverUrl = collection.coverImageUrl?.trim();
+    final hasCover = coverUrl != null && coverUrl.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.x2,
+        vertical: 3,
+      ),
+      child: Material(
+        color: isSelected
+            ? colorScheme.primaryContainer.withValues(alpha: 0.25)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.x2,
+              vertical: 8,
+            ),
+            child: Row(
+              children: [
+                // 56px thumbnail with real cover image or fallback icon
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? colorScheme.primaryContainer
+                          : colorScheme.surfaceContainerHighest,
+                    ),
+                    child: hasCover
+                        ? Image.network(
+                            coverUrl,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return Center(
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    value: progress.expectedTotalBytes != null
+                                        ? progress.cumulativeBytesLoaded /
+                                            progress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) =>
+                                Center(
+                              child: Icon(
+                                Icons.collections_bookmark_outlined,
+                                size: 24,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Icon(
+                              isSelected
+                                  ? Icons.bookmark
+                                  : Icons.collections_bookmark_outlined,
+                              size: 24,
+                              color: isSelected
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x2),
+
+                // Name and place count
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        collection.name,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${collection.itemCount} ${collection.itemCount == 1 ? "place" : "places"}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x2),
+
+                // Modern checkbox selection indicator
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color:
+                        isSelected ? colorScheme.primary : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected
+                          ? colorScheme.primary
+                          : colorScheme.outlineVariant,
+                      width: 2,
+                    ),
+                  ),
+                  child: isSelected
+                      ? const Icon(
+                          Icons.check,
+                          size: 16,
+                          color: Colors.white,
+                        )
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -44,7 +44,7 @@ class _GuideDetailScreenState extends State<GuideDetailScreen> {
     final guide = widget.guide;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Neighbourhood guide'),
+        title: const Text('Travel guide'),
         actions: [
           IconButton(
             tooltip: 'Report this guide',
@@ -99,6 +99,14 @@ class _GuideDetailScreenState extends State<GuideDetailScreen> {
                       Chip(
                         avatar: const Icon(Icons.pin_drop_outlined, size: 18),
                         label: Text('${guide.stops.length} stops'),
+                      ),
+                      Chip(
+                        avatar: const Icon(Icons.person_outline, size: 18),
+                        label: Text(
+                          guide.authorIsCreator
+                              ? 'by ${guide.authorDisplayName ?? "LiveLocal"} · Creator'
+                              : 'by ${guide.authorDisplayName ?? "LiveLocal"}',
+                        ),
                       ),
                     ],
                   ),

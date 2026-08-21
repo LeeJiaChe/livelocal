@@ -158,9 +158,10 @@ void main() {
       expect(find.text('No changes'), findsOneWidget);
 
       // 3. Deselect collection -> CTA becomes 'Remove from Saved'
-      final checkboxFinder = find.byType(CheckboxListTile);
-      expect(checkboxFinder, findsWidgets);
-      await tester.tap(checkboxFinder.first);
+      final firstCol = testItineraryCtrl.collections.first;
+      final colFinder = find.text(firstCol.name);
+      expect(colFinder, findsOneWidget);
+      await tester.tap(colFinder);
       await tester.pumpAndSettle();
 
       expect(find.text('Remove from Saved'), findsOneWidget);

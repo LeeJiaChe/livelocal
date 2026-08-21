@@ -99,6 +99,8 @@ class DemoGuideRepository implements GuideRepository {
       walkingSequence: input.walkingSequence,
       estimatedDuration: input.estimatedDuration.trim(),
       status: 'submitted',
+      authorDisplayName: account.fullName,
+      authorIsCreator: account.appRole == AppRole.influencer,
     );
     _guides.add(guide);
     return guide;
@@ -236,9 +238,14 @@ class DemoGuideRepository implements GuideRepository {
   }
 
   void _validate(GuideDraftInput input) {
+    if (input.stops.length < 2) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage: 'A travel guide requires at least 2 stops.',
+      );
+    }
     if (input.title.trim().length < 3 ||
         input.routeOverview.trim().length < 20 ||
-        input.stops.isEmpty ||
         input.stops.length != input.walkingSequence.length ||
         input.stops.any((item) => item.trim().length < 2) ||
         input.walkingSequence.any((item) => item.trim().length < 2)) {
@@ -268,6 +275,8 @@ class DemoGuideRepository implements GuideRepository {
       estimatedDuration: value.estimatedDuration,
       status: status,
       decisionReason: decisionReason,
+      authorDisplayName: value.authorDisplayName,
+      authorIsCreator: value.authorIsCreator,
     );
   }
 }

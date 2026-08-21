@@ -16,6 +16,9 @@ import '../shared/presentation/contributions/contribution_scaffold.dart';
 import '../shared/presentation/contributions/contribution_section.dart';
 import '../shared/presentation/contributions/contribution_success_view.dart';
 
+import '../constants/malaysia_states.dart';
+import '../features/spots/domain/spot_taxonomy.dart';
+
 class SubmitSpotScreen extends StatefulWidget {
   const SubmitSpotScreen({super.key, this.source});
 
@@ -34,8 +37,10 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   final _bestTime = TextEditingController();
   final _thingsToDo = TextEditingController();
 
-  String _state = 'Penang';
-  String _category = 'Kopitiam';
+  late String _displayState;
+  late String _category;
+  late List<String> _states;
+  late List<String> _categories;
   String _priceRange = r'$';
   Uint8List? _imageBytes;
   String? _imageMimeType;
@@ -44,31 +49,21 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   bool _imageRightsConfirmed = false;
   bool _submittedSuccess = false;
 
-  static const _states = [
-    'Penang',
-    'Kuala Lumpur',
-    'Perak',
-    'Johor',
-    'Selangor',
-    'Melaka',
-    'Sabah',
-    'Sarawak',
-  ];
-  static const _categories = [
-    'Kopitiam',
-    'Pasar Malam',
-    'Indie Cafe',
-    'Park / Walkway',
-    'Hawker Food',
-    'Heritage Spot',
-  ];
-
   bool get _isRevision => widget.source != null;
 
   @override
   void initState() {
     super.initState();
     final source = widget.source;
+    _displayState = MalaysiaStates.toDisplay(
+      source?.state ?? MalaysiaStates.canonicalPenang,
+    );
+    _states = MalaysiaStates.getDisplayList(
+      existingRawOrDisplay: source?.state,
+    );
+    _category = source?.category ?? SpotTaxonomy.defaultCategory;
+    _categories = SpotTaxonomy.getCategoriesForRevision(source?.category);
+
     if (source == null) return;
     _name.text = source.name;
     _description.text = source.description;
@@ -76,8 +71,6 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
     _address.text = source.address;
     _bestTime.text = source.bestTime;
     _thingsToDo.text = source.thingsToDo;
-    if (_states.contains(source.state)) _state = source.state;
-    if (_categories.contains(source.category)) _category = source.category;
     _priceRange = source.priceRange;
     _imageRightsConfirmed = true;
   }
@@ -222,9 +215,9 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                     Expanded(
                       child: _dropdown(
                         label: 'State',
-                        value: _state,
+                        value: _displayState,
                         values: _states,
-                        onChanged: (val) => setState(() => _state = val),
+                        onChanged: (val) => setState(() => _displayState = val),
                       ),
                     ),
                   ],
@@ -338,7 +331,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
               items: [
                 MapEntry('Place name', _name.text.trim()),
                 MapEntry('Category', _category),
-                MapEntry('Location', '${_city.text.trim()}, $_state'),
+                MapEntry('Location', '${_city.text.trim()}, $_displayState'),
                 MapEntry('Price', _priceRange),
               ],
               moderationNotice:
@@ -418,10 +411,14 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
     required ValueChanged<String> onChanged,
   }) {
     return DropdownButtonFormField<String>(
+      isExpanded: true,
       initialValue: value,
       decoration: InputDecoration(labelText: label),
       items: values
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .map((item) => DropdownMenuItem(
+                value: item,
+                child: Text(item, overflow: TextOverflow.ellipsis),
+              ))
           .toList(),
       onChanged: (next) {
         if (next != null) onChanged(next);
@@ -448,7 +445,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
       name: _name.text.trim(),
       category: _category,
       description: _description.text.trim(),
-      state: _state,
+      state: MalaysiaStates.toCanonical(_displayState),
       city: _city.text.trim(),
       address: _address.text.trim(),
       priceRange: _priceRange,

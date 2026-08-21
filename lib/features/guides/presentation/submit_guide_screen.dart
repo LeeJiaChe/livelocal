@@ -13,6 +13,8 @@ import '../../../shared/presentation/contributions/contribution_scaffold.dart';
 import '../../../shared/presentation/contributions/contribution_section.dart';
 import '../../../shared/presentation/contributions/contribution_success_view.dart';
 
+import '../../../constants/malaysia_states.dart';
+
 class SubmitGuideScreen extends StatefulWidget {
   const SubmitGuideScreen({super.key});
 
@@ -24,26 +26,14 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _location = TextEditingController();
-  final _state = TextEditingController(text: 'Penang');
+  String _displayState = MalaysiaStates.displayPenang;
   final _overview = TextEditingController();
   final _duration = TextEditingController(text: '1 day');
   final List<_StopDraft> _stops = [_StopDraft(), _StopDraft()];
   bool _submitting = false;
   bool _submittedSuccess = false;
 
-  static const _states = [
-    'Penang',
-    'Kuala Lumpur',
-    'Melaka',
-    'Perak',
-    'Johor',
-    'Selangor',
-    'Sabah',
-    'Sarawak',
-    'Kedah',
-    'Pahang',
-    'Negeri Sembilan',
-  ];
+  final List<String> _states = MalaysiaStates.getDisplayList();
 
   @override
   void initState() {
@@ -57,7 +47,6 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
   void dispose() {
     _title.dispose();
     _location.dispose();
-    _state.dispose();
     _overview.dispose();
     _duration.dispose();
     for (final stop in _stops) {
@@ -210,16 +199,16 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _states.contains(_state.text)
-                            ? _state.text
-                            : _states.first,
+                        initialValue: _displayState,
                         decoration: const InputDecoration(labelText: 'State'),
                         items: _states
                             .map((s) =>
                                 DropdownMenuItem(value: s, child: Text(s)))
                             .toList(),
                         onChanged: (val) {
-                          if (val != null) setState(() => _state.text = val);
+                          if (val != null) {
+                            setState(() => _displayState = val);
+                          }
                         },
                       ),
                     ),
@@ -363,8 +352,7 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
             ContributionReviewSummary(
               items: [
                 MapEntry('Guide title', _title.text.trim()),
-                MapEntry(
-                    'Area', '${_location.text.trim()}, ${_state.text.trim()}'),
+                MapEntry('Area', '${_location.text.trim()}, $_displayState'),
                 MapEntry('Duration', _duration.text.trim()),
                 MapEntry('Total stops', '${_stops.length} stops'),
               ],
@@ -439,7 +427,7 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
     if (_stops.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('A guide must include at least 2 meaningful stops.'),
+          content: Text('A travel guide requires at least 2 stops.'),
         ),
       );
       return;
@@ -453,7 +441,7 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
     final input = GuideDraftInput(
       title: _title.text.trim(),
       locationName: _location.text.trim(),
-      state: _state.text.trim(),
+      state: MalaysiaStates.toCanonical(_displayState),
       routeOverview: _overview.text.trim(),
       stops: _stops.map((s) => s.stopName.text.trim()).toList(),
       walkingSequence:

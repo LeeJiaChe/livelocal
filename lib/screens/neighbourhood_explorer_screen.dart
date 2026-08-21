@@ -66,12 +66,12 @@ class _NeighbourhoodExplorerScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Neighbourhood guides',
+                      'Explore travel guides',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: AppSpacing.x1),
                     Text(
-                      'Curated walking routes and district explorations curated by the community.',
+                      'Community routes and itineraries shared by travellers and LiveLocal Creators.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color:
                                 Theme.of(context).colorScheme.onSurfaceVariant,
