@@ -35,6 +35,7 @@ export async function handleGenerateRequest(
   deps?: {
     adminClient?: SupabaseClient<EdgeDatabase>;
     fetcher?: typeof fetch;
+    env?: Record<string, string>;
   },
 ): Promise<Response> {
   if (request.method === "OPTIONS") return reply({}, 200);
@@ -42,12 +43,21 @@ export async function handleGenerateRequest(
     return reply({ error: { code: "METHOD_NOT_ALLOWED" } }, 405);
   }
 
+  const getEnv = (key: string): string | undefined => {
+    if (deps?.env && key in deps.env) return deps.env[key];
+    try {
+      return Deno.env.get(key);
+    } catch {
+      return undefined;
+    }
+  };
+
   let usageId: string | null = null;
   let adminClient: SupabaseClient<EdgeDatabase> | null = null;
 
   try {
-    const projectUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const projectUrl = getEnv("SUPABASE_URL");
+    const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
     if (!deps?.adminClient && (!projectUrl || !serviceRoleKey)) {
       throw new GenerationError(
         "SOCIAL_API_NOT_CONFIGURED",
@@ -158,20 +168,20 @@ export async function handleGenerateRequest(
     const source = detection.platform === "tiktok"
       ? await fetchTikTokSource(detection, null, fetcher)
       : await fetchInstagramSource(detection, null, {
-        graphApiVersion: Deno.env.get("META_GRAPH_API_VERSION"),
-        oEmbedAccessToken: Deno.env.get("INSTAGRAM_OEMBED_ACCESS_TOKEN"),
+        graphApiVersion: getEnv("META_GRAPH_API_VERSION"),
+        oEmbedAccessToken: getEnv("INSTAGRAM_OEMBED_ACCESS_TOKEN"),
       }, fetcher);
 
-    const provider = Deno.env.get("AI_PROVIDER")?.trim();
-    const apiKey = Deno.env.get("AI_API_KEY")?.trim() ||
+    const provider = getEnv("AI_PROVIDER")?.trim();
+    const apiKey = getEnv("AI_API_KEY")?.trim() ||
       (provider === "openai_compatible"
-        ? Deno.env.get("OPENAI_API_KEY")?.trim()
+        ? getEnv("OPENAI_API_KEY")?.trim()
         : undefined) ||
       (provider === "gemini_openai_compatible"
-        ? Deno.env.get("GEMINI_API_KEY")?.trim()
+        ? getEnv("GEMINI_API_KEY")?.trim()
         : undefined);
-    const model = Deno.env.get("AI_MODEL")?.trim();
-    const baseUrl = Deno.env.get("AI_API_BASE_URL")?.trim();
+    const model = getEnv("AI_MODEL")?.trim();
+    const baseUrl = getEnv("AI_API_BASE_URL")?.trim();
 
     const candidates = await generateStructuredRestaurantCandidates(source, {
       provider,

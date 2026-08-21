@@ -183,11 +183,6 @@ Deno.test("Instagram profile URL is rejected with PROFILE_IMPORT_NOT_SUPPORTED b
 });
 
 Deno.test("valid TikTok post runs through pipeline without requiring OAuth or SOCIAL_TOKEN_ENCRYPTION_KEY", async () => {
-  Deno.env.delete("SOCIAL_TOKEN_ENCRYPTION_KEY");
-  Deno.env.set("AI_PROVIDER", "openai_compatible");
-  Deno.env.set("AI_API_KEY", "test-key");
-  Deno.env.set("AI_MODEL", "gpt-4o-mini");
-
   let quotaCalled = false;
   let connectionQueried = false;
   let outcomeRecorded = false;
@@ -217,6 +212,11 @@ Deno.test("valid TikTok post runs through pipeline without requiring OAuth or SO
 
   const response = await handleGenerateRequest(request, {
     adminClient: mockAdmin,
+    env: {
+      AI_PROVIDER: "openai_compatible",
+      AI_API_KEY: "test-key",
+      AI_MODEL: "gpt-4o-mini",
+    },
     fetcher: (url, _init) => {
       const urlStr = String(url);
       if (urlStr.includes("tiktok.com/oembed")) {
@@ -277,13 +277,6 @@ Deno.test("valid TikTok post runs through pipeline without requiring OAuth or SO
 });
 
 Deno.test("valid Instagram post/reel runs through pipeline without requiring OAuth or connection data", async () => {
-  Deno.env.delete("SOCIAL_TOKEN_ENCRYPTION_KEY");
-  Deno.env.set("AI_PROVIDER", "openai_compatible");
-  Deno.env.set("AI_API_KEY", "test-key");
-  Deno.env.set("AI_MODEL", "gpt-4o-mini");
-  Deno.env.set("META_GRAPH_API_VERSION", "v20.0");
-  Deno.env.set("INSTAGRAM_OEMBED_ACCESS_TOKEN", "mock-meta-token");
-
   let quotaCalled = false;
   let connectionQueried = false;
 
@@ -309,6 +302,13 @@ Deno.test("valid Instagram post/reel runs through pipeline without requiring OAu
 
   const response = await handleGenerateRequest(request, {
     adminClient: mockAdmin,
+    env: {
+      AI_PROVIDER: "openai_compatible",
+      AI_API_KEY: "test-key",
+      AI_MODEL: "gpt-4o-mini",
+      META_GRAPH_API_VERSION: "v20.0",
+      INSTAGRAM_OEMBED_ACCESS_TOKEN: "mock-meta-token",
+    },
     fetcher: (url, _init) => {
       const urlStr = String(url);
       if (urlStr.includes("instagram_oembed")) {
