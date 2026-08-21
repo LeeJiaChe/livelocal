@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(11);
 
 -- 1. Security & RLS checks on ai_generation_usage
 select ok(
