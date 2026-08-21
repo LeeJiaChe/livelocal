@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(24);
 
 -- 1. Create Tourist, Creator, and Admin users
 insert into auth.users (
@@ -46,8 +46,20 @@ select lives_ok(
   $cmd$select public.create_spot_draft(
     'Heritage Mansion', 'Heritage', 'A historic mansion in George Town with intact courtyard.',
     'Pulau Pinang', 'George Town', '128 Muntri Street', '$$', 'Morning', 'Photography, Walk',
-    'https://images.example.test/mansion.jpg', true, 'image/jpeg', 102400)$cmd$,
-  'tourist can submit spot draft');
+    'b1300000-0000-0000-0000-000000000001/mansion.jpg', null, null)$cmd$,
+  'tourist can create spot draft');
+
+select lives_ok(
+  $cmd$select public.confirm_spot_image_rights(
+    (select current_revision_id from public.spots where owner_id = auth.uid())
+  )$cmd$,
+  'tourist confirms spot image rights');
+
+select lives_ok(
+  $cmd$select public.submit_spot_revision(
+    (select current_revision_id from public.spots where owner_id = auth.uid()), null
+  )$cmd$,
+  'tourist submits spot draft for moderation');
 
 -- Tourist submits guide
 select lives_ok(
@@ -65,8 +77,8 @@ select throws_ok(
     'Penang Nasi Kandar', '120 Chulia Street', 'Pulau Pinang', 'George Town',
     'Nasi Kandar / Indian Muslim', '$', 'Fried chicken, mutton curry',
     'https://www.tiktok.com/@foodie/video/1234567890123456789',
-    'https://images.example.test/kandar.jpg', 'image/jpeg', 102400)$cmd$,
-  '42501', 'Influencer permission required',
+    null, null, null)$cmd$,
+  '42501', 'Approved creator role required',
   'tourist is blocked from submitting restaurant draft');
 
 -- TEST 2: Creator flow
@@ -84,8 +96,14 @@ select lives_ok(
     'Hameediyah Restaurant', '164 Campbell Street', 'Pulau Pinang', 'George Town',
     'Nasi Kandar / Indian Muslim', '$$', 'Murtabak, Duck Biryani',
     'https://www.tiktok.com/@foodie/video/9876543210987654321',
-    'https://images.example.test/hameediyah.jpg', 'image/jpeg', 204800)$cmd$,
-  'creator can submit restaurant draft');
+    'b1300000-0000-0000-0000-000000000002/hameediyah.jpg', null, null)$cmd$,
+  'creator can create restaurant draft');
+
+select lives_ok(
+  $cmd$select public.submit_restaurant_revision(
+    (select current_revision_id from public.restaurants where owner_id = auth.uid()), null
+  )$cmd$,
+  'creator submits restaurant draft for moderation');
 
 -- Creator submits a guide -> SUCCEEDS
 select lives_ok(
@@ -148,7 +166,7 @@ select lives_ok(
     'Toh Soon Cafe', '140 Lebuh Campbell', 'Pulau Pinang', 'George Town',
     'Chinese / Kopitiam', '$', 'Charcoal toast, Half boiled eggs',
     'https://www.tiktok.com/@touristfoodie/video/5554443332221110001',
-    'https://images.example.test/tohsoon.jpg', 'image/jpeg', 102400)$cmd$,
+    'b1300000-0000-0000-0000-000000000001/tohsoon.jpg', null, null)$cmd$,
   'newly approved creator can now submit restaurant draft');
 
 -- TEST 5: Admin Moderation & Attribution verification
@@ -178,8 +196,8 @@ select is(
 -- Admin approves Spot draft
 select lives_ok(
   $cmd$select public.admin_moderate_spot_revision(
-    (select id from public.spot_revisions where name = 'Heritage Mansion'),
-    'approved', 'Verified location and photo', 1)$cmd$,
+    (select current_revision_id from public.spots where owner_id = 'b1300000-0000-0000-0000-000000000001'),
+    'approved', 'Verified location and photo', 2)$cmd$,
   'admin approves spot draft');
 
 select is((select count(*) from public.published_spots where name = 'Heritage Mansion'),
@@ -188,8 +206,8 @@ select is((select count(*) from public.published_spots where name = 'Heritage Ma
 -- Admin approves Restaurant draft
 select lives_ok(
   $cmd$select public.admin_moderate_restaurant_revision(
-    (select id from public.restaurant_revisions where name = 'Hameediyah Restaurant'),
-    'approved', 'Verified video and dishes', 1)$cmd$,
+    (select current_revision_id from public.restaurants where owner_id = 'b1300000-0000-0000-0000-000000000002'),
+    'approved', 'Verified video and dishes', 2)$cmd$,
   'admin approves restaurant draft');
 
 select is((select count(*) from public.published_restaurants where name = 'Hameediyah Restaurant'),
