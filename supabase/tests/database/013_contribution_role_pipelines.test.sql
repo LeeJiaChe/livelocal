@@ -25,10 +25,13 @@ insert into auth.users (
    '{"display_name":"Pipeline Admin"}'::jsonb, clock_timestamp(), clock_timestamp());
 
 -- Assign roles: creator = influencer, admin = admin
-insert into public.user_roles (user_id, role, granted_by)
-values
-  ('b1300000-0000-0000-0000-000000000002', 'influencer', 'b1300000-0000-0000-0000-000000000003'),
-  ('b1300000-0000-0000-0000-000000000003', 'admin', 'b1300000-0000-0000-0000-000000000003');
+update public.user_roles
+set role = 'influencer', granted_by = 'b1300000-0000-0000-0000-000000000003'
+where user_id = 'b1300000-0000-0000-0000-000000000002' and revoked_at is null;
+
+update public.user_roles
+set role = 'admin', granted_by = 'b1300000-0000-0000-0000-000000000003'
+where user_id = 'b1300000-0000-0000-0000-000000000003' and revoked_at is null;
 
 -- TEST 1: Tourist flow
 select set_config('request.jwt.claims',
