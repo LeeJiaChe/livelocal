@@ -78,7 +78,7 @@ void main() {
           errorToThrow: const AppException(
             code: AppErrorCode.unavailable,
             userMessage:
-                'AI-assisted import is not available right now. You can continue entering the restaurant manually.',
+                'AI-assisted import is temporarily unavailable. You can continue entering the restaurant manually.',
           ),
         );
         final localEatsCtrl = LocalEatsController(repository: failingRepo);
@@ -119,7 +119,7 @@ void main() {
         // Verify error message is operator-safe (no mention of API keys, models, or secrets)
         expect(
           find.text(
-            'AI-assisted import is not available right now. You can continue entering the restaurant manually.',
+            'AI-assisted import is temporarily unavailable. You can continue entering the restaurant manually.',
           ),
           findsOneWidget,
         );
@@ -379,6 +379,59 @@ void main() {
         expect(find.text('AI Highlighted Cafe'), findsOneWidget);
         expect(find.text('AI-assisted'), findsOneWidget);
         expect(find.text('Open original review'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      '6. AI_QUOTA_UNAVAILABLE fails closed and maps to temporary unavailable copy with working manual fallback',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 2400));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final authRepo = DemoAuthRepository();
+        final authCtrl = AuthController(repository: authRepo);
+        await authCtrl.login('foodie@livelocal.com', '123456');
+
+        final quotaUnavailableRepo = _FailingLocalEatsRepository(
+          authRepo,
+          errorToThrow: const AppException(
+            code: AppErrorCode.unavailable,
+            userMessage:
+                'AI-assisted import is temporarily unavailable. You can continue entering the restaurant manually.',
+          ),
+        );
+        final localEatsCtrl =
+            LocalEatsController(repository: quotaUnavailableRepo);
+
+        await tester.pumpWidget(
+          buildApp(
+            authController: authCtrl,
+            localEatsController: localEatsCtrl,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(const Key('ai_source_field')),
+          'https://www.tiktok.com/@food/video/99887766',
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('ai_generate_button')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            'AI-assisted import is temporarily unavailable. You can continue entering the restaurant manually.',
+          ),
+          findsOneWidget,
+        );
+
+        // Tap Continue manually
+        expect(
+            find.byKey(const Key('continue_manually_button')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('continue_manually_button')));
+        await tester.pumpAndSettle();
       },
     );
   });

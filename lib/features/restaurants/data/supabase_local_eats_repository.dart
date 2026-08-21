@@ -634,9 +634,10 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         'The social platform is temporarily unavailable. Please try again.',
       'NO_RESTAURANT_REVIEWS' =>
         'No likely restaurant-review posts were found in the recent posts.',
+      'AI_QUOTA_UNAVAILABLE' ||
       'AI_PROVIDER_NOT_CONFIGURED' ||
       'AI_PROVIDER_UNAVAILABLE' =>
-        'AI-assisted import is not available right now. You can continue entering the restaurant manually.',
+        'AI-assisted import is temporarily unavailable. You can continue entering the restaurant manually.',
       'AI_RATE_LIMITED' =>
         'You\'ve used several AI imports recently. Try again later, or continue manually.',
       'MALFORMED_AI_RESPONSE' =>

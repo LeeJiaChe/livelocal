@@ -6,6 +6,7 @@ import type { EdgeDatabase } from "../_shared/database_types.ts";
 import { decryptSocialToken } from "../_shared/social_tokens.ts";
 import { generateStructuredRestaurantCandidates } from "./ai_extractor.ts";
 import {
+  canonicalizeSourceUrlForQuota,
   detectPlatformAndSourceType,
   fetchInstagramSource,
   fetchTikTokSource,
@@ -25,7 +26,7 @@ function reply(body: unknown, status = 200): Response {
 
 async function computeSha256(text: string): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(text.toLowerCase().trim());
+  const data = encoder.encode(text.trim());
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -99,9 +100,10 @@ Deno.serve(async (request) => {
     }
 
     const detection = detectPlatformAndSourceType(sourceUrl);
-    const sourceHash = await computeSha256(sourceUrl);
+    const canonicalSourceUrl = canonicalizeSourceUrlForQuota(sourceUrl);
+    const sourceHash = await computeSha256(canonicalSourceUrl);
 
-    // Enforce quota and duplicate request protection before executing AI call
+    // Enforce quota and duplicate request protection before executing AI call (FAIL CLOSED)
     const { data: quotaData, error: quotaError } = await admin.rpc(
       "check_and_record_ai_generation_quota" as never,
       {
@@ -114,23 +116,27 @@ Deno.serve(async (request) => {
       } as never,
     );
 
-    if (quotaError) {
-      // If RPC fails for internal reasons, fallback gracefully without blocking
-    } else if (quotaData && typeof quotaData === "object") {
-      const quota = quotaData as Record<string, unknown>;
-      if (quota.allowed === false) {
-        const isCooldown = quota.error_code === "COOLDOWN";
-        throw new GenerationError(
-          "AI_RATE_LIMITED",
-          isCooldown
-            ? "Please wait before requesting AI generation for this link again."
-            : "AI generation quota exceeded. Please try again later.",
-          429,
-        );
-      }
-      if (typeof quota.usage_id === "string") {
-        usageId = quota.usage_id;
-      }
+    if (quotaError || !quotaData || typeof quotaData !== "object") {
+      throw new GenerationError(
+        "AI_QUOTA_UNAVAILABLE",
+        "AI quota check is unavailable",
+        503,
+      );
+    }
+
+    const quota = quotaData as Record<string, unknown>;
+    if (quota.allowed === false) {
+      const isCooldown = quota.error_code === "COOLDOWN";
+      throw new GenerationError(
+        "AI_RATE_LIMITED",
+        isCooldown
+          ? "Please wait before requesting AI generation for this link again."
+          : "AI generation quota exceeded. Please try again later.",
+        429,
+      );
+    }
+    if (typeof quota.usage_id === "string") {
+      usageId = quota.usage_id;
     }
 
     const connection = await loadConnection(
@@ -154,11 +160,22 @@ Deno.serve(async (request) => {
       );
     }
 
+    const provider = Deno.env.get("AI_PROVIDER")?.trim();
+    const apiKey = Deno.env.get("AI_API_KEY")?.trim() ||
+      (provider === "openai_compatible"
+        ? Deno.env.get("OPENAI_API_KEY")?.trim()
+        : undefined) ||
+      (provider === "gemini_openai_compatible"
+        ? Deno.env.get("GEMINI_API_KEY")?.trim()
+        : undefined);
+    const model = Deno.env.get("AI_MODEL")?.trim();
+    const baseUrl = Deno.env.get("AI_API_BASE_URL")?.trim();
+
     const candidates = await generateStructuredRestaurantCandidates(source, {
-      provider: Deno.env.get("AI_PROVIDER"),
-      apiKey: Deno.env.get("AI_API_KEY"),
-      model: Deno.env.get("AI_MODEL"),
-      baseUrl: Deno.env.get("AI_API_BASE_URL"),
+      provider,
+      apiKey,
+      model,
+      baseUrl,
     });
 
     if (detection.sourceType === "post" && candidates.length !== 1) {
@@ -208,7 +225,7 @@ Deno.serve(async (request) => {
       ? error
       : new GenerationError(
         "SOCIAL_API_UNAVAILABLE",
-        error instanceof Error ? error.message : "Source analysis failed",
+        "Source analysis failed",
         503,
       );
     return reply(

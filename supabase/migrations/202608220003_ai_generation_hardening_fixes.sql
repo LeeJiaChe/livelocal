@@ -1,0 +1,343 @@
+-- 202608220003_ai_generation_hardening_fixes.sql
+-- LiveLocal: Atomic AI quota locking, strict ACL hardening, legacy overload cleanup, and provenance consistency constraint
+
+-- 1. Ensure public.ai_generation_usage has atomic advisory locking in check_and_record_ai_generation_quota
+create or replace function public.check_and_record_ai_generation_quota(
+  p_user_id uuid,
+  p_source_hash text,
+  p_platform text,
+  p_hourly_limit integer default 10,
+  p_daily_limit integer default 50,
+  p_cooldown_seconds integer default 30
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  now_ts timestamptz := clock_timestamp();
+  last_time timestamptz;
+  hour_cnt integer;
+  day_cnt integer;
+  new_id uuid;
+begin
+  if auth.role() <> 'service_role' then
+    raise exception using errcode = '42501', message = 'Service role authorization required';
+  end if;
+
+  -- Acquire per-user transaction-level advisory lock to serialize concurrent quota checks
+  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text, 0));
+
+  -- 1. Cooldown / duplicate check
+  select created_at into last_time
+  from public.ai_generation_usage
+  where user_id = p_user_id
+    and source_hash = p_source_hash
+    and created_at >= (now_ts - (p_cooldown_seconds || ' seconds')::interval)
+  order by created_at desc
+  limit 1;
+
+  if found then
+    return jsonb_build_object(
+      'allowed', false,
+      'error_code', 'COOLDOWN',
+      'message', 'Please wait before requesting AI generation for this link again.'
+    );
+  end if;
+
+  -- 2. Hourly quota check
+  select count(*) into hour_cnt
+  from public.ai_generation_usage
+  where user_id = p_user_id
+    and created_at >= (now_ts - interval '1 hour');
+
+  if hour_cnt >= p_hourly_limit then
+    return jsonb_build_object(
+      'allowed', false,
+      'error_code', 'HOURLY_LIMIT_EXCEEDED',
+      'message', 'Hourly AI generation quota exceeded.'
+    );
+  end if;
+
+  -- 3. Daily quota check
+  select count(*) into day_cnt
+  from public.ai_generation_usage
+  where user_id = p_user_id
+    and created_at >= (now_ts - interval '24 hours');
+
+  if day_cnt >= p_daily_limit then
+    return jsonb_build_object(
+      'allowed', false,
+      'error_code', 'DAILY_LIMIT_EXCEEDED',
+      'message', 'Daily AI generation quota exceeded.'
+    );
+  end if;
+
+  -- 4. Record usage
+  insert into public.ai_generation_usage (
+    user_id, source_hash, platform, outcome, created_at
+  ) values (
+    p_user_id, p_source_hash, p_platform, 'started', now_ts
+  ) returning id into new_id;
+
+  return jsonb_build_object(
+    'allowed', true,
+    'usage_id', new_id
+  );
+end;
+$$;
+
+revoke all on function public.check_and_record_ai_generation_quota(uuid,text,text,integer,integer,integer) from public, anon, authenticated;
+grant execute on function public.check_and_record_ai_generation_quota(uuid,text,text,integer,integer,integer) to service_role;
+
+-- 2. Drop legacy restaurant RPC overloads (11-parameter and 12-parameter)
+drop function if exists public.create_restaurant_draft(
+  text, text, text, text, text, text, text, text, text, double precision, double precision
+);
+
+drop function if exists public.save_restaurant_revision_draft(
+  uuid, text, text, text, text, text, text, text, text, text, double precision, double precision
+);
+
+-- 3. Add AI provenance consistency constraint on public.restaurant_revisions
+alter table public.restaurant_revisions
+  drop constraint if exists restaurant_revisions_ai_provenance_check;
+
+alter table public.restaurant_revisions
+  add constraint restaurant_revisions_ai_provenance_check check (
+    (ai_assisted = true and ai_source_platform in ('instagram', 'tiktok'))
+    or
+    (ai_assisted = false and ai_source_platform is null)
+  );
+
+-- 4. Update create_restaurant_draft with strict provenance validation and explicit ACL
+create or replace function public.create_restaurant_draft(
+  p_name text,
+  p_address text,
+  p_state text,
+  p_city text,
+  p_cuisine_type text,
+  p_price_range text,
+  p_reviewed_dishes text,
+  p_social_media_url text,
+  p_cover_image_path text default null,
+  p_latitude double precision default null,
+  p_longitude double precision default null,
+  p_ai_assisted boolean default false,
+  p_ai_source_platform text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public, private
+as $$
+declare
+  created_id uuid;
+  revision_id uuid;
+begin
+  if not private.can_use_protected_features()
+      or private.current_role(auth.uid()) <> 'influencer' then
+    raise exception using errcode = '42501',
+      message = 'Approved creator role required';
+  end if;
+  if not private.is_supported_social_url(p_social_media_url, null) then
+    raise exception using errcode = '22023',
+      message = 'Unsupported social URL';
+  end if;
+  if p_cover_image_path is not null
+      and p_cover_image_path !~ (
+        '^' || auth.uid()::text || '/[A-Za-z0-9_-]+\.(jpg|png|webp)$'
+      ) then
+    raise exception using errcode = '22023',
+      message = 'Invalid restaurant image path';
+  end if;
+
+  if coalesce(p_ai_assisted, false) = true then
+    if p_ai_source_platform is null or p_ai_source_platform not in ('instagram', 'tiktok') then
+      raise exception using errcode = '22023',
+        message = 'Valid AI source platform required when AI-assisted';
+    end if;
+  else
+    if p_ai_source_platform is not null then
+      raise exception using errcode = '22023',
+        message = 'AI source platform must be null when not AI-assisted';
+    end if;
+  end if;
+
+  insert into public.restaurants (owner_id)
+  values (auth.uid())
+  returning id into created_id;
+
+  insert into public.restaurant_revisions (
+    restaurant_id, revision_number, author_id, name, address, state, city,
+    cuisine_type, price_range, reviewed_dishes, social_media_url,
+    cover_image_path, latitude, longitude, ai_assisted, ai_source_platform
+  ) values (
+    created_id, 1, auth.uid(), btrim(p_name), btrim(p_address), btrim(p_state),
+    btrim(p_city), btrim(p_cuisine_type), p_price_range,
+    btrim(p_reviewed_dishes), btrim(p_social_media_url), p_cover_image_path,
+    p_latitude, p_longitude, coalesce(p_ai_assisted, false), p_ai_source_platform
+  ) returning id into revision_id;
+
+  update public.restaurants
+  set current_revision_id = revision_id
+  where id = created_id;
+
+  return jsonb_build_object(
+    'restaurant_id', created_id,
+    'revision_id', revision_id,
+    'image_path', p_cover_image_path,
+    'status', 'draft',
+    'probable_duplicates', private.probable_restaurant_duplicates(
+      p_name, p_address, p_latitude, p_longitude, created_id
+    )
+  );
+end;
+$$;
+
+revoke all on function public.create_restaurant_draft(
+  text, text, text, text, text, text, text, text, text, double precision, double precision, boolean, text
+) from public, anon;
+
+grant execute on function public.create_restaurant_draft(
+  text, text, text, text, text, text, text, text, text, double precision, double precision, boolean, text
+) to authenticated;
+
+-- 5. Update save_restaurant_revision_draft with strict provenance validation and explicit ACL
+create or replace function public.save_restaurant_revision_draft(
+  p_source_revision_id uuid,
+  p_name text,
+  p_address text,
+  p_state text,
+  p_city text,
+  p_cuisine_type text,
+  p_price_range text,
+  p_reviewed_dishes text,
+  p_social_media_url text,
+  p_cover_image_path text default null,
+  p_latitude double precision default null,
+  p_longitude double precision default null,
+  p_ai_assisted boolean default false,
+  p_ai_source_platform text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, public, private, storage
+as $$
+declare
+  entity public.restaurants;
+  source public.restaurant_revisions;
+  saved public.restaurant_revisions;
+  next_number integer;
+  selected_image_path text;
+begin
+  if not private.can_use_protected_features()
+      or private.current_role(auth.uid()) <> 'influencer' then
+    raise exception using errcode = '42501', message = 'Approved creator role required';
+  end if;
+  if not private.is_supported_social_url(p_social_media_url, null) then
+    raise exception using errcode = '22023', message = 'Unsupported social URL';
+  end if;
+
+  if coalesce(p_ai_assisted, false) = true then
+    if p_ai_source_platform is null or p_ai_source_platform not in ('instagram', 'tiktok') then
+      raise exception using errcode = '22023',
+        message = 'Valid AI source platform required when AI-assisted';
+    end if;
+  else
+    if p_ai_source_platform is not null then
+      raise exception using errcode = '22023',
+        message = 'AI source platform must be null when not AI-assisted';
+    end if;
+  end if;
+
+  select * into entity
+  from public.restaurants
+  where owner_id = auth.uid()
+    and current_revision_id = p_source_revision_id
+    and ownership_status = 'creator_owned'
+  for update;
+  if not found then
+    raise exception using errcode = 'P0002', message = 'Current owned restaurant revision not found';
+  end if;
+
+  select * into source
+  from public.restaurant_revisions
+  where id = p_source_revision_id
+  for update;
+  if source.status not in (
+    'draft', 'submitted', 'under_review', 'approved', 'rejected', 'withdrawn'
+  ) then
+    raise exception using errcode = '22023', message = 'Restaurant revision cannot be edited';
+  end if;
+
+  selected_image_path := coalesce(p_cover_image_path, source.cover_image_path);
+  if selected_image_path is null
+      or selected_image_path !~ ('^' || auth.uid()::text || '/[A-Za-z0-9_-]+\.(jpg|png|webp)$')
+      or not exists (
+        select 1 from storage.objects object
+        where object.bucket_id = 'restaurant-images'
+          and object.name = selected_image_path
+      ) then
+    raise exception using errcode = '22023', message = 'Valid restaurant image required';
+  end if;
+
+  if source.status = 'draft' then
+    update public.restaurant_revisions
+    set name = btrim(p_name),
+        address = btrim(p_address),
+        state = btrim(p_state),
+        city = btrim(p_city),
+        cuisine_type = btrim(p_cuisine_type),
+        price_range = p_price_range,
+        reviewed_dishes = btrim(p_reviewed_dishes),
+        social_media_url = btrim(p_social_media_url),
+        cover_image_path = selected_image_path,
+        latitude = p_latitude,
+        longitude = p_longitude,
+        ai_assisted = coalesce(p_ai_assisted, false),
+        ai_source_platform = p_ai_source_platform,
+        decision_reason = null
+    where id = source.id
+    returning * into saved;
+  else
+    select coalesce(max(revision_number), 0) + 1 into next_number
+    from public.restaurant_revisions
+    where restaurant_id = entity.id;
+
+    insert into public.restaurant_revisions (
+      restaurant_id, revision_number, author_id, name, address, state, city,
+      cuisine_type, price_range, reviewed_dishes, social_media_url,
+      cover_image_path, latitude, longitude, status,
+      ai_assisted, ai_source_platform
+    ) values (
+      entity.id, next_number, auth.uid(), btrim(p_name), btrim(p_address),
+      btrim(p_state), btrim(p_city), btrim(p_cuisine_type), p_price_range,
+      btrim(p_reviewed_dishes), btrim(p_social_media_url), selected_image_path,
+      p_latitude, p_longitude, 'draft',
+      coalesce(p_ai_assisted, false), p_ai_source_platform
+    ) returning * into saved;
+
+    update public.restaurants
+    set current_revision_id = saved.id
+    where id = entity.id;
+  end if;
+
+  return jsonb_build_object(
+    'restaurant_id', entity.id,
+    'revision_id', saved.id,
+    'status', saved.status,
+    'revision_number', saved.revision_number
+  );
+end;
+$$;
+
+revoke all on function public.save_restaurant_revision_draft(
+  uuid, text, text, text, text, text, text, text, text, text, double precision, double precision, boolean, text
+) from public, anon;
+
+grant execute on function public.save_restaurant_revision_draft(
+  uuid, text, text, text, text, text, text, text, text, text, double precision, double precision, boolean, text
+) to authenticated;

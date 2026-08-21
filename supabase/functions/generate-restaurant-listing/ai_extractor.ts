@@ -60,8 +60,8 @@ export async function generateStructuredRestaurantCandidates(
   configuration: AIProviderConfig,
   fetcher: typeof fetch = fetch,
 ): Promise<GeneratedRestaurantListing[]> {
-  const apiKey = configuration.apiKey?.trim();
-  if (!apiKey) {
+  const rawProvider = configuration.provider?.trim();
+  if (!rawProvider) {
     throw new GenerationError(
       "AI_PROVIDER_NOT_CONFIGURED",
       "AI provider is not configured",
@@ -69,18 +69,11 @@ export async function generateStructuredRestaurantCandidates(
     );
   }
 
-  const provider = (configuration.provider?.trim() ||
-    (configuration.baseUrl?.includes("googleapis.com")
-      ? "gemini_openai_compatible"
-      : "openai_compatible")).toLowerCase();
-
-  let defaultBaseUrl = "https://api.openai.com/v1";
-  let defaultModel = "gpt-4o-mini";
-
-  if (provider === "gemini_openai_compatible") {
-    defaultBaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
-    defaultModel = "gemini-2.5-flash";
-  } else if (provider !== "openai_compatible") {
+  const provider = rawProvider.toLowerCase();
+  if (
+    provider !== "openai_compatible" &&
+    provider !== "gemini_openai_compatible"
+  ) {
     throw new GenerationError(
       "AI_PROVIDER_NOT_CONFIGURED",
       "Unsupported AI provider configured",
@@ -88,11 +81,32 @@ export async function generateStructuredRestaurantCandidates(
     );
   }
 
+  const apiKey = configuration.apiKey?.trim();
+  if (!apiKey) {
+    throw new GenerationError(
+      "AI_PROVIDER_NOT_CONFIGURED",
+      "AI API key is not configured",
+      503,
+    );
+  }
+
+  const model = configuration.model?.trim();
+  if (!model) {
+    throw new GenerationError(
+      "AI_PROVIDER_NOT_CONFIGURED",
+      "AI model is not configured",
+      503,
+    );
+  }
+
+  const defaultBaseUrl = provider === "gemini_openai_compatible"
+    ? "https://generativelanguage.googleapis.com/v1beta/openai"
+    : "https://api.openai.com/v1";
+
   const baseUrl = (configuration.baseUrl?.trim() || defaultBaseUrl).replace(
     /\/+$/,
     "",
   );
-  const model = configuration.model?.trim() || defaultModel;
   const endpoint = `${baseUrl}/chat/completions`;
 
   // Sanitize posts before sending to AI (truncate caption length to prevent abuse)

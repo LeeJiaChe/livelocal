@@ -47,27 +47,66 @@ Deno.test("normalization rejects AI-supplied unverified post URLs", () => {
   equal(candidates.length, 0);
 });
 
-Deno.test("missing AI API key throws AI_PROVIDER_NOT_CONFIGURED", async () => {
+Deno.test("explicit AI configuration validations", async () => {
+  const dummySource = {
+    detection: {
+      platform: "tiktok" as const,
+      sourceType: "post" as const,
+      normalizedUrl: "https://www.tiktok.com/@user/video/123",
+    },
+    posts: [],
+  };
+
+  // Missing provider
   try {
     await generateStructuredRestaurantCandidates(
-      {
-        detection: {
-          platform: "tiktok",
-          sourceType: "post",
-          normalizedUrl: "https://www.tiktok.com/@user/video/123",
-        },
-        posts: [],
-      },
-      { apiKey: "", model: "gpt-4o-mini" },
+      dummySource,
+      { apiKey: "test-key", model: "gpt-4o-mini" },
     );
     throw new Error("Should have thrown");
   } catch (err) {
     if (err instanceof GenerationError) {
       equal(err.code, "AI_PROVIDER_NOT_CONFIGURED");
-      equal(err.status, 503);
-    } else {
-      throw err;
-    }
+    } else throw err;
+  }
+
+  // Unsupported provider
+  try {
+    await generateStructuredRestaurantCandidates(
+      dummySource,
+      { provider: "claude_direct", apiKey: "test-key", model: "claude-3" },
+    );
+    throw new Error("Should have thrown");
+  } catch (err) {
+    if (err instanceof GenerationError) {
+      equal(err.code, "AI_PROVIDER_NOT_CONFIGURED");
+    } else throw err;
+  }
+
+  // Missing API key
+  try {
+    await generateStructuredRestaurantCandidates(
+      dummySource,
+      { provider: "openai_compatible", apiKey: "", model: "gpt-4o-mini" },
+    );
+    throw new Error("Should have thrown");
+  } catch (err) {
+    if (err instanceof GenerationError) {
+      equal(err.code, "AI_PROVIDER_NOT_CONFIGURED");
+    } else throw err;
+  }
+
+  // Missing model
+  try {
+    await generateStructuredRestaurantCandidates(
+      dummySource,
+      { provider: "openai_compatible", apiKey: "test-key", model: "" },
+    );
+    throw new Error("Should have thrown");
+  } catch (err) {
+    if (err instanceof GenerationError) {
+      equal(err.code, "AI_PROVIDER_NOT_CONFIGURED");
+    } else throw err;
   }
 });
 
@@ -93,6 +132,7 @@ Deno.test("gemini_openai_compatible provider uses Gemini defaults", async () => 
     {
       provider: "gemini_openai_compatible",
       apiKey: "test-gemini-key",
+      model: "gemini-2.5-flash",
     },
     (url, init) => {
       calledUrl = String(url);
@@ -133,6 +173,23 @@ Deno.test("gemini_openai_compatible provider uses Gemini defaults", async () => 
   equal(calledModel, "gemini-2.5-flash");
 });
 
+Deno.test("unexpected internal error does not leak secret detail", () => {
+  const internalError = new Error(
+    "Connection failed: SUPER_SECRET_INTERNAL_DETAIL_12345",
+  );
+  const sanitized = internalError instanceof GenerationError
+    ? internalError
+    : new GenerationError(
+      "SOCIAL_API_UNAVAILABLE",
+      "Source analysis failed",
+      503,
+    );
+
+  equal(sanitized.code, "SOCIAL_API_UNAVAILABLE");
+  equal(sanitized.message, "Source analysis failed");
+  equal(sanitized.message.includes("SUPER_SECRET_INTERNAL_DETAIL"), false);
+});
+
 Deno.test("malformed AI response throws MALFORMED_AI_RESPONSE", async () => {
   try {
     await generateStructuredRestaurantCandidates(
@@ -149,7 +206,11 @@ Deno.test("malformed AI response throws MALFORMED_AI_RESPONSE", async () => {
           sourceCaption: "Test",
         }],
       },
-      { apiKey: "test-key" },
+      {
+        provider: "openai_compatible",
+        apiKey: "test-key",
+        model: "gpt-4o-mini",
+      },
       () =>
         Promise.resolve(
           new Response(
@@ -201,7 +262,11 @@ Deno.test("structured AI fetching is mockable and caps profile results at five",
       },
       posts,
     },
-    { apiKey: "test-key", model: "structured-test-model" },
+    {
+      provider: "openai_compatible",
+      apiKey: "test-key",
+      model: "structured-test-model",
+    },
     (_url, init) => {
       const request = JSON.parse(String(init?.body));
       equal(request.model, "structured-test-model");

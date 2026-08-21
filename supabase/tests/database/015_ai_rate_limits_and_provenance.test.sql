@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(22);
 
 -- 1. Security & RLS checks on ai_generation_usage
 select ok(
@@ -29,7 +29,7 @@ select col_type_is('public', 'restaurant_revisions', 'ai_assisted', 'boolean', '
 select col_default_is('public', 'restaurant_revisions', 'ai_assisted', 'false', 'ai_assisted defaults to false');
 select col_type_is('public', 'restaurant_revisions', 'ai_source_platform', 'text', 'ai_source_platform is text');
 
--- 3. Test private quota function behavior
+-- 3. Test quota function behavior (with advisory lock)
 do $$
 declare
   v_user_id uuid := gen_random_uuid();
@@ -135,7 +135,84 @@ $$;
 
 select pass('Daily quota threshold is strictly enforced');
 
--- 6. Test invalid platform check constraint on ai_source_platform
+-- 6. Legacy RPC overload absence
+select ok(
+  to_regprocedure('public.create_restaurant_draft(text,text,text,text,text,text,text,text,text,double precision,double precision)') is null,
+  'legacy 11-param create_restaurant_draft overload does not exist'
+);
+
+select ok(
+  to_regprocedure('public.save_restaurant_revision_draft(uuid,text,text,text,text,text,text,text,text,text,double precision,double precision)') is null,
+  'legacy 12-param save_restaurant_revision_draft overload does not exist'
+);
+
+-- 7. Hardened Function ACL checks
+select ok(
+  not has_function_privilege('anon', 'public.create_restaurant_draft(text,text,text,text,text,text,text,text,text,double precision,double precision,boolean,text)', 'execute'),
+  'anon role cannot execute create_restaurant_draft'
+);
+
+select ok(
+  has_function_privilege('authenticated', 'public.create_restaurant_draft(text,text,text,text,text,text,text,text,text,double precision,double precision,boolean,text)', 'execute'),
+  'authenticated role can execute create_restaurant_draft'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.save_restaurant_revision_draft(uuid,text,text,text,text,text,text,text,text,text,double precision,double precision,boolean,text)', 'execute'),
+  'anon role cannot execute save_restaurant_revision_draft'
+);
+
+select ok(
+  has_function_privilege('authenticated', 'public.save_restaurant_revision_draft(uuid,text,text,text,text,text,text,text,text,text,double precision,double precision,boolean,text)', 'execute'),
+  'authenticated role can execute save_restaurant_revision_draft'
+);
+
+-- 8. AI provenance consistency constraint tests
+select lives_ok(
+  $$
+  insert into public.restaurant_revisions (
+    restaurant_id, revision_number, author_id, name, address, state, city,
+    cuisine_type, price_range, reviewed_dishes, social_media_url,
+    ai_assisted, ai_source_platform
+  ) values (
+    gen_random_uuid(), 1, gen_random_uuid(), 'Manual Test', '123 St', 'Penang', 'George Town',
+    'Malay', '$', 'Laksa', 'https://instagram.com/p/valid1/',
+    false, null
+  )
+  $$,
+  'ai_assisted=false and ai_source_platform=null is allowed'
+);
+
+select lives_ok(
+  $$
+  insert into public.restaurant_revisions (
+    restaurant_id, revision_number, author_id, name, address, state, city,
+    cuisine_type, price_range, reviewed_dishes, social_media_url,
+    ai_assisted, ai_source_platform
+  ) values (
+    gen_random_uuid(), 1, gen_random_uuid(), 'IG Test', '123 St', 'Penang', 'George Town',
+    'Malay', '$', 'Laksa', 'https://instagram.com/p/valid2/',
+    true, 'instagram'
+  )
+  $$,
+  'ai_assisted=true and ai_source_platform=instagram is allowed'
+);
+
+select lives_ok(
+  $$
+  insert into public.restaurant_revisions (
+    restaurant_id, revision_number, author_id, name, address, state, city,
+    cuisine_type, price_range, reviewed_dishes, social_media_url,
+    ai_assisted, ai_source_platform
+  ) values (
+    gen_random_uuid(), 1, gen_random_uuid(), 'TikTok Test', '123 St', 'Penang', 'George Town',
+    'Malay', '$', 'Laksa', 'https://www.tiktok.com/@creator/video/1234567890123456789',
+    true, 'tiktok'
+  )
+  $$,
+  'ai_assisted=true and ai_source_platform=tiktok is allowed'
+);
+
 select throws_ok(
   $$
   insert into public.restaurant_revisions (
@@ -143,14 +220,48 @@ select throws_ok(
     cuisine_type, price_range, reviewed_dishes, social_media_url,
     ai_assisted, ai_source_platform
   ) values (
-    gen_random_uuid(), 1, gen_random_uuid(), 'Test', '123 St', 'Penang', 'George Town',
-    'Malay', '$', 'Laksa', 'https://instagram.com/p/valid/',
-    true, 'invalid_platform'
+    gen_random_uuid(), 1, gen_random_uuid(), 'Invalid Test 1', '123 St', 'Penang', 'George Town',
+    'Malay', '$', 'Laksa', 'https://instagram.com/p/valid3/',
+    false, 'instagram'
   )
   $$,
   '23514',
   null,
-  'ai_source_platform rejects non-whitelisted platforms'
+  'ai_assisted=false and non-null ai_source_platform violates constraint'
+);
+
+select throws_ok(
+  $$
+  insert into public.restaurant_revisions (
+    restaurant_id, revision_number, author_id, name, address, state, city,
+    cuisine_type, price_range, reviewed_dishes, social_media_url,
+    ai_assisted, ai_source_platform
+  ) values (
+    gen_random_uuid(), 1, gen_random_uuid(), 'Invalid Test 2', '123 St', 'Penang', 'George Town',
+    'Malay', '$', 'Laksa', 'https://instagram.com/p/valid4/',
+    true, null
+  )
+  $$,
+  '23514',
+  null,
+  'ai_assisted=true and null ai_source_platform violates constraint'
+);
+
+select throws_ok(
+  $$
+  insert into public.restaurant_revisions (
+    restaurant_id, revision_number, author_id, name, address, state, city,
+    cuisine_type, price_range, reviewed_dishes, social_media_url,
+    ai_assisted, ai_source_platform
+  ) values (
+    gen_random_uuid(), 1, gen_random_uuid(), 'Invalid Test 3', '123 St', 'Penang', 'George Town',
+    'Malay', '$', 'Laksa', 'https://instagram.com/p/valid5/',
+    true, 'youtube'
+  )
+  $$,
+  '23514',
+  null,
+  'ai_assisted=true and invalid ai_source_platform violates constraint'
 );
 
 select * from finish();

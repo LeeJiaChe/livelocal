@@ -93,6 +93,50 @@ export function detectPlatformAndSourceType(url: string): DetectedSource {
   throw new GenerationError("INVALID_SOURCE_URL", "Unsupported source URL");
 }
 
+export function canonicalizeSourceUrlForQuota(url: string): string {
+  const detected = detectPlatformAndSourceType(url);
+  const parsed = new URL(url.trim());
+  let host = parsed.hostname.toLowerCase();
+  if (host.startsWith("www.")) {
+    host = host.slice(4);
+  }
+  const rawSegments = parsed.pathname.split("/").filter(Boolean);
+
+  let canonicalPath = "";
+  if (detected.platform === "instagram") {
+    if (detected.sourceType === "post" && rawSegments.length === 2) {
+      const type = rawSegments[0].toLowerCase();
+      const code = rawSegments[1];
+      canonicalPath = `/${type}/${code}`;
+    } else if (detected.sourceType === "profile" && rawSegments.length === 1) {
+      canonicalPath = `/${rawSegments[0].toLowerCase()}`;
+    }
+  } else if (detected.platform === "tiktok") {
+    if (
+      detected.sourceType === "post" && rawSegments.length === 3 &&
+      rawSegments[0].startsWith("@") && rawSegments[1].toLowerCase() === "video"
+    ) {
+      canonicalPath = `/${rawSegments[0].toLowerCase()}/video/${
+        rawSegments[2]
+      }`;
+    } else if (
+      detected.sourceType === "post" &&
+      ["vm.tiktok.com", "vt.tiktok.com"].includes(host) &&
+      rawSegments.length === 1
+    ) {
+      canonicalPath = `/${rawSegments[0]}`;
+    } else if (detected.sourceType === "profile" && rawSegments.length === 1) {
+      canonicalPath = `/${rawSegments[0].toLowerCase()}`;
+    }
+  }
+
+  if (!canonicalPath) {
+    canonicalPath = `/${rawSegments.join("/")}`;
+  }
+
+  return `https://${host}${canonicalPath}`;
+}
+
 function assertMatchingProfile(
   detected: DetectedSource,
   connection: SocialConnection | null,
