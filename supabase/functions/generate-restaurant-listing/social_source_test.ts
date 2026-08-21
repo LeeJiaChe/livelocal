@@ -1,9 +1,42 @@
 import {
+  canonicalizeSourceUrlForQuota,
   detectPlatformAndSourceType,
   fetchInstagramSource,
   fetchTikTokSource,
 } from "./social_source.ts";
 import { GenerationError } from "./types.ts";
+
+Deno.test("canonicalizeSourceUrlForQuota normalizes query params and casing while preserving shortcodes", () => {
+  const ig1 = canonicalizeSourceUrlForQuota(
+    "https://instagram.com/reel/AbCdEf/?utm_source=share&igsh=123#frag",
+  );
+  const ig2 = canonicalizeSourceUrlForQuota(
+    "https://www.instagram.com/reel/AbCdEf/",
+  );
+  equal(ig1, "https://instagram.com/reel/AbCdEf");
+  equal(ig2, "https://instagram.com/reel/AbCdEf");
+  equal(ig1, ig2);
+
+  const tt1 = canonicalizeSourceUrlForQuota(
+    "https://www.tiktok.com/@FoodieGirl/video/7123456789012345678?is_from_webapp=1&sender_device=pc",
+  );
+  const tt2 = canonicalizeSourceUrlForQuota(
+    "https://tiktok.com/@foodiegirl/video/7123456789012345678",
+  );
+  equal(tt1, "https://tiktok.com/@foodiegirl/video/7123456789012345678");
+  equal(tt2, "https://tiktok.com/@foodiegirl/video/7123456789012345678");
+  equal(tt1, tt2);
+
+  const ttShort1 = canonicalizeSourceUrlForQuota(
+    "https://vm.tiktok.com/ZM8eX1Y2z/?t=1",
+  );
+  const ttShort2 = canonicalizeSourceUrlForQuota(
+    "https://vm.tiktok.com/ZM8eX1Y2z",
+  );
+  equal(ttShort1, "https://vm.tiktok.com/ZM8eX1Y2z");
+  equal(ttShort2, "https://vm.tiktok.com/ZM8eX1Y2z");
+  equal(ttShort1, ttShort2);
+});
 
 Deno.test("detects supported post and profile URLs", () => {
   equal(

@@ -24,6 +24,8 @@ class RestaurantModel {
   final bool isOwnedByCurrentUser;
   final String? decisionReason;
   final bool hasApprovedRevision;
+  final bool aiAssisted;
+  final String? aiSourcePlatform;
 
   RestaurantModel({
     required this.id,
@@ -51,6 +53,8 @@ class RestaurantModel {
     this.isOwnedByCurrentUser = false,
     this.decisionReason,
     this.hasApprovedRevision = false,
+    this.aiAssisted = false,
+    this.aiSourcePlatform,
   });
 
   Map<String, dynamic> toMap() => {
@@ -78,6 +82,8 @@ class RestaurantModel {
         'social_link_status': socialLinkStatus,
         'decision_reason': decisionReason,
         'has_approved_revision': hasApprovedRevision,
+        'ai_assisted': aiAssisted,
+        'ai_source_platform': aiSourcePlatform,
       };
 
   factory RestaurantModel.fromMap(Map<String, dynamic> map) => RestaurantModel(
@@ -106,5 +112,7 @@ class RestaurantModel {
         isOwnedByCurrentUser: map['is_owned_by_current_user'] ?? false,
         decisionReason: map['decision_reason'],
         hasApprovedRevision: map['has_approved_revision'] ?? false,
+        aiAssisted: map['ai_assisted'] == true,
+        aiSourcePlatform: map['ai_source_platform'] as String?,
       );
 }

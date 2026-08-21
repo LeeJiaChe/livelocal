@@ -453,6 +453,12 @@ class LocalEatsController with ChangeNotifier {
   void filterByCuisine(String cuisine) => setFilter(cuisine: cuisine);
   void filterByBudget(String budget) => setFilter(budget: budget);
 
+  @visibleForTesting
+  void setPendingRestaurantsForTesting(List<RestaurantModel> restaurants) {
+    _pendingRestaurants = List.from(restaurants);
+    notifyListeners();
+  }
+
   String _message(Object error, String fallback) {
     return error is AppException ? error.userMessage : fallback;
   }

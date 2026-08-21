@@ -15,6 +15,13 @@ const REQUIRED_LISTING_FIELDS = [
   "reviewedDishes",
 ] as const;
 
+export type AIProviderConfig = {
+  provider?: string;
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
+};
+
 const nullableString = { type: ["string", "null"] };
 const candidateSchema = {
   type: "object",
@@ -50,29 +57,77 @@ const candidateSchema = {
 
 export async function generateStructuredRestaurantCandidates(
   source: SocialSourceContent,
-  configuration: { apiKey?: string; model?: string; baseUrl?: string },
+  configuration: AIProviderConfig,
   fetcher: typeof fetch = fetch,
 ): Promise<GeneratedRestaurantListing[]> {
-  if (!configuration.apiKey || !configuration.model) {
+  const rawProvider = configuration.provider?.trim();
+  if (!rawProvider) {
     throw new GenerationError(
-      "AI_PROVIDER_UNAVAILABLE",
+      "AI_PROVIDER_NOT_CONFIGURED",
       "AI provider is not configured",
       503,
     );
   }
-  const endpoint = `${
-    (configuration.baseUrl ?? "https://api.openai.com/v1").replace(/\/$/, "")
-  }/chat/completions`;
+
+  const provider = rawProvider.toLowerCase();
+  if (
+    provider !== "openai_compatible" &&
+    provider !== "gemini_openai_compatible"
+  ) {
+    throw new GenerationError(
+      "AI_PROVIDER_NOT_CONFIGURED",
+      "Unsupported AI provider configured",
+      503,
+    );
+  }
+
+  const apiKey = configuration.apiKey?.trim();
+  if (!apiKey) {
+    throw new GenerationError(
+      "AI_PROVIDER_NOT_CONFIGURED",
+      "AI API key is not configured",
+      503,
+    );
+  }
+
+  const model = configuration.model?.trim();
+  if (!model) {
+    throw new GenerationError(
+      "AI_PROVIDER_NOT_CONFIGURED",
+      "AI model is not configured",
+      503,
+    );
+  }
+
+  const defaultBaseUrl = provider === "gemini_openai_compatible"
+    ? "https://generativelanguage.googleapis.com/v1beta/openai"
+    : "https://api.openai.com/v1";
+
+  const baseUrl = (configuration.baseUrl?.trim() || defaultBaseUrl).replace(
+    /\/+$/,
+    "",
+  );
+  const endpoint = `${baseUrl}/chat/completions`;
+
+  // Sanitize posts before sending to AI (truncate caption length to prevent abuse)
+  const sanitizedPosts = source.posts.map((p) => ({
+    sourcePlatform: p.sourcePlatform,
+    sourcePostUrl: p.sourcePostUrl,
+    influencerUsername: p.influencerUsername,
+    sourceCaption: p.sourceCaption ? p.sourceCaption.slice(0, 2000) : null,
+    createdAt: p.createdAt,
+  }));
+
   let response: Response;
   try {
     response = await fetcher(endpoint, {
       method: "POST",
       headers: {
-        authorization: `Bearer ${configuration.apiKey}`,
+        authorization: `Bearer ${apiKey}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: configuration.model,
+        model,
         response_format: {
           type: "json_schema",
           json_schema: {
@@ -103,7 +158,7 @@ export async function generateStructuredRestaurantCandidates(
               task: "Extract editable LiveLocal restaurant listing data",
               sourceType: source.detection.sourceType,
               platform: source.detection.platform,
-              posts: source.posts,
+              posts: sanitizedPosts,
             }),
           },
         ],
@@ -124,6 +179,7 @@ export async function generateStructuredRestaurantCandidates(
       503,
     );
   }
+
   if (!response.ok) {
     throw new GenerationError(
       "AI_PROVIDER_UNAVAILABLE",
@@ -131,17 +187,28 @@ export async function generateStructuredRestaurantCandidates(
       503,
     );
   }
+
   try {
     const envelope = await response.json();
-    const content = envelope.choices?.[0]?.message?.content;
-    const parsed = JSON.parse(content);
+    if (
+      !envelope || !Array.isArray(envelope.choices) ||
+      envelope.choices.length === 0
+    ) {
+      throw new Error("Missing choices in response");
+    }
+    const messageContent = envelope.choices[0]?.message?.content;
+    if (typeof messageContent !== "string" || !messageContent.trim()) {
+      throw new Error("Empty message content in choices");
+    }
+    const parsed = JSON.parse(messageContent);
     const normalized = normalizeCandidates(parsed.candidates, source.posts);
     return (source.detection.sourceType === "profile"
       ? normalized.filter((candidate) =>
         candidate.restaurantName || candidate.reviewedDishes.length > 0
       )
       : normalized).slice(0, 5);
-  } catch {
+  } catch (err) {
+    if (err instanceof GenerationError) throw err;
     throw new GenerationError(
       "MALFORMED_AI_RESPONSE",
       "Malformed AI response",

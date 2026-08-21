@@ -172,6 +172,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
           socialMediaUrl: row['social_media_url'] as String,
           coverPhotoUrl: await _signedImage(row['cover_image_path'] as String?),
           status: row['status'] as String,
+          aiAssisted: row['ai_assisted'] == true,
+          aiSourcePlatform: row['ai_source_platform'] as String?,
         );
       }));
     } on PostgrestException catch (error) {
@@ -241,6 +243,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         'p_cover_image_path': imagePath,
         'p_latitude': input.latitude,
         'p_longitude': input.longitude,
+        'p_ai_assisted': input.aiAssisted,
+        'p_ai_source_platform': input.aiSourcePlatform,
       });
       final row = Map<String, dynamic>.from(response as Map);
       final duplicates =
@@ -318,6 +322,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         'p_cover_image_path': uploadedPath,
         'p_latitude': input.latitude,
         'p_longitude': input.longitude,
+        'p_ai_assisted': input.aiAssisted,
+        'p_ai_source_platform': input.aiSourcePlatform,
       });
       return _draftResult(Map<String, dynamic>.from(response as Map));
     } on StorageException catch (error) {
@@ -628,8 +634,12 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         'The social platform is temporarily unavailable. Please try again.',
       'NO_RESTAURANT_REVIEWS' =>
         'No likely restaurant-review posts were found in the recent posts.',
+      'AI_QUOTA_UNAVAILABLE' ||
+      'AI_PROVIDER_NOT_CONFIGURED' ||
       'AI_PROVIDER_UNAVAILABLE' =>
-        'AI generation is temporarily unavailable. Please try again.',
+        'AI-assisted import is temporarily unavailable. You can continue entering the restaurant manually.',
+      'AI_RATE_LIMITED' =>
+        'You\'ve used several AI imports recently. Try again later, or continue manually.',
       'MALFORMED_AI_RESPONSE' =>
         'The AI returned an unreadable result. Please try again.',
       'GENERATION_TIMEOUT' => 'The analysis timed out. Please try again.',

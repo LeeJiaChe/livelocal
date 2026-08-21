@@ -10,6 +10,7 @@ class AdminQueueCard extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.details,
+    this.badge,
     required this.status,
     required this.actions,
     this.onTap,
@@ -20,6 +21,7 @@ class AdminQueueCard extends StatelessWidget {
   final String title;
   final String? subtitle;
   final String? details;
+  final Widget? badge;
   final String status;
   final List<Widget> actions;
   final VoidCallback? onTap;
@@ -67,6 +69,10 @@ class AdminQueueCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (badge != null) ...[
+                  const SizedBox(width: 8),
+                  badge!,
+                ],
                 const SizedBox(width: 8),
                 AdminStatusChip(status: status),
               ],
