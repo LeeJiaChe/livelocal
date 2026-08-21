@@ -92,14 +92,16 @@ where id = '73000000-0000-0000-0000-000000000001';
 
 insert into public.published_restaurants (
   id, revision_id, name, address, state, city, cuisine_type, price_range,
-  reviewed_dishes, cover_image_path, latitude, longitude
+  reviewed_dishes, social_media_url, cover_image_path, ownership_status,
+  latitude, longitude
 )
 values (
   '73000000-0000-0000-0000-000000000001',
   '74000000-0000-0000-0000-000000000001',
   'Line Clear Nasi Kandar', 'Penang Road', 'Pulau Pinang', 'George Town',
   'Malaysian', '$$', 'Nasi Kandar with Fried Chicken',
-  'restaurants/line_clear.jpg', 5.4188, 100.3328
+  'https://instagram.com/lineclear', 'restaurants/line_clear.jpg', 'unclaimed',
+  5.4188, 100.3328
 );
 
 -- Test 1: Anonymous cannot call fetch_saved_route_candidates
