@@ -37,7 +37,7 @@ declare
   v_usage_id uuid;
 begin
   -- First call: allowed
-  v_res := private.check_and_record_ai_generation_quota(
+  v_res := public.check_and_record_ai_generation_quota(
     v_user_id, 'hash_abc123', 'tiktok', 10, 50, 30
   );
   if (v_res->>'allowed')::boolean is not true then
@@ -46,7 +46,7 @@ begin
   v_usage_id := (v_res->>'usage_id')::uuid;
 
   -- Immediate duplicate with same hash: blocked by cooldown
-  v_res := private.check_and_record_ai_generation_quota(
+  v_res := public.check_and_record_ai_generation_quota(
     v_user_id, 'hash_abc123', 'tiktok', 10, 50, 30
   );
   if (v_res->>'allowed')::boolean is not false or v_res->>'error_code' != 'COOLDOWN' then
@@ -54,7 +54,7 @@ begin
   end if;
 
   -- Different hash: allowed (under hourly limit)
-  v_res := private.check_and_record_ai_generation_quota(
+  v_res := public.check_and_record_ai_generation_quota(
     v_user_id, 'hash_def456', 'instagram', 10, 50, 30
   );
   if (v_res->>'allowed')::boolean is not true then
@@ -62,7 +62,7 @@ begin
   end if;
 
   -- Record outcome
-  perform private.record_ai_generation_outcome(v_usage_id, 'succeeded');
+  perform public.record_ai_generation_outcome(v_usage_id, 'succeeded');
 end;
 $$;
 
@@ -77,7 +77,7 @@ declare
 begin
   -- Fill hourly quota (limit = 3 for testing)
   for i in 1..3 loop
-    v_res := private.check_and_record_ai_generation_quota(
+    v_res := public.check_and_record_ai_generation_quota(
       v_user_id, 'hash_test_' || i, 'tiktok', 3, 50, 0
     );
     if (v_res->>'allowed')::boolean is not true then
@@ -86,7 +86,7 @@ begin
   end loop;
 
   -- 4th request: blocked by hourly limit
-  v_res := private.check_and_record_ai_generation_quota(
+  v_res := public.check_and_record_ai_generation_quota(
     v_user_id, 'hash_test_4', 'tiktok', 3, 50, 0
   );
   if (v_res->>'allowed')::boolean is not false or v_res->>'error_code' != 'HOURLY_LIMIT_EXCEEDED' then
@@ -106,7 +106,7 @@ declare
 begin
   -- Fill daily quota (limit = 2 for testing)
   for i in 1..2 loop
-    v_res := private.check_and_record_ai_generation_quota(
+    v_res := public.check_and_record_ai_generation_quota(
       v_user_id, 'hash_daily_' || i, 'instagram', 100, 2, 0
     );
     if (v_res->>'allowed')::boolean is not true then
@@ -115,7 +115,7 @@ begin
   end loop;
 
   -- 3rd request: blocked by daily limit
-  v_res := private.check_and_record_ai_generation_quota(
+  v_res := public.check_and_record_ai_generation_quota(
     v_user_id, 'hash_daily_3', 'instagram', 100, 2, 0
   );
   if (v_res->>'allowed')::boolean is not false or v_res->>'error_code' != 'DAILY_LIMIT_EXCEEDED' then

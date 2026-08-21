@@ -176,11 +176,15 @@ Deno.serve(async (request) => {
       );
     }
 
-    if (usageId && adminClient) {
-      await adminClient.rpc("record_ai_generation_outcome" as never, {
-        p_usage_id: usageId,
-        p_outcome: "succeeded",
-      } as never).catch(() => {});
+    if (usageId) {
+      try {
+        await admin.rpc("record_ai_generation_outcome" as never, {
+          p_usage_id: usageId,
+          p_outcome: "succeeded",
+        } as never);
+      } catch (_) {
+        // ignore telemetry error
+      }
     }
 
     return reply({
@@ -190,17 +194,21 @@ Deno.serve(async (request) => {
     });
   } catch (error) {
     if (usageId && adminClient) {
-      await adminClient.rpc("record_ai_generation_outcome" as never, {
-        p_usage_id: usageId,
-        p_outcome: "failed",
-      } as never).catch(() => {});
+      try {
+        await adminClient.rpc("record_ai_generation_outcome" as never, {
+          p_usage_id: usageId,
+          p_outcome: "failed",
+        } as never);
+      } catch (_) {
+        // ignore telemetry error
+      }
     }
 
     const typed = error instanceof GenerationError
       ? error
       : new GenerationError(
         "SOCIAL_API_UNAVAILABLE",
-        "Source analysis failed",
+        error instanceof Error ? error.message : "Source analysis failed",
         503,
       );
     return reply(

@@ -26,7 +26,7 @@ revoke all on table public.ai_generation_usage
 grant all on table public.ai_generation_usage to service_role;
 
 -- Quota checking and usage tracking function for Edge Functions
-create or replace function private.check_and_record_ai_generation_quota(
+create or replace function public.check_and_record_ai_generation_quota(
   p_user_id uuid,
   p_source_hash text,
   p_platform text,
@@ -37,7 +37,7 @@ create or replace function private.check_and_record_ai_generation_quota(
 returns jsonb
 language plpgsql
 security definer
-set search_path = pg_catalog, public, private
+set search_path = pg_catalog, public
 as $$
 declare
   v_recent_duplicate timestamptz;
@@ -110,14 +110,14 @@ begin
 end;
 $$;
 
-create or replace function private.record_ai_generation_outcome(
+create or replace function public.record_ai_generation_outcome(
   p_usage_id uuid,
   p_outcome text
 )
 returns void
 language plpgsql
 security definer
-set search_path = pg_catalog, public, private
+set search_path = pg_catalog, public
 as $$
 begin
   update public.ai_generation_usage
@@ -126,14 +126,14 @@ begin
 end;
 $$;
 
-revoke all on function private.check_and_record_ai_generation_quota(uuid, text, text, integer, integer, integer)
+revoke all on function public.check_and_record_ai_generation_quota(uuid, text, text, integer, integer, integer)
   from public, anon, authenticated;
-grant execute on function private.check_and_record_ai_generation_quota(uuid, text, text, integer, integer, integer)
+grant execute on function public.check_and_record_ai_generation_quota(uuid, text, text, integer, integer, integer)
   to service_role;
 
-revoke all on function private.record_ai_generation_outcome(uuid, text)
+revoke all on function public.record_ai_generation_outcome(uuid, text)
   from public, anon, authenticated;
-grant execute on function private.record_ai_generation_outcome(uuid, text)
+grant execute on function public.record_ai_generation_outcome(uuid, text)
   to service_role;
 
 -- AI Provenance on restaurant revisions
