@@ -5,8 +5,11 @@ import 'package:provider/provider.dart';
 import '../controllers/auth_controller.dart';
 import '../core/config/legal_urls.dart';
 import '../features/auth/domain/account_identity.dart';
+import '../features/influencer_applications/domain/influencer_application_repository.dart';
+import '../features/influencer_applications/presentation/influencer_application_controller.dart';
 import '../features/moderation/presentation/moderation_controller.dart';
 import '../features/profile/presentation/account_controller.dart';
+import '../shared/presentation/contributions/contribution_status_chip.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, this.launcher});
@@ -64,9 +67,23 @@ class _AuthenticatedProfileView extends StatelessWidget {
 
                 // 2. CREATOR CALLOUT (Tourist only)
                 if (user.role == 'tourist') ...[
-                  _CreatorCalloutCard(
-                    onApply: () =>
-                        Navigator.pushNamed(context, '/creator-application'),
+                  Builder(
+                    builder: (ctx) {
+                      InfluencerApplication? application;
+                      try {
+                        application =
+                            ctx.watch<InfluencerApplicationController>().mine;
+                      } catch (_) {
+                        application = null;
+                      }
+                      return _CreatorCalloutCard(
+                        application: application,
+                        onApply: () => Navigator.pushNamed(
+                          context,
+                          '/creator-application',
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -704,36 +721,45 @@ class _EditProfileBottomSheetState extends State<_EditProfileBottomSheet> {
 }
 
 class _CreatorCalloutCard extends StatelessWidget {
-  const _CreatorCalloutCard({required this.onApply});
+  const _CreatorCalloutCard({
+    this.application,
+    required this.onApply,
+  });
+
+  final InfluencerApplication? application;
   final VoidCallback onApply;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final hasActiveApplication = application != null &&
+        ['submitted', 'under_review', 'needs_information', 'rejected']
+            .contains(application!.status);
 
     return Card(
       elevation: 0,
-      color: colorScheme.primaryContainer.withValues(alpha: 0.7),
+      color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
-          color: colorScheme.primary.withValues(alpha: 0.2),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.surface,
+                color: colorScheme.secondaryContainer,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.auto_awesome,
-                color: colorScheme.primary,
+                color: colorScheme.onSecondaryContainer,
                 size: 26,
               ),
             ),
@@ -742,19 +768,29 @@ class _CreatorCalloutCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Become a local creator',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Become a LiveLocal Creator',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (hasActiveApplication)
+                        ContributionStatusChip(
+                          status: application!.status,
+                          compact: true,
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Share trusted local food recommendations and creator-led discoveries.',
+                    'Creators share trusted restaurant recommendations and help travellers discover great local food.\n\nApplications are reviewed before Creator tools are unlocked.',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onPrimaryContainer
-                          .withValues(alpha: 0.85),
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -763,7 +799,11 @@ class _CreatorCalloutCard extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                     ),
-                    child: const Text('Apply as creator'),
+                    child: Text(
+                      hasActiveApplication
+                          ? 'View application status'
+                          : 'Apply to become a Creator',
+                    ),
                   ),
                 ],
               ),

@@ -1,14 +1,23 @@
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../app/theme/app_spacing.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/spot_controller.dart';
+import '../core/routing/protected_navigation.dart';
 import '../features/spots/domain/spot_repository.dart';
 import '../models/spot_model.dart';
+import '../shared/presentation/contributions/contribution_header.dart';
+import '../shared/presentation/contributions/contribution_image_picker.dart';
+import '../shared/presentation/contributions/contribution_review_summary.dart';
+import '../shared/presentation/contributions/contribution_scaffold.dart';
+import '../shared/presentation/contributions/contribution_section.dart';
+import '../shared/presentation/contributions/contribution_success_view.dart';
+
+import '../constants/malaysia_states.dart';
+import '../features/spots/domain/spot_taxonomy.dart';
 
 class SubmitSpotScreen extends StatefulWidget {
   const SubmitSpotScreen({super.key, this.source});
@@ -28,33 +37,17 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   final _bestTime = TextEditingController();
   final _thingsToDo = TextEditingController();
 
-  String _state = 'Penang';
-  String _category = 'Kopitiam';
+  String? _displayState;
+  String? _category;
+  late List<String> _states;
+  late List<String> _categories;
   String _priceRange = r'$';
   Uint8List? _imageBytes;
   String? _imageMimeType;
   SpotDraftResult? _createdDraft;
   bool _submitting = false;
   bool _imageRightsConfirmed = false;
-
-  static const _states = [
-    'Penang',
-    'Kuala Lumpur',
-    'Perak',
-    'Johor',
-    'Selangor',
-    'Melaka',
-    'Sabah',
-    'Sarawak',
-  ];
-  static const _categories = [
-    'Kopitiam',
-    'Pasar Malam',
-    'Indie Cafe',
-    'Park / Walkway',
-    'Hawker Food',
-    'Heritage Spot',
-  ];
+  bool _submittedSuccess = false;
 
   bool get _isRevision => widget.source != null;
 
@@ -62,6 +55,14 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   void initState() {
     super.initState();
     final source = widget.source;
+    _displayState =
+        source != null ? MalaysiaStates.toDisplay(source.state) : null;
+    _states = MalaysiaStates.getDisplayList(
+      existingRawOrDisplay: source?.state,
+    );
+    _category = source?.category;
+    _categories = SpotTaxonomy.getCategoriesForRevision(source?.category);
+
     if (source == null) return;
     _name.text = source.name;
     _description.text = source.description;
@@ -69,9 +70,8 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
     _address.text = source.address;
     _bestTime.text = source.bestTime;
     _thingsToDo.text = source.thingsToDo;
-    if (_states.contains(source.state)) _state = source.state;
-    if (_categories.contains(source.category)) _category = source.category;
     _priceRange = source.priceRange;
+    _imageRightsConfirmed = true;
   }
 
   @override
@@ -89,26 +89,53 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final spotController = context.watch<SpotController>();
+
     if (!auth.canWrite) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(_isRevision ? 'Revise your spot' : 'Submit a local spot'),
+          title: Text(_isRevision ? 'Revise place' : 'Share a local place'),
         ),
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.x4),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.lock_outline, size: 48),
-                const SizedBox(height: 16),
-                const Text(
-                  'Sign in with a verified, active account to submit a spot.',
-                  textAlign: TextAlign.center,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.lock_outline,
+                    size: 40,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.x2),
+                Text(
+                  'Sign in to share a place',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.x1),
+                Text(
+                  'Sign in with your verified account to contribute places to LiveLocal.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.x3),
                 FilledButton(
-                  onPressed: () => Navigator.pushNamed(context, '/login'),
+                  onPressed: () {
+                    context.read<ProtectedNavigation>().open(
+                          context,
+                          '/submit-spot',
+                        );
+                  },
                   child: const Text('Sign in'),
                 ),
               ],
@@ -118,164 +145,248 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
-      appBar: AppBar(
-        title: Text(_isRevision ? 'Revise your spot' : 'Submit a local spot'),
-        backgroundColor: const Color(0xFFF7F5F0),
-      ),
+    if (_submittedSuccess) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Submission sent'),
+        ),
+        body: ContributionSuccessView(
+          title: 'Thanks for sharing this place',
+          message:
+              'Your submission is waiting for review. An administrator will verify the details before it appears in public discovery.',
+          primaryActionLabel: 'View my submissions',
+          onPrimaryAction: () {
+            Navigator.pushReplacementNamed(context, '/my-submissions');
+          },
+          secondaryActionLabel: 'Back to Spots',
+          onSecondaryAction: () {
+            Navigator.pop(context);
+          },
+        ),
+      );
+    }
+
+    return ContributionScaffold(
+      appBarTitle: _isRevision ? 'Revise place' : 'Share a local place',
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x2,
+            AppSpacing.x2,
+            AppSpacing.x2,
+            AppSpacing.x4,
+          ),
           children: [
-            Text(
-              _isRevision
-                  ? 'Update your submission'
-                  : 'Share a place worth discovering',
-              style: Theme.of(context).textTheme.headlineSmall,
+            ContributionHeader(
+              icon: Icons.add_location_alt_outlined,
+              title: _isRevision ? 'Revise this place' : 'Share a local place',
+              subtitle: _isRevision
+                  ? 'Your last approved version remains public while material changes are reviewed.'
+                  : 'Help travellers discover a place worth visiting in Malaysia.',
             ),
-            const SizedBox(height: 8),
-            Text(
-              _isRevision
-                  ? 'Your last approved version stays public while material changes are reviewed. Prior decisions remain in history.'
-                  : 'Your submission stays private until an administrator approves it. Material edits create a new reviewable revision.',
-            ),
-            const SizedBox(height: 24),
-            _field(_name, 'Spot name', minLength: 2, maxLength: 120),
-            const SizedBox(height: 16),
-            Row(
+            const SizedBox(height: AppSpacing.x2),
+
+            // BASICS SECTION
+            ContributionSection(
+              title: 'Place basics',
+              subtitle: 'Name and classification of this spot',
               children: [
-                Expanded(
-                  child: _dropdown(
-                    label: 'Category',
-                    value: _category,
-                    values: _categories,
-                    onChanged: (value) => setState(() => _category = value),
-                  ),
+                _field(
+                  _name,
+                  'Place name',
+                  hintText: 'e.g. Toh Soon Cafe, Hin Bus Depot',
+                  minLength: 2,
+                  maxLength: 120,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _dropdown(
-                    label: 'State',
-                    value: _state,
-                    values: _states,
-                    onChanged: (value) => setState(() => _state = value),
-                  ),
+                const SizedBox(height: AppSpacing.x2),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _dropdown(
+                        label: 'Category',
+                        value: _category,
+                        hintText: 'Select category',
+                        values: _categories,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Select category.';
+                          }
+                          return null;
+                        },
+                        onChanged: (val) => setState(() => _category = val),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.x2),
+                    Expanded(
+                      child: _dropdown(
+                        label: 'State',
+                        value: _displayState,
+                        hintText: 'Select state',
+                        values: _states,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Select state.';
+                          }
+                          return null;
+                        },
+                        onChanged: (val) => setState(() => _displayState = val),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            _field(_city, 'City or area', minLength: 2, maxLength: 100),
-            const SizedBox(height: 16),
-            _field(_address, 'Full address', minLength: 5, maxLength: 300),
-            const SizedBox(height: 16),
-            _field(
-              _description,
-              'Why is this place useful or special?',
-              minLength: 20,
-              maxLength: 3000,
-              maxLines: 5,
-            ),
-            const SizedBox(height: 16),
-            _field(_bestTime, 'Best visiting time',
-                minLength: 2, maxLength: 160),
-            const SizedBox(height: 16),
-            _field(
-              _thingsToDo,
-              'What should visitors do or try?',
-              minLength: 2,
-              maxLength: 500,
-              maxLines: 3,
-            ),
-            const SizedBox(height: 16),
-            _dropdown(
-              label: 'Price range',
-              value: _priceRange,
-              values: const [r'$', r'$$', r'$$$', r'$$$$'],
-              onChanged: (value) => setState(() => _priceRange = value),
-            ),
-            const SizedBox(height: 24),
-            Text('Photo', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: _submitting ? null : _pickImage,
-              borderRadius: BorderRadius.circular(16),
-              child: Ink(
-                height: 180,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.black12),
+            const SizedBox(height: AppSpacing.x2),
+
+            // LOCATION SECTION
+            ContributionSection(
+              title: 'Location details',
+              subtitle: 'Where visitors can find this place',
+              children: [
+                _field(
+                  _city,
+                  'City or district',
+                  hintText: 'e.g. George Town, Ipoh Old Town',
+                  minLength: 2,
+                  maxLength: 100,
                 ),
-                child: _imageBytes != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.memory(
-                          _imageBytes!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                        ),
-                      )
-                    : widget.source?.imageUrl.isNotEmpty == true
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: CachedNetworkImage(
-                              imageUrl: widget.source!.imageUrl,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              errorWidget: (_, __, ___) => const Center(
-                                child: Text('Choose a replacement photo'),
-                              ),
-                            ),
-                          )
-                        : const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add_photo_alternate_outlined,
-                                  size: 40),
-                              SizedBox(height: 8),
-                              Text(
-                                  'Choose a JPEG, PNG or WebP photo (max 8 MB)'),
-                            ],
-                          ),
-              ),
+                const SizedBox(height: AppSpacing.x2),
+                _field(
+                  _address,
+                  'Full address',
+                  hintText: 'e.g. 120 Campbell Street, 10100 George Town',
+                  minLength: 5,
+                  maxLength: 300,
+                ),
+              ],
             ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _imageRightsConfirmed,
-              title: const Text('I have permission to share this photo'),
-              subtitle: const Text(
-                'I took it or have the owner’s permission, and it does not expose private personal information.',
-              ),
-              onChanged: _submitting
-                  ? null
-                  : (value) => setState(
-                        () => _imageRightsConfirmed = value ?? false,
-                      ),
+            const SizedBox(height: AppSpacing.x2),
+
+            // ABOUT THIS PLACE SECTION
+            ContributionSection(
+              title: 'About this place',
+              subtitle: 'Tell travellers what makes this spot special',
+              children: [
+                _field(
+                  _description,
+                  'Why is this place special?',
+                  hintText:
+                      'Describe the atmosphere, specialty, heritage or local significance...',
+                  minLength: 20,
+                  maxLength: 3000,
+                  maxLines: 4,
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                _field(
+                  _bestTime,
+                  'Best time to visit',
+                  hintText:
+                      'e.g. Morning for fresh toast, sunset for sea breeze',
+                  minLength: 2,
+                  maxLength: 160,
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                _field(
+                  _thingsToDo,
+                  'What to do or try',
+                  hintText:
+                      'e.g. Order charcoal toast, stroll through the art market',
+                  minLength: 2,
+                  maxLength: 500,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                _dropdown(
+                  label: 'Price range',
+                  value: _priceRange,
+                  values: const [r'$', r'$$', r'$$$', r'$$$$'],
+                  onChanged: (val) => setState(() => _priceRange = val ?? r'$'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.x2),
+
+            // COVER PHOTO SECTION
+            ContributionSection(
+              title: 'Cover photo',
+              subtitle: 'Add an appealing landscape photo',
+              children: [
+                ContributionImagePicker(
+                  imageBytes: _imageBytes,
+                  existingImageUrl: widget.source?.imageUrl,
+                  onImagePicked: (bytes) {
+                    setState(() {
+                      _imageBytes = bytes;
+                      _imageMimeType = 'image/jpeg';
+                      _imageRightsConfirmed = false;
+                      _createdDraft = null;
+                    });
+                  },
+                  onImageCleared: () {
+                    setState(() {
+                      _imageBytes = null;
+                      _imageMimeType = null;
+                      _imageRightsConfirmed = false;
+                    });
+                  },
+                  rightsConfirmed: _imageRightsConfirmed,
+                  onRightsChanged: (val) =>
+                      setState(() => _imageRightsConfirmed = val),
+                  requireRightsConfirmation: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.x2),
+
+            // REVIEW SUMMARY SECTION
+            ContributionReviewSummary(
+              items: [
+                MapEntry('Place name', _name.text.trim()),
+                MapEntry('Category', _category ?? ''),
+                MapEntry(
+                    'Location', '${_city.text.trim()}, ${_displayState ?? ''}'),
+                MapEntry('Price', _priceRange),
+              ],
+              moderationNotice:
+                  'Submissions are reviewed by LiveLocal before appearing publicly.',
             ),
             if (spotController.errorMessage != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                spotController.errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              const SizedBox(height: AppSpacing.x2),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  spotController.errorMessage!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                ),
               ),
             ],
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _submitting ? null : _submit,
-              child: _submitting
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      _createdDraft == null
-                          ? 'Check and submit'
-                          : 'Resolve probable duplicate',
-                    ),
-            ),
           ],
+        ),
+      ),
+      bottomAction: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: _submitting
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  _createdDraft == null
+                      ? 'Submit place for review'
+                      : 'Resolve probable duplicate',
+                ),
         ),
       ),
     );
@@ -284,6 +395,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   Widget _field(
     TextEditingController controller,
     String label, {
+    String? hintText,
     required int minLength,
     required int maxLength,
     int maxLines = 1,
@@ -292,61 +404,44 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
       controller: controller,
       maxLines: maxLines,
       maxLength: maxLength,
-      decoration:
-          InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        alignLabelWithHint: maxLines > 1,
+      ),
       validator: (value) {
         final length = value?.trim().length ?? 0;
         if (length < minLength) return 'Enter at least $minLength characters.';
         return null;
       },
+      onChanged: (_) => setState(() {}),
     );
   }
 
   Widget _dropdown({
     required String label,
-    required String value,
+    required String? value,
     required List<String> values,
-    required ValueChanged<String> onChanged,
+    required ValueChanged<String?> onChanged,
+    String? hintText,
+    String? Function(String?)? validator,
   }) {
     return DropdownButtonFormField<String>(
+      isExpanded: true,
       initialValue: value,
-      decoration:
-          InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      hint: hintText != null
+          ? Text(hintText, overflow: TextOverflow.ellipsis)
+          : null,
+      decoration: InputDecoration(labelText: label),
+      validator: validator,
       items: values
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .map((item) => DropdownMenuItem(
+                value: item,
+                child: Text(item, overflow: TextOverflow.ellipsis),
+              ))
           .toList(),
-      onChanged: (next) {
-        if (next != null) onChanged(next);
-      },
+      onChanged: onChanged,
     );
-  }
-
-  Future<void> _pickImage() async {
-    final selected = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 2000,
-      maxHeight: 2000,
-      imageQuality: 88,
-    );
-    if (selected == null || !mounted) return;
-    final bytes = await selected.readAsBytes();
-    if (bytes.length > 8 * 1024 * 1024) {
-      _message('Choose a photo no larger than 8 MB.');
-      return;
-    }
-    setState(() {
-      _imageBytes = bytes;
-      _imageMimeType = selected.mimeType ?? _mimeFromName(selected.name);
-      _imageRightsConfirmed = false;
-      _createdDraft = null;
-    });
-  }
-
-  String _mimeFromName(String name) {
-    final lower = name.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    return 'image/jpeg';
   }
 
   Future<void> _submit() async {
@@ -366,9 +461,9 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
     setState(() => _submitting = true);
     final input = SpotDraftInput(
       name: _name.text.trim(),
-      category: _category,
+      category: _category ?? '',
       description: _description.text.trim(),
-      state: _state,
+      state: MalaysiaStates.toCanonical(_displayState ?? ''),
       city: _city.text.trim(),
       address: _address.text.trim(),
       priceRange: _priceRange,
@@ -400,7 +495,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
       await _resolveDuplicates(result);
       return;
     }
-    _finish();
+    setState(() => _submittedSuccess = true);
   }
 
   Future<void> _resolveDuplicates(SpotDraftResult draft) async {
@@ -415,14 +510,16 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                  'Review these probable matches before creating another listing:'),
+                'Review these probable matches before creating another listing:',
+              ),
               const SizedBox(height: 12),
               ...draft.probableDuplicates.map(
                 (duplicate) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(duplicate.name),
                   subtitle: Text(
-                      '${duplicate.address}\n${duplicate.city}, ${duplicate.state}'),
+                    '${duplicate.address}\n${duplicate.city}, ${duplicate.state}',
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -477,16 +574,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
         );
     if (!mounted) return;
     setState(() => _submitting = false);
-    if (submitted) _finish();
-  }
-
-  void _finish() {
-    _message(
-      _isRevision
-          ? 'Spot revision submitted for review.'
-          : 'Spot submitted for review.',
-    );
-    Navigator.pop(context);
+    if (submitted) setState(() => _submittedSuccess = true);
   }
 
   void _message(String value) {

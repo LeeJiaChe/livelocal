@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/guide_model.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_styles.dart';
+import '../models/guide_model.dart';
 
 class GuideListItem extends StatelessWidget {
   final GuideModel guide;
@@ -16,6 +16,11 @@ class GuideListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final authorName = guide.authorDisplayName?.trim().isNotEmpty == true
+        ? guide.authorDisplayName!.trim()
+        : 'LiveLocal';
+
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -23,144 +28,218 @@ class GuideListItem extends StatelessWidget {
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: AppStyles.padLg),
-        height: 220,
         decoration: BoxDecoration(
-          borderRadius: AppStyles.cardRadius,
-          boxShadow: AppStyles.heavyShadow,
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: ClipRRect(
-          borderRadius: AppStyles.cardRadius,
-          child: Stack(
-            fit: StackFit.expand,
+          borderRadius: BorderRadius.circular(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Hero banner with warm gradient & route badges
               Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppStyles.padMd),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       AppColors.primaryDark,
-                      AppColors.accentMid,
-                      Colors.teal.shade600,
+                      AppColors.primary,
+                      AppColors.secondary.withValues(alpha: 0.85),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                 ),
-              ),
-              Positioned(
-                top: -30,
-                right: -30,
-                child: Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.06),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 140,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.7),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(AppStyles.padLg),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
+                        // Location badge
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: AppStyles.pillRadius,
                             border: Border.all(color: Colors.white38),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.place,
-                                  color: Colors.white, size: 12),
-                              const SizedBox(width: AppStyles.padXs),
+                              const Icon(
+                                Icons.place,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                              const SizedBox(width: 4),
                               Text(
-                                guide.locationName,
+                                '${guide.locationName}, ${guide.state}',
                                 style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600),
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
                         ),
                         const Spacer(),
+                        // Duration badge
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
-                            color: AppColors.gold.withValues(alpha: 0.2),
+                            color: AppColors.tertiary.withValues(alpha: 0.25),
                             borderRadius: AppStyles.pillRadius,
                             border: Border.all(
-                                color: AppColors.gold.withValues(alpha: 0.5)),
+                              color: AppColors.tertiary.withValues(alpha: 0.6),
+                            ),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.access_time,
-                                  color: AppColors.gold, size: 12),
-                              const SizedBox(width: AppStyles.padXs),
+                              const Icon(
+                                Icons.access_time,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                              const SizedBox(width: 4),
                               Text(
                                 guide.estimatedDuration,
                                 style: const TextStyle(
-                                    color: AppColors.gold,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600),
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    Text(guide.title,
-                        style: AppStyles.headerWhite.copyWith(fontSize: 20)),
-                    const SizedBox(height: AppStyles.padSm),
+                    const SizedBox(height: AppStyles.padMd),
+                    Text(
+                      guide.title,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Author attribution line
+                    Row(
+                      children: [
+                        Text(
+                          'by $authorName',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (guide.authorIsCreator) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.tertiary,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'Creator',
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Body content with overview and route stops
+              Padding(
+                padding: const EdgeInsets.all(AppStyles.padMd),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
                       guide.routeOverview,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: AppStyles.subtitleWhite.copyWith(fontSize: 12),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
                     ),
                     const SizedBox(height: AppStyles.padMd),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: guide.stops
-                          .take(3)
-                          .map((stop) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: AppStyles.defaultRadius,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.alt_route,
+                                size: 13,
+                                color: theme.colorScheme.onPrimaryContainer,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${guide.stops.length} stops',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onPrimaryContainer,
                                 ),
-                                child: Text(stop,
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 10)),
-                              ))
-                          .toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            guide.stops.join(' → '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

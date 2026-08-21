@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_local/controllers/auth_controller.dart';
 import 'package:live_local/controllers/guide_controller.dart';
+import 'package:live_local/core/routing/protected_navigation.dart';
 import 'package:live_local/features/auth/data/demo_auth_repository.dart';
 import 'package:live_local/features/guides/data/demo_guide_repository.dart';
 import 'package:live_local/features/guides/presentation/submit_guide_screen.dart';
@@ -15,12 +16,14 @@ void main() {
     late DemoGuideRepository guideRepository;
     late AuthController authController;
     late GuideController guideController;
+    late ProtectedNavigation protectedNav;
 
     setUp(() async {
       authRepository = DemoAuthRepository();
       guideRepository = DemoGuideRepository(authRepository);
       authController = AuthController(repository: authRepository);
       guideController = GuideController(repository: guideRepository);
+      protectedNav = ProtectedNavigation();
       await Future.wait([
         authController.initialize(),
         guideController.loadGuides(),
@@ -32,9 +35,13 @@ void main() {
         providers: [
           ChangeNotifierProvider.value(value: authController),
           ChangeNotifierProvider.value(value: guideController),
+          Provider<ProtectedNavigation>.value(value: protectedNav),
         ],
-        child: const MaterialApp(
-          home: NeighbourhoodExplorerScreen(),
+        child: MaterialApp(
+          home: const NeighbourhoodExplorerScreen(),
+          routes: {
+            '/submit-guide': (_) => const SubmitGuideScreen(),
+          },
         ),
       );
     }
@@ -56,7 +63,7 @@ void main() {
       expect(find.text('Neighbourhood / area'), findsOneWidget);
 
       // Submit Guide FAB
-      expect(find.text('Submit guide'), findsOneWidget);
+      expect(find.text('Create a guide'), findsOneWidget);
     });
 
     testWidgets('15. selecting neighbourhood changes visible guide cards',
@@ -143,10 +150,14 @@ void main() {
 
     testWidgets('20. tapping Submit guide FAB opens SubmitGuideScreen',
         (tester) async {
+      await authController.login(
+        'tourist@livelocal.com',
+        '123456',
+      );
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Submit guide'));
+      await tester.tap(find.text('Create a guide'));
       await tester.pumpAndSettle();
 
       expect(find.byType(SubmitGuideScreen), findsOneWidget);

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../models/guide_model.dart';
+import '../../../models/spot_filter_options.dart';
 import '../domain/guide_repository.dart';
 
 class GuideController with ChangeNotifier {
@@ -36,13 +37,39 @@ class GuideController with ChangeNotifier {
       _selectedNeighbourhood != 'All' ||
       _searchQuery.trim().isNotEmpty;
 
+  List<SpotStateOption> get availableStates {
+    final set = <String>{};
+    for (final guide in _guides) {
+      if (guide.state.trim().isNotEmpty) {
+        set.add(guide.state.trim());
+      }
+    }
+    final sorted = set.toList()..sort();
+    return [
+      const SpotStateOption(rawValue: 'All', displayName: 'All States'),
+      ...sorted.map(SpotStateOption.fromRaw),
+    ];
+  }
+
+  String get selectedStateDisplayName {
+    if (_selectedState == 'All') return 'All States';
+    if (_selectedState == 'Pulau Pinang') return 'Penang';
+    return _selectedState;
+  }
+
+  bool _matchesState(String guideState, String selectedState) {
+    if (selectedState == 'All') return true;
+    if (selectedState == 'Penang' || selectedState == 'Pulau Pinang') {
+      return guideState == 'Pulau Pinang' || guideState == 'Penang';
+    }
+    return guideState.trim().toLowerCase() ==
+        selectedState.trim().toLowerCase();
+  }
+
   List<String> get availableNeighbourhoods {
     final neighbourhoods = <String>{};
     for (final guide in _guides) {
-      final matchesState = _selectedState == 'All' ||
-          guide.state.trim().toLowerCase() ==
-              _selectedState.trim().toLowerCase();
-      if (matchesState) {
+      if (_matchesState(guide.state, _selectedState)) {
         final loc = guide.locationName.trim();
         if (loc.isNotEmpty) {
           neighbourhoods.add(loc);
@@ -55,10 +82,7 @@ class GuideController with ChangeNotifier {
   }
 
   List<GuideModel> get approvedGuides => _guides.where((guide) {
-        final matchesState = _selectedState == 'All' ||
-            guide.state.trim().toLowerCase() ==
-                _selectedState.trim().toLowerCase();
-        if (!matchesState) return false;
+        if (!_matchesState(guide.state, _selectedState)) return false;
 
         final matchesNeighbourhood = _selectedNeighbourhood == 'All' ||
             guide.locationName.trim().toLowerCase() ==
@@ -81,6 +105,12 @@ class GuideController with ChangeNotifier {
   Future<void> loadGuides() async {
     await _run(() async {
       _guides = await _repository.fetchPublishedGuides();
+      if (_selectedState != 'All' &&
+          !availableStates.any((s) =>
+              s.rawValue == _selectedState ||
+              s.displayName == _selectedState)) {
+        _selectedState = 'All';
+      }
       if (!availableNeighbourhoods.contains(_selectedNeighbourhood)) {
         _selectedNeighbourhood = 'All';
       }

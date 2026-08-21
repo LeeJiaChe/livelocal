@@ -14,7 +14,8 @@ import 'package:live_local/services/seed_data_service.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('saved-place filters and city albums combine with area grouping',
+  testWidgets(
+      'SavedPlacesScreen displays collections grid and allows creating collections',
       (tester) async {
     final authRepository = DemoAuthRepository();
     await authRepository.signIn(
@@ -32,10 +33,8 @@ void main() {
     final restaurants = SeedDataService.getInitialRestaurants();
 
     final penangSpot = spots.firstWhere((s) => s.city == 'George Town');
-    final ipohSpot = spots.firstWhere((s) => s.city == 'Ipoh');
     final penangRestaurant =
         restaurants.firstWhere((r) => r.city == 'George Town');
-    final ipohRestaurant = restaurants.firstWhere((r) => r.city == 'Ipoh');
 
     await savedRepository.setSaved(
       targetType: 'spot',
@@ -43,18 +42,8 @@ void main() {
       saved: true,
     );
     await savedRepository.setSaved(
-      targetType: 'spot',
-      targetId: ipohSpot.id,
-      saved: true,
-    );
-    await savedRepository.setSaved(
       targetType: 'restaurant',
       targetId: penangRestaurant.id,
-      saved: true,
-    );
-    await savedRepository.setSaved(
-      targetType: 'restaurant',
-      targetId: ipohRestaurant.id,
       saved: true,
     );
 
@@ -83,44 +72,23 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('4 saved places'), findsOneWidget);
-    expect(find.text(penangSpot.name), findsOneWidget);
-    expect(find.text(ipohSpot.name), findsOneWidget);
-    expect(find.text(penangRestaurant.name), findsOneWidget);
-    expect(find.text(ipohRestaurant.name), findsOneWidget);
-    expect(find.textContaining('Suggested day ·'), findsWidgets);
+    // Verify header and collections exist
+    expect(find.text('Saved collections'), findsOneWidget);
+    expect(find.text('Your curated collections'), findsOneWidget);
+    expect(find.text('New collection'), findsOneWidget);
+    expect(find.text('Saved places'), findsOneWidget);
 
-    // City album buttons exist
-    expect(find.text('George Town'), findsWidgets);
-    expect(find.text('Ipoh'), findsWidgets);
-
-    // Filter by George Town album
-    await tester.tap(find.text('George Town').first);
+    // Tap "+ New collection"
+    await tester.tap(find.text('New collection'));
     await tester.pumpAndSettle();
-    expect(find.text(penangSpot.name), findsOneWidget);
-    expect(find.text(penangRestaurant.name), findsOneWidget);
-    expect(find.text(ipohSpot.name), findsNothing);
-    expect(find.text(ipohRestaurant.name), findsNothing);
 
-    // Combined filter: George Town + Restaurants only
-    await tester.tap(find.text('Restaurants'));
+    // Dialog opens
+    expect(find.text('Collection name'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Penang Food Trip');
+    await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
-    expect(find.text(penangRestaurant.name), findsOneWidget);
-    expect(find.text(penangSpot.name), findsNothing);
-    expect(find.text(ipohRestaurant.name), findsNothing);
 
-    // Reset album to All, keep Restaurants
-    await tester.tap(find.text('All').first);
-    await tester.pumpAndSettle();
-    expect(find.text(penangRestaurant.name), findsOneWidget);
-    expect(find.text(ipohRestaurant.name), findsOneWidget);
-    expect(find.text(penangSpot.name), findsNothing);
-
-    // Switch to Spots only
-    await tester.tap(find.text('Spots'));
-    await tester.pumpAndSettle();
-    expect(find.text(penangSpot.name), findsOneWidget);
-    expect(find.text(ipohSpot.name), findsOneWidget);
-    expect(find.text(penangRestaurant.name), findsNothing);
+    // New collection appears in the list
+    expect(find.text('Penang Food Trip'), findsOneWidget);
   });
 }

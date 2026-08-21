@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../core/errors/app_exception.dart';
+import '../../../models/spot_filter_options.dart';
 import '../../../models/spot_model.dart';
 import '../../moderation/presentation/ugc_consent_dialog.dart';
 import '../domain/spot_repository.dart';
@@ -18,6 +19,7 @@ class SpotController with ChangeNotifier {
   final List<SpotModel> _spots = [];
   List<SpotModel> _pendingSpots = [];
   List<SpotModel> _ownedSubmissions = [];
+  SpotFilterOptions _filterOptions = SpotFilterOptions.fallback;
   bool _isLoading = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -35,16 +37,47 @@ class SpotController with ChangeNotifier {
   String get selectedState => _selectedState;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
+  SpotFilterOptions get filterOptions => _filterOptions;
+  bool get hasActiveFilters =>
+      _selectedState != 'All' ||
+      _selectedCategory != 'All' ||
+      _searchQuery.isNotEmpty;
+
+  String get selectedStateDisplayName {
+    if (_selectedState == 'All') return 'All Malaysia';
+    for (final opt in _filterOptions.states) {
+      if (opt.rawValue == _selectedState) return opt.displayName;
+    }
+    return _selectedState == 'Pulau Pinang' ? 'Penang' : _selectedState;
+  }
 
   List<SpotModel> get approvedSpots => _spots.where(_matchesFilters).toList();
   List<SpotModel> get pendingSpots => List.unmodifiable(_pendingSpots);
   List<SpotModel> get ownedSubmissions => List.unmodifiable(_ownedSubmissions);
+
+  Future<SpotModel?> fetchSpotById(String spotId) async {
+    final cached = _spots.where((s) => s.id == spotId).firstOrNull;
+    if (cached != null) return cached;
+    return await _repository.fetchPublicSpotById(spotId);
+  }
 
   Future<void> loadSpots() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
+      _filterOptions = await _repository.fetchFilterOptions();
+
+      // Validate selectedState and selectedCategory still exist in options
+      if (_selectedState != 'All' &&
+          !_filterOptions.states.any((s) => s.rawValue == _selectedState)) {
+        _selectedState = 'All';
+      }
+      if (_selectedCategory != 'All' &&
+          !_filterOptions.categories.contains(_selectedCategory)) {
+        _selectedCategory = 'All';
+      }
+
       final loaded = await _repository.fetchPublicSpots(
         query: _searchQuery,
         state: _selectedState,
@@ -52,6 +85,7 @@ class SpotController with ChangeNotifier {
         offset: 0,
         limit: _pageSize,
       );
+
       _spots
         ..clear()
         ..addAll(loaded);
@@ -118,6 +152,10 @@ class SpotController with ChangeNotifier {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), loadSpots);
   }
+
+  void filterByState(String state) => filter(state: state);
+  void filterByCategory(String category) => filter(category: category);
+  void setSearchQuery(String query) => filter(query: query);
 
   void resetFilters() {
     _selectedState = 'All';

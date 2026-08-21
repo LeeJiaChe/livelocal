@@ -63,6 +63,20 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
   }
 
   @override
+  Future<RestaurantModel?> fetchPublicRestaurantById(
+      String restaurantId) async {
+    final userId = _authRepository.currentAccountForDemo?.id;
+    final match = _restaurants
+        .where((r) => r.id == restaurantId && r.status == 'approved')
+        .firstOrNull;
+    if (match == null) return null;
+    return _copyRestaurant(
+      match,
+      isOwnedByCurrentUser: match.influencerId == userId,
+    );
+  }
+
+  @override
   Future<List<DiscountCodeModel>> fetchActiveDiscounts() async {
     return _discounts.where((discount) => discount.isCurrentlyActive).toList();
   }

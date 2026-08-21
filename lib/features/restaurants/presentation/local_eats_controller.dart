@@ -23,7 +23,6 @@ class LocalEatsController with ChangeNotifier {
   String? _errorMessage;
   String _selectedState = 'All';
   String _selectedCuisine = 'All';
-  String _selectedFoodType = 'All';
   String _selectedBudget = 'All';
   String _searchQuery = '';
 
@@ -40,9 +39,59 @@ class LocalEatsController with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String get selectedState => _selectedState;
   String get selectedCuisine => _selectedCuisine;
-  String get selectedFoodType => _selectedFoodType;
+  String get selectedFoodType => 'All';
   String get selectedBudget => _selectedBudget;
   String get searchQuery => _searchQuery;
+
+  bool get hasActiveFilters =>
+      _selectedState != 'All' ||
+      _selectedCuisine != 'All' ||
+      _selectedBudget != 'All' ||
+      _searchQuery.isNotEmpty;
+
+  Future<RestaurantModel?> fetchRestaurantById(String restaurantId) async {
+    final cached = _restaurants.where((r) => r.id == restaurantId).firstOrNull;
+    if (cached != null) return cached;
+    return await _repository.fetchPublicRestaurantById(restaurantId);
+  }
+
+  List<String> get availableStates {
+    final set = <String>{};
+    for (final r in _restaurants) {
+      if (r.state.trim().isNotEmpty) set.add(r.state.trim());
+    }
+    final sorted = set.toList()..sort();
+    return ['All', ...sorted];
+  }
+
+  List<String> get availableCuisines {
+    final set = <String>{};
+    for (final r in _restaurants) {
+      if (r.cuisineType.trim().isNotEmpty) {
+        set.add(r.cuisineType.trim());
+      }
+    }
+    final sorted = set.toList()..sort();
+    return ['All', ...sorted];
+  }
+
+  List<String> get availablePriceRanges {
+    final present = <String>{};
+    for (final r in _restaurants) {
+      if (r.priceRange.trim().isNotEmpty) {
+        present.add(r.priceRange.trim());
+      }
+    }
+    const order = [r'$', r'$$', r'$$$', r'$$$$'];
+    final sorted = order.where((p) => present.contains(p)).toList();
+    return ['All', ...sorted];
+  }
+
+  String get selectedStateDisplayName {
+    if (_selectedState == 'All') return 'All Malaysia';
+    if (_selectedState == 'Pulau Pinang') return 'Penang';
+    return _selectedState;
+  }
 
   List<RestaurantModel> get filteredRestaurants =>
       _restaurants.where((restaurant) {
@@ -56,19 +105,16 @@ class LocalEatsController with ChangeNotifier {
         if (_searchQuery.isNotEmpty && !searchable.contains(_searchQuery)) {
           return false;
         }
-        if (_selectedState != 'All' && restaurant.state != _selectedState) {
+        if (_selectedState != 'All' &&
+            restaurant.state != _selectedState &&
+            !(_selectedState == 'Penang' &&
+                restaurant.state == 'Pulau Pinang')) {
           return false;
         }
         if (_selectedCuisine != 'All' &&
             !restaurant.cuisineType
                 .toLowerCase()
                 .contains(_selectedCuisine.toLowerCase())) {
-          return false;
-        }
-        if (_selectedFoodType != 'All' &&
-            !restaurant.reviewedDishes
-                .toLowerCase()
-                .contains(_selectedFoodType.toLowerCase())) {
           return false;
         }
         return _selectedBudget == 'All' ||
@@ -104,6 +150,18 @@ class LocalEatsController with ChangeNotifier {
       ]);
       _restaurants = values[0] as List<RestaurantModel>;
       _discountCodes = values[1] as List<DiscountCodeModel>;
+      if (_selectedBudget != 'All' &&
+          !availablePriceRanges.contains(_selectedBudget)) {
+        _selectedBudget = 'All';
+      }
+      if (_selectedCuisine != 'All' &&
+          !availableCuisines.contains(_selectedCuisine)) {
+        _selectedCuisine = 'All';
+      }
+      if (_selectedState != 'All' &&
+          !availableStates.contains(_selectedState)) {
+        _selectedState = 'All';
+      }
     } catch (error) {
       _errorMessage = _message(error, 'LocalEats could not be loaded.');
     } finally {
@@ -158,7 +216,6 @@ class LocalEatsController with ChangeNotifier {
   }) {
     if (state != null) _selectedState = state;
     if (cuisine != null) _selectedCuisine = cuisine;
-    if (foodType != null) _selectedFoodType = foodType;
     if (budget != null) _selectedBudget = budget;
     notifyListeners();
   }
@@ -171,7 +228,6 @@ class LocalEatsController with ChangeNotifier {
   void resetFilters() {
     _selectedState = 'All';
     _selectedCuisine = 'All';
-    _selectedFoodType = 'All';
     _selectedBudget = 'All';
     _searchQuery = '';
     notifyListeners();
@@ -327,6 +383,10 @@ class LocalEatsController with ChangeNotifier {
       return false;
     }
   }
+
+  void filterByState(String state) => setFilter(state: state);
+  void filterByCuisine(String cuisine) => setFilter(cuisine: cuisine);
+  void filterByBudget(String budget) => setFilter(budget: budget);
 
   String _message(Object error, String fallback) {
     return error is AppException ? error.userMessage : fallback;

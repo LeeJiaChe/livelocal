@@ -3,14 +3,15 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
+import '../app/theme/app_spacing.dart';
 import '../controllers/itinerary_controller.dart';
-import '../controllers/localeats_controller.dart';
-import '../controllers/spot_controller.dart';
 import '../features/itinerary/domain/saved_itinerary_repository.dart';
 import '../widgets/timeline_step_card.dart';
 
 class ItineraryScreen extends StatefulWidget {
-  const ItineraryScreen({super.key});
+  const ItineraryScreen({super.key, this.initialCollectionId});
+
+  final String? initialCollectionId;
 
   @override
   State<ItineraryScreen> createState() => _ItineraryScreenState();
@@ -23,6 +24,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<ItineraryController>().loadItineraries();
+      context.read<ItineraryController>().loadCollections();
     });
   }
 
@@ -49,9 +51,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5F0),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F5F0),
         title: const Text('Itineraries'),
         actions: [
           if (steps.isNotEmpty)
@@ -63,17 +63,25 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x2,
+          AppSpacing.x1,
+          AppSpacing.x2,
+          112,
+        ),
         children: [
           Text(
             'Plan a route from your saved places',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Choose a manual starting city or request your device location. Route order is an estimate based on straight-line proximity, not travel time.',
+          const SizedBox(height: AppSpacing.x1),
+          Text(
+            'Choose a manual starting city or request your device location. Proximity order is computed to help you organize a smooth day out.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.x2),
           FilledButton.icon(
             onPressed: controller.isGeneratingItinerary
                 ? null
@@ -86,35 +94,43 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             ),
           ),
           if (controller.errorMessage != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.x2),
             Card(
               color: Theme.of(context).colorScheme.errorContainer,
               elevation: 0,
               child: ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: Text(controller.errorMessage!),
+                leading: Icon(
+                  Icons.info_outline,
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+                title: Text(
+                  controller.errorMessage!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                ),
               ),
             ),
           ],
           if (groupedByDay.isNotEmpty) ...[
-            const SizedBox(height: 28),
+            const SizedBox(height: AppSpacing.x3),
             Text(
               'Suggested day itinerary',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.x1),
             ...groupedByDay.entries.map((entry) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.x2),
                   Text(
                     entry.key,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.x1),
                   ...List.generate(entry.value.length, (index) {
                     final step = entry.value[index];
                     final globalIndex = steps.indexOf(step);
@@ -129,26 +145,26 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
               );
             }),
           ],
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.x3),
           Text(
             'Saved itineraries',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.x1),
           if (controller.savedItineraries.isEmpty)
             const Card(
               elevation: 0,
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: EdgeInsets.all(AppSpacing.x3),
                 child: Text(
-                  'No saved itinerary yet. Creating a route saves its order to your account.',
+                  'No saved itineraries yet. Creating a route saves its order to your account.',
                 ),
               ),
             )
           else
             ...controller.savedItineraries.map(
               (itinerary) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: AppSpacing.x1),
                 elevation: 0,
                 child: ListTile(
                   leading: const Icon(Icons.map_outlined),
@@ -226,7 +242,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         maxChildSize: 0.95,
         expand: false,
         builder: (context, scrollController) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
           child: ListView(
             controller: scrollController,
             children: [
@@ -234,7 +250,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 'Itinerary on Map',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.x2),
               if (validPoints.isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
@@ -270,26 +286,26 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 const Card(
                   elevation: 0,
                   child: Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: EdgeInsets.all(AppSpacing.x2),
                     child: Text(
                       'No verified coordinates available for this route.',
                     ),
                   ),
                 ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.x2),
               Text(
                 'Day breakdown',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.x1),
               ...groupedByDay.entries.map((entry) {
                 final dayName = entry.key;
                 final daySteps = entry.value;
                 final dayIndex = groupedByDay.keys.toList().indexOf(dayName);
                 return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.x1),
                   elevation: 0,
                   child: ExpansionTile(
                     initiallyExpanded: true,
@@ -298,27 +314,59 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                     ),
                     title: Text(dayName),
                     subtitle: Text(
-                      '${daySteps.length} ${daySteps.length == 1 ? 'stop' : 'stops'}',
+                      '${daySteps.length} stops',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    children: daySteps.asMap().entries.map((stepEntry) {
-                      final stepIndex = stepEntry.key;
-                      final step = stepEntry.value;
-                      final globalIndex = steps.indexOf(step);
+                    children: daySteps.map((step) {
+                      final title = step['title'] as String;
+                      final type = step['type'] as String;
+                      final location = step['location'] as String;
+                      final activity = step['activity'] as String;
+                      final bestTime = step['best_time'] as String;
+                      final isMeal = type.startsWith('Restaurant');
                       return ListTile(
-                        leading: CircleAvatar(
-                          radius: 14,
-                          child: Text(
-                            '${(globalIndex >= 0 ? globalIndex : stepIndex) + 1}',
-                          ),
+                        leading: Icon(
+                          isMeal
+                              ? Icons.restaurant
+                              : Icons.location_on_outlined,
+                          color: isMeal
+                              ? Theme.of(context).colorScheme.secondary
+                              : Theme.of(context).colorScheme.primary,
                         ),
-                        title: Text(step['title'] as String? ?? 'Stop'),
-                        subtitle: Text(step['location'] as String? ?? ''),
+                        title: Text(title),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              location,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            if (activity.isNotEmpty)
+                              Text(
+                                activity,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                              ),
+                          ],
+                        ),
+                        trailing: Text(
+                          bestTime,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
                       );
                     }).toList(),
                   ),
                 );
               }),
-              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -327,9 +375,16 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   }
 
   Future<void> _chooseOriginAndCreate() async {
-    final title = TextEditingController(text: 'My local day');
-    var mode = 'manual';
-    var city = _manualOrigins.first;
+    final itineraryCtrl = context.read<ItineraryController>();
+    final collections = itineraryCtrl.collections;
+
+    final title = TextEditingController(
+      text: 'Day trip plan (${DateTime.now().month}/${DateTime.now().day})',
+    );
+    String mode = 'manual';
+    _ManualOrigin city = _manualOrigins.first;
+    String? selectedColId = widget.initialCollectionId;
+
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -337,10 +392,10 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) => Padding(
           padding: EdgeInsets.fromLTRB(
-            16,
+            AppSpacing.x2,
             0,
-            16,
-            MediaQuery.viewInsetsOf(context).bottom + 24,
+            AppSpacing.x2,
+            MediaQuery.of(sheetContext).viewInsets.bottom + AppSpacing.x3,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -350,16 +405,39 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 'Create itinerary',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.x2),
               TextField(
                 controller: title,
                 maxLength: 120,
                 decoration: const InputDecoration(
                   labelText: 'Plan title',
-                  border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 8),
+              if (collections.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.x1),
+                DropdownButtonFormField<String?>(
+                  initialValue: selectedColId,
+                  decoration: const InputDecoration(
+                    labelText: 'Source collection',
+                    prefixIcon: Icon(Icons.bookmark_outline),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('All saved places'),
+                    ),
+                    ...collections.map(
+                      (c) => DropdownMenuItem<String?>(
+                        value: c.id,
+                        child: Text('${c.name} (${c.itemCount})'),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setSheetState(() => selectedColId = value),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.x2),
               SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(
@@ -377,13 +455,12 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 onSelectionChanged: (values) =>
                     setSheetState(() => mode = values.single),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.x2),
               if (mode == 'manual')
                 DropdownButtonFormField<_ManualOrigin>(
                   initialValue: city,
                   decoration: const InputDecoration(
                     labelText: 'Starting city',
-                    border: OutlineInputBorder(),
                   ),
                   items: _manualOrigins
                       .map(
@@ -400,11 +477,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 const Text(
                   'LiveLocal will ask for foreground location only after you continue. Denying permission will not block discovery; you can return and choose a city.',
                 ),
-              const SizedBox(height: 8),
-              const Text(
-                'If you save the itinerary, its starting coordinates are stored privately with your account so the saved route keeps its origin.',
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.x2),
               FilledButton(
                 onPressed: () {
                   if (title.text.trim().length < 2) return;
@@ -417,6 +490,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         ),
       ),
     );
+
     final planTitle = title.text.trim();
     title.dispose();
     if (confirmed != true || !mounted) return;
@@ -436,12 +510,13 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         city: city.city,
       );
     }
+
     final saved = await controller.generateAndSaveItinerary(
       title: planTitle,
       origin: origin,
-      allSpots: context.read<SpotController>().spots,
-      allRestaurants: context.read<LocalEatsController>().restaurants,
+      collectionId: selectedColId,
     );
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

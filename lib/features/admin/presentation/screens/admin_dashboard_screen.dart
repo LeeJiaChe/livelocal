@@ -61,10 +61,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (auth.currentUser?.role != 'admin') {
       return Scaffold(
-        backgroundColor: const Color(0xFFF7F5F0),
         appBar: AppBar(
           title: const Text('Access Denied'),
-          backgroundColor: const Color(0xFFF7F5F0),
         ),
         body: Center(
           child: Padding(
@@ -184,9 +182,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         );
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF7F5F0),
           appBar: AppBar(
-            backgroundColor: const Color(0xFFF7F5F0),
             title: Row(
               children: [
                 Container(
