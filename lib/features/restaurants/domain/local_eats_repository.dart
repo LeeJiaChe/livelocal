@@ -16,6 +16,8 @@ class RestaurantDraftInput {
     required this.socialMediaUrl,
     this.latitude,
     this.longitude,
+    this.aiAssisted = false,
+    this.aiSourcePlatform,
   });
 
   final String name;
@@ -28,6 +30,8 @@ class RestaurantDraftInput {
   final String socialMediaUrl;
   final double? latitude;
   final double? longitude;
+  final bool aiAssisted;
+  final String? aiSourcePlatform;
 }
 
 class RestaurantDraftResult {

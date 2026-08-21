@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../controllers/admin_controller.dart';
 import '../../../../controllers/guide_controller.dart';
 import '../../../../controllers/localeats_controller.dart';
 import '../../../../controllers/spot_controller.dart';
+import '../../../../core/validation/social_url_validator.dart';
 import '../../../../models/guide_model.dart';
 import '../../../../models/restaurant_model.dart';
 import '../../../../models/spot_model.dart';
@@ -94,6 +96,30 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
           : controller.errorMessage ??
               'The restaurant decision could not be saved.',
     );
+  }
+
+  Future<void> _openReviewUrl(String url) async {
+    if (!SocialUrlValidator.isReviewPost(url)) {
+      _showMessage('This review source link is invalid or unavailable.');
+      return;
+    }
+    try {
+      final uri = Uri.tryParse(url);
+      if (uri == null) {
+        _showMessage('This review source link is invalid or unavailable.');
+        return;
+      }
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!mounted || opened) return;
+      _showMessage('Could not open the review source link on this device.');
+    } catch (_) {
+      if (mounted) {
+        _showMessage('Could not open the review source link on this device.');
+      }
+    }
   }
 
   Future<void> _moderateGuide(GuideModel guide, String decision) async {
@@ -299,12 +325,56 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
               AdminQueueCard(
                 typeLabel: 'RESTAURANT SUBMISSION',
                 typeIcon: Icons.restaurant_outlined,
+                badge: restaurant.aiAssisted
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              Theme.of(context).colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              size: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'AI-assisted',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSecondaryContainer,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : null,
                 title: restaurant.name,
                 subtitle:
                     '${restaurant.cuisineType} · ${restaurant.city}, ${restaurant.state}',
-                details: '${restaurant.address}\n${restaurant.socialMediaUrl}',
+                details:
+                    'Address: ${restaurant.address}\nDishes: ${restaurant.reviewedDishes.isNotEmpty ? restaurant.reviewedDishes : 'None specified'}\nSource: ${restaurant.socialMediaUrl}',
                 status: restaurant.status,
                 actions: [
+                  OutlinedButton.icon(
+                    onPressed: () => _openReviewUrl(restaurant.socialMediaUrl),
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('Open original review'),
+                  ),
                   OutlinedButton(
                     onPressed: () =>
                         _moderateRestaurant(restaurant, 'rejected'),
