@@ -36,6 +36,9 @@ declare
   v_res jsonb;
   v_usage_id uuid;
 begin
+  insert into auth.users (id, email)
+  values (v_user_id, 'test_quota_1@example.com');
+
   -- First call: allowed
   v_res := public.check_and_record_ai_generation_quota(
     v_user_id, 'hash_abc123', 'tiktok', 10, 50, 30
@@ -75,6 +78,9 @@ declare
   v_res jsonb;
   i integer;
 begin
+  insert into auth.users (id, email)
+  values (v_user_id, 'test_quota_2@example.com');
+
   -- Fill hourly quota (limit = 3 for testing)
   for i in 1..3 loop
     v_res := public.check_and_record_ai_generation_quota(
@@ -104,6 +110,9 @@ declare
   v_res jsonb;
   i integer;
 begin
+  insert into auth.users (id, email)
+  values (v_user_id, 'test_quota_3@example.com');
+
   -- Fill daily quota (limit = 2 for testing)
   for i in 1..2 loop
     v_res := public.check_and_record_ai_generation_quota(

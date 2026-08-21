@@ -142,6 +142,15 @@ alter table public.restaurant_revisions
   add column if not exists ai_source_platform text null
     check (ai_source_platform in ('instagram', 'tiktok'));
 
+-- Drop earlier overloads to avoid ambiguous function resolution
+drop function if exists public.create_restaurant_draft(
+  text, text, text, text, text, text, text, text, text, double precision, double precision
+);
+
+drop function if exists public.save_restaurant_revision_draft(
+  uuid, text, text, text, text, text, text, text, text, text, double precision, double precision
+);
+
 create or replace function public.create_restaurant_draft(
   p_name text,
   p_address text,
