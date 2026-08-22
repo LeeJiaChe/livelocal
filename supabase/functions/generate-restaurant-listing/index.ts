@@ -3,14 +3,13 @@ import {
   type SupabaseClient,
 } from "npm:@supabase/supabase-js@2.112.0";
 import type { EdgeDatabase } from "../_shared/database_types.ts";
-import { decryptSocialToken } from "../_shared/social_tokens.ts";
 import { generateStructuredRestaurantCandidates } from "./ai_extractor.ts";
 import {
+  canonicalizeSourceUrlForQuota,
   detectPlatformAndSourceType,
   fetchInstagramSource,
   fetchTikTokSource,
 } from "./social_source.ts";
-import type { SocialConnection, SocialPlatform } from "./types.ts";
 import { GenerationError } from "./types.ts";
 
 const corsHeaders = {
@@ -19,20 +18,47 @@ const corsHeaders = {
   "content-type": "application/json; charset=utf-8",
 };
 
-function reply(body: unknown, status = 200): Response {
+export function reply(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
-Deno.serve(async (request) => {
+export async function computeSha256(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text.trim());
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function handleGenerateRequest(
+  request: Request,
+  deps?: {
+    adminClient?: SupabaseClient<EdgeDatabase>;
+    fetcher?: typeof fetch;
+    env?: Record<string, string>;
+  },
+): Promise<Response> {
   if (request.method === "OPTIONS") return reply({}, 200);
   if (request.method !== "POST") {
     return reply({ error: { code: "METHOD_NOT_ALLOWED" } }, 405);
   }
+
+  const getEnv = (key: string): string | undefined => {
+    if (deps?.env && key in deps.env) return deps.env[key];
+    try {
+      return Deno.env.get(key);
+    } catch {
+      return undefined;
+    }
+  };
+
+  let usageId: string | null = null;
+  let adminClient: SupabaseClient<EdgeDatabase> | null = null;
+
   try {
-    const projectUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const encryptionSecret = Deno.env.get("SOCIAL_TOKEN_ENCRYPTION_KEY");
-    if (!projectUrl || !serviceRoleKey) {
+    const projectUrl = getEnv("SUPABASE_URL");
+    const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+    if (!deps?.adminClient && (!projectUrl || !serviceRoleKey)) {
       throw new GenerationError(
         "SOCIAL_API_NOT_CONFIGURED",
         "Server configuration missing",
@@ -49,9 +75,12 @@ Deno.serve(async (request) => {
       );
     }
     const jwt = authorization.slice(7).trim();
-    const admin = createClient<EdgeDatabase>(projectUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const admin = deps?.adminClient ??
+      createClient<EdgeDatabase>(projectUrl!, serviceRoleKey!, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+    adminClient = admin;
+
     const { data: userData, error: userError } = await admin.auth.getUser(jwt);
     if (userError || !userData.user) {
       throw new GenerationError("SESSION_EXPIRED", "Session expired", 401);
@@ -83,51 +112,120 @@ Deno.serve(async (request) => {
     if (!sourceUrl || sourceUrl.length > 2048) {
       throw new GenerationError("INVALID_SOURCE_URL", "Invalid source URL");
     }
+
     const detection = detectPlatformAndSourceType(sourceUrl);
-    const connection = await loadConnection(
-      admin,
-      userData.user.id,
-      detection.platform,
-      encryptionSecret,
-    );
-    const source = detection.platform === "tiktok"
-      ? await fetchTikTokSource(detection, connection)
-      : await fetchInstagramSource(detection, connection, {
-        graphApiVersion: Deno.env.get("META_GRAPH_API_VERSION"),
-        oEmbedAccessToken: Deno.env.get("INSTAGRAM_OEMBED_ACCESS_TOKEN"),
-      });
-    if (detection.sourceType === "profile" && source.posts.length === 0) {
+
+    // Enforce post-only contract immediately after detection (BEFORE quota, connection lookup, API or AI work)
+    if (detection.sourceType !== "post") {
       throw new GenerationError(
-        "NO_RESTAURANT_REVIEWS",
-        "No recent posts available",
-        404,
+        "PROFILE_IMPORT_NOT_SUPPORTED",
+        "Profile import is not available",
+        400,
       );
     }
+
+    const canonicalSourceUrl = canonicalizeSourceUrlForQuota(sourceUrl);
+    const sourceHash = await computeSha256(canonicalSourceUrl);
+
+    // Enforce quota and duplicate request protection before executing AI call (FAIL CLOSED)
+    const { data: quotaData, error: quotaError } = await admin.rpc(
+      "check_and_record_ai_generation_quota" as never,
+      {
+        p_user_id: userData.user.id,
+        p_source_hash: sourceHash,
+        p_platform: detection.platform,
+        p_hourly_limit: 10,
+        p_daily_limit: 50,
+        p_cooldown_seconds: 30,
+      } as never,
+    );
+
+    if (quotaError || !quotaData || typeof quotaData !== "object") {
+      throw new GenerationError(
+        "AI_QUOTA_UNAVAILABLE",
+        "AI quota check is unavailable",
+        503,
+      );
+    }
+
+    const quota = quotaData as Record<string, unknown>;
+    if (quota.allowed === false) {
+      const isCooldown = quota.error_code === "COOLDOWN";
+      throw new GenerationError(
+        "AI_RATE_LIMITED",
+        isCooldown
+          ? "Please wait before requesting AI generation for this link again."
+          : "AI generation quota exceeded. Please try again later.",
+        429,
+      );
+    }
+    if (typeof quota.usage_id === "string") {
+      usageId = quota.usage_id;
+    }
+
+    // Public post fetching without OAuth dependency
+    const fetcher = deps?.fetcher ?? fetch;
+    const source = detection.platform === "tiktok"
+      ? await fetchTikTokSource(detection, null, fetcher)
+      : await fetchInstagramSource(detection, null, {
+        graphApiVersion: getEnv("META_GRAPH_API_VERSION"),
+        oEmbedAccessToken: getEnv("INSTAGRAM_OEMBED_ACCESS_TOKEN"),
+      }, fetcher);
+
+    const provider = getEnv("AI_PROVIDER")?.trim();
+    const apiKey = getEnv("AI_API_KEY")?.trim() ||
+      (provider === "openai_compatible"
+        ? getEnv("OPENAI_API_KEY")?.trim()
+        : undefined) ||
+      (provider === "gemini_openai_compatible"
+        ? getEnv("GEMINI_API_KEY")?.trim()
+        : undefined);
+    const model = getEnv("AI_MODEL")?.trim();
+    const baseUrl = getEnv("AI_API_BASE_URL")?.trim();
+
     const candidates = await generateStructuredRestaurantCandidates(source, {
-      apiKey: Deno.env.get("AI_API_KEY"),
-      model: Deno.env.get("AI_MODEL"),
-      baseUrl: Deno.env.get("AI_API_BASE_URL"),
-    });
-    if (detection.sourceType === "post" && candidates.length !== 1) {
+      provider,
+      apiKey,
+      model,
+      baseUrl,
+    }, fetcher);
+
+    if (candidates.length !== 1) {
       throw new GenerationError(
         "MALFORMED_AI_RESPONSE",
         "Single-post extraction did not return one candidate",
         502,
       );
     }
-    if (detection.sourceType === "profile" && candidates.length === 0) {
-      throw new GenerationError(
-        "NO_RESTAURANT_REVIEWS",
-        "No restaurant reviews found",
-        404,
-      );
+
+    if (usageId) {
+      try {
+        await admin.rpc("record_ai_generation_outcome" as never, {
+          p_usage_id: usageId,
+          p_outcome: "succeeded",
+        } as never);
+      } catch (_) {
+        // ignore telemetry error
+      }
     }
+
     return reply({
       sourceType: detection.sourceType,
       platform: detection.platform,
       candidates,
     });
   } catch (error) {
+    if (usageId && adminClient) {
+      try {
+        await adminClient.rpc("record_ai_generation_outcome" as never, {
+          p_usage_id: usageId,
+          p_outcome: "failed",
+        } as never);
+      } catch (_) {
+        // ignore telemetry error
+      }
+    }
+
     const typed = error instanceof GenerationError
       ? error
       : new GenerationError(
@@ -140,45 +238,8 @@ Deno.serve(async (request) => {
       typed.status,
     );
   }
-});
+}
 
-async function loadConnection(
-  admin: SupabaseClient<EdgeDatabase>,
-  userId: string,
-  platform: SocialPlatform,
-  encryptionSecret: string | undefined,
-): Promise<SocialConnection | null> {
-  const { data, error } = await admin.from("social_account_connections")
-    .select(
-      "profile_url, access_token_ciphertext, access_token_iv, token_expires_at",
-    )
-    .eq("user_id", userId).eq("platform", platform).maybeSingle();
-  if (error) {
-    throw new GenerationError(
-      "SOCIAL_API_UNAVAILABLE",
-      "Social connection lookup failed",
-      503,
-    );
-  }
-  if (!data) return null;
-  if (
-    data.token_expires_at &&
-    new Date(data.token_expires_at).getTime() <= Date.now()
-  ) return null;
-  if (!encryptionSecret) {
-    throw new GenerationError(
-      "SOCIAL_API_NOT_CONFIGURED",
-      "Social token encryption is not configured",
-      503,
-    );
-  }
-  return {
-    platform,
-    profileUrl: data.profile_url,
-    accessToken: await decryptSocialToken(
-      data.access_token_ciphertext,
-      data.access_token_iv,
-      encryptionSecret,
-    ),
-  };
+if (import.meta.main) {
+  Deno.serve((req) => handleGenerateRequest(req));
 }

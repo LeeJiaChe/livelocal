@@ -36,9 +36,3 @@ file_size_limit = "10MiB"
 
 [functions.generate-restaurant-listing]
 verify_jwt = true
-
-# OAuth callbacks arrive from TikTok/Instagram without a LiveLocal JWT. The
-# function validates authenticated start requests itself and callback state is
-# single-use, hashed, short-lived, and bound to the initiating user.
-[functions.social-account-oauth]
-verify_jwt = false

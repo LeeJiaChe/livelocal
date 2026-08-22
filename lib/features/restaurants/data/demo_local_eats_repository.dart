@@ -199,6 +199,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
         longitude: input.longitude,
         status: 'draft',
         isOwnedByCurrentUser: true,
+        aiAssisted: input.aiAssisted,
+        aiSourcePlatform: input.aiSourcePlatform,
       ),
     );
     _currentRevisionIds[id] = revisionId;
@@ -279,6 +281,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
         (restaurant) =>
             restaurant.id == existing.id && restaurant.status == 'approved',
       ),
+      aiAssisted: input.aiAssisted,
+      aiSourcePlatform: input.aiSourcePlatform,
     );
     if (revised.coverPhotoUrl.isEmpty) {
       throw const AppException(
