@@ -34,6 +34,13 @@ void main() {
         malay.translate('Manage LiveLocal neighbourhood guides'),
         'Urus panduan kawasan kejiranan LiveLocal',
       );
+      expect(malay.translate('Post anonymously'), 'Siarkan secara tanpa nama');
+      expect(
+        malay.translate('Hide my name from other LiveLocal users.'),
+        'Sembunyikan nama saya daripada pengguna LiveLocal yang lain.',
+      );
+      expect(malay.translate('Anonymous'), 'Tanpa Nama');
+      expect(malay.translate('Your review'), 'Ulasan anda');
     });
 
     test('dynamic product copy is localized without altering values', () {

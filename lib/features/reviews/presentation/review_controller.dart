@@ -68,6 +68,7 @@ class ReviewController with ChangeNotifier {
     String? restaurantId,
     required double rating,
     required String comment,
+    bool isAnonymous = false,
     List<ReviewPhotoInput> photos = const [],
   }) async {
     return _doAddReview(
@@ -76,6 +77,7 @@ class ReviewController with ChangeNotifier {
       restaurantId: restaurantId,
       rating: rating,
       comment: comment,
+      isAnonymous: isAnonymous,
       photos: photos,
       isRetry: false,
     );
@@ -87,6 +89,7 @@ class ReviewController with ChangeNotifier {
     String? restaurantId,
     required double rating,
     required String comment,
+    required bool isAnonymous,
     required List<ReviewPhotoInput> photos,
     required bool isRetry,
   }) async {
@@ -114,6 +117,7 @@ class ReviewController with ChangeNotifier {
         rating: rating.round(),
         comment: comment.trim(),
         expectedVersion: existing.isEmpty ? null : existing.single.version,
+        isAnonymous: isAnonymous,
         photos: photos,
       );
       await loadReviews(spotId: spotId, restaurantId: restaurantId);
@@ -133,6 +137,7 @@ class ReviewController with ChangeNotifier {
             restaurantId: restaurantId,
             rating: rating,
             comment: comment,
+            isAnonymous: isAnonymous,
             photos: photos,
             isRetry: true,
           );

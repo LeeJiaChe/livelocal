@@ -174,6 +174,15 @@ class AppLocalizations {
     'Notifications': 'Pemberitahuan',
     'No notifications': 'Tiada pemberitahuan',
     'Mark all as read': 'Tandakan semua sebagai dibaca',
+    'Post anonymously': 'Siarkan secara tanpa nama',
+    'Anonymous': 'Tanpa Nama',
+    'Hide my name from other LiveLocal users.':
+        'Sembunyikan nama saya daripada pengguna LiveLocal yang lain.',
+    'Your review': 'Ulasan anda',
+    'Anonymous · Your review': 'Tanpa Nama · Ulasan anda',
+    'Write a review': 'Tulis ulasan',
+    'Edit your review': 'Edit ulasan anda',
+    'Review safety options': 'Pilihan keselamatan ulasan',
     'LiveLocal': 'LiveLocal',
     'Discover Malaysia like a local': 'Terokai Malaysia seperti orang tempatan',
     'Explore authentic heritage, nature, and cultural places recommended by local communities.':

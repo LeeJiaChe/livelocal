@@ -59,6 +59,7 @@ abstract interface class ReviewRepository {
     required int rating,
     required String comment,
     int? expectedVersion,
+    bool isAnonymous = false,
     List<ReviewPhotoInput> photos = const [],
   });
 

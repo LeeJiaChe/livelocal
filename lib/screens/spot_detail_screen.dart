@@ -421,7 +421,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                           onPressed: _requestWriteReview,
                           icon:
                               const Icon(Icons.rate_review_outlined, size: 16),
-                          label: const Text('Write Review'),
+                          label: Text(context.tr('Write Review')),
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(120, 36),
                             padding: const EdgeInsets.symmetric(
@@ -460,19 +460,45 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      const CircleAvatar(
+                                      CircleAvatar(
                                         radius: 14,
-                                        backgroundColor: AppColors.primary,
-                                        child: Icon(Icons.person,
-                                            size: 16, color: Colors.white),
+                                        backgroundColor: r.isAnonymous
+                                            ? Colors.grey.shade600
+                                            : AppColors.primary,
+                                        child: Icon(
+                                          r.isAnonymous
+                                              ? Icons.person_outline
+                                              : Icons.person,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
-                                        child: Text(
-                                          r.userName,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              r.isAnonymous
+                                                  ? context.tr('Anonymous')
+                                                  : r.userName,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                            if (r.isOwnedByCurrentUser &&
+                                                r.isAnonymous)
+                                              Text(
+                                                context.tr('Your review'),
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade600,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
                                       const SizedBox(width: 8),
@@ -512,7 +538,8 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                               value: 'report',
                                               child: Text('Report review'),
                                             ),
-                                            if (supportsUserBlocking)
+                                            if (supportsUserBlocking &&
+                                                !r.isAnonymous)
                                               const PopupMenuItem(
                                                 value: 'block',
                                                 child: Text('Block reviewer'),
@@ -711,6 +738,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         .getReviewsForSpot(widget.spot.id)
         .where((review) => review.isOwnedByCurrentUser);
     final existing = ownReviews.isEmpty ? null : ownReviews.single;
+    var isAnonymous = existing?.isAnonymous ?? false;
     var photoInputs = existing?.photos
             .map((photo) => ReviewPhotoInput.existing(photo.path))
             .toList(growable: false) ??
@@ -739,16 +767,17 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                        existing == null
+                        context.tr(existing == null
                             ? 'Write a review'
-                            : 'Edit your review',
+                            : 'Edit your review'),
                         style: const TextStyle(
                             fontSize: 20, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        const Text('Your Rating: ',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
+                        Text(context.tr('Your Rating: '),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
                         const SizedBox(width: 12),
                         Row(
                           children: List.generate(5, (index) {
@@ -787,6 +816,18 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                       existingPhotos: existing?.photos ?? const [],
                       onChanged: (photos) => photoInputs = photos,
                     ),
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.person_off_outlined),
+                      title: Text(context.tr('Post anonymously')),
+                      subtitle: Text(
+                        context.tr('Hide my name from other LiveLocal users.'),
+                      ),
+                      value: isAnonymous,
+                      onChanged: (val) =>
+                          setModalState(() => isAnonymous = val),
+                    ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -802,6 +843,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                               spotId: widget.spot.id,
                               rating: _userRating,
                               comment: _commentCtrl.text.trim(),
+                              isAnonymous: isAnonymous,
                               photos: photoInputs,
                             );
                             if (!saved) {
@@ -829,9 +871,9 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                             );
                           }
                         },
-                        child: const Text('Submit Review',
-                            style:
-                                TextStyle(color: Colors.white, fontSize: 16)),
+                        child: Text(context.tr('Submit Review'),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 16)),
                       ),
                     ),
                   ],

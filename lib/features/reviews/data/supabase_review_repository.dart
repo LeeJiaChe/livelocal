@@ -85,6 +85,7 @@ class SupabaseReviewRepository
           createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
           updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
           version: (row['version'] as num).toInt(),
+          isAnonymous: row['is_anonymous'] == true,
           isOwnedByCurrentUser: own != null,
           likesCount: (row['likes_count'] as num?)?.toInt() ?? 0,
           dislikesCount: (row['dislikes_count'] as num?)?.toInt() ?? 0,
@@ -127,6 +128,7 @@ class SupabaseReviewRepository
     required int rating,
     required String comment,
     int? expectedVersion,
+    bool isAnonymous = false,
     List<ReviewPhotoInput> photos = const [],
   }) async {
     final targetId = spotId ?? restaurantId;
@@ -175,6 +177,7 @@ class SupabaseReviewRepository
         'p_expected_version': expectedVersion,
         'p_photo_paths': photoPaths,
         'p_new_review_id': selectedReviewId,
+        'p_is_anonymous': isAnonymous,
       });
       final row = Map<String, dynamic>.from(response as Map);
       return ReviewModel(
@@ -188,6 +191,7 @@ class SupabaseReviewRepository
         createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
         updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
         version: (row['version'] as num).toInt(),
+        isAnonymous: row['is_anonymous'] as bool? ?? isAnonymous,
         isOwnedByCurrentUser: true,
         photos: await _photosFromPaths(photoPaths),
       );
