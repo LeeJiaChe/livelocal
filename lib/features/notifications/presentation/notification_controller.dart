@@ -9,13 +9,18 @@ class NotificationController with ChangeNotifier {
       : _repository = repository;
 
   final NotificationRepository _repository;
+  static const _pageSize = 25;
   List<NotificationModel> _notifications = [];
   bool _isLoading = false;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
   String? _errorMessage;
 
   List<NotificationModel> get notifications =>
       List.unmodifiable(_notifications);
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => _hasMore;
   String? get errorMessage => _errorMessage;
   int get unreadCount =>
       _notifications.where((notification) => !notification.isRead).length;
@@ -25,11 +30,36 @@ class NotificationController with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      _notifications = await _repository.fetchMine();
+      _notifications = await _repository.fetchMine(
+        offset: 0,
+        limit: _pageSize,
+      );
+      _hasMore = _notifications.length == _pageSize;
     } catch (error) {
       _errorMessage = _message(error, 'Notifications could not be loaded.');
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (_isLoading || _isLoadingMore || !_hasMore) return;
+    _isLoadingMore = true;
+    notifyListeners();
+    try {
+      final page = await _repository.fetchMine(
+        offset: _notifications.length,
+        limit: _pageSize,
+      );
+      _notifications.addAll(page);
+      _hasMore = page.length == _pageSize;
+      _errorMessage = null;
+    } catch (error) {
+      _errorMessage =
+          _message(error, 'More notifications could not be loaded.');
+    } finally {
+      _isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -45,7 +75,12 @@ class NotificationController with ChangeNotifier {
   Future<bool> _mark(String? notificationId) async {
     try {
       await _repository.markRead(notificationId);
-      _notifications = await _repository.fetchMine();
+      _notifications = await _repository.fetchMine(
+        offset: 0,
+        limit: _notifications.length < _pageSize
+            ? _pageSize
+            : _notifications.length,
+      );
       _errorMessage = null;
       notifyListeners();
       return true;

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/theme/app_spacing.dart';
@@ -319,7 +320,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
                       ),
                     ),
                     IconButton.filledTonal(
-                      tooltip: 'New collection',
+                      tooltip: context.tr('New collection'),
                       icon: const Icon(Icons.create_new_folder_outlined),
                       onPressed: _showCreateCollectionDialog,
                     ),
@@ -541,8 +542,8 @@ class _CreateCollectionDialogState extends State<_CreateCollectionDialog> {
             autofocus: true,
             maxLength: 80,
             decoration: InputDecoration(
-              hintText: 'e.g. Weekend in Penang, KL Coffee',
-              labelText: 'Collection name',
+              hintText: context.tr('e.g. Weekend in Penang, KL Coffee'),
+              labelText: context.tr('Collection name'),
               errorText: _dialogError,
             ),
             textCapitalization: TextCapitalization.words,

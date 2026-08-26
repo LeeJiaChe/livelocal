@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
@@ -195,7 +196,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                 _field(
                   _name,
                   'Place name',
-                  hintText: 'e.g. Toh Soon Cafe, Hin Bus Depot',
+                  hintText: context.tr('e.g. Toh Soon Cafe, Hin Bus Depot'),
                   minLength: 2,
                   maxLength: 120,
                 ),
@@ -206,11 +207,11 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                       child: _dropdown(
                         label: 'Category',
                         value: _category,
-                        hintText: 'Select category',
+                        hintText: context.tr('Select category'),
                         values: _categories,
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
-                            return 'Select category.';
+                            return context.tr('Select category.');
                           }
                           return null;
                         },
@@ -222,11 +223,11 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                       child: _dropdown(
                         label: 'State',
                         value: _displayState,
-                        hintText: 'Select state',
+                        hintText: context.tr('Select state'),
                         values: _states,
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
-                            return 'Select state.';
+                            return context.tr('Select state.');
                           }
                           return null;
                         },
@@ -247,7 +248,7 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                 _field(
                   _city,
                   'City or district',
-                  hintText: 'e.g. George Town, Ipoh Old Town',
+                  hintText: context.tr('e.g. George Town, Ipoh Old Town'),
                   minLength: 2,
                   maxLength: 100,
                 ),
@@ -255,7 +256,8 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                 _field(
                   _address,
                   'Full address',
-                  hintText: 'e.g. 120 Campbell Street, 10100 George Town',
+                  hintText:
+                      context.tr('e.g. 120 Campbell Street, 10100 George Town'),
                   minLength: 5,
                   maxLength: 300,
                 ),
@@ -271,8 +273,9 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                 _field(
                   _description,
                   'Why is this place special?',
-                  hintText:
-                      'Describe the atmosphere, specialty, heritage or local significance...',
+                  hintText: context.tr(
+                    'Describe the atmosphere, specialty, heritage or local significance...',
+                  ),
                   minLength: 20,
                   maxLength: 3000,
                   maxLines: 4,
@@ -281,8 +284,9 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                 _field(
                   _bestTime,
                   'Best time to visit',
-                  hintText:
-                      'e.g. Morning for fresh toast, sunset for sea breeze',
+                  hintText: context.tr(
+                    'e.g. Morning for fresh toast, sunset for sea breeze',
+                  ),
                   minLength: 2,
                   maxLength: 160,
                 ),
@@ -290,8 +294,9 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                 _field(
                   _thingsToDo,
                   'What to do or try',
-                  hintText:
-                      'e.g. Order charcoal toast, stroll through the art market',
+                  hintText: context.tr(
+                    'e.g. Order charcoal toast, stroll through the art market',
+                  ),
                   minLength: 2,
                   maxLength: 500,
                   maxLines: 2,
@@ -405,13 +410,15 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
       maxLines: maxLines,
       maxLength: maxLength,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: context.tr(label),
         hintText: hintText,
         alignLabelWithHint: maxLines > 1,
       ),
       validator: (value) {
         final length = value?.trim().length ?? 0;
-        if (length < minLength) return 'Enter at least $minLength characters.';
+        if (length < minLength) {
+          return context.tr('Enter at least $minLength characters.');
+        }
         return null;
       },
       onChanged: (_) => setState(() {}),
@@ -528,10 +535,10 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                 minLines: 2,
                 maxLines: 4,
                 maxLength: 500,
-                decoration: const InputDecoration(
-                  labelText: 'Why is this a different place?',
+                decoration: InputDecoration(
+                  labelText: context.tr('Why is this a different place?'),
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],

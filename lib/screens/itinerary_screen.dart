@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -58,7 +59,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             IconButton(
               icon: const Icon(Icons.map_outlined),
               onPressed: () => _showMapView(context, groupedByDay, steps),
-              tooltip: 'View on map',
+              tooltip: context.tr('View on map'),
             ),
         ],
       ),
@@ -355,12 +356,18 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                               ),
                           ],
                         ),
-                        trailing: Text(
-                          bestTime,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                        trailing: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 100),
+                          child: Text(
+                            bestTime,
+                            textAlign: TextAlign.end,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                          ),
                         ),
                       );
                     }).toList(),
@@ -409,17 +416,17 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
               TextField(
                 controller: title,
                 maxLength: 120,
-                decoration: const InputDecoration(
-                  labelText: 'Plan title',
+                decoration: InputDecoration(
+                  labelText: context.tr('Plan title'),
                 ),
               ),
               if (collections.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.x1),
                 DropdownButtonFormField<String?>(
                   initialValue: selectedColId,
-                  decoration: const InputDecoration(
-                    labelText: 'Source collection',
-                    prefixIcon: Icon(Icons.bookmark_outline),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Source collection'),
+                    prefixIcon: const Icon(Icons.bookmark_outline),
                   ),
                   items: [
                     const DropdownMenuItem<String?>(
@@ -459,8 +466,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
               if (mode == 'manual')
                 DropdownButtonFormField<_ManualOrigin>(
                   initialValue: city,
-                  decoration: const InputDecoration(
-                    labelText: 'Starting city',
+                  decoration: InputDecoration(
+                    labelText: context.tr('Starting city'),
                   ),
                   items: _manualOrigins
                       .map(

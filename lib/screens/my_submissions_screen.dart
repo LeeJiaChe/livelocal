@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
@@ -130,7 +131,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                   title: 'No places submitted',
                   message:
                       'Share heritage, nature or local spots with travellers.',
-                  actionLabel: 'Share a place',
+                  actionLabel: context.tr('Share a place'),
                   onAction: () => Navigator.pushNamed(context, '/submit-spot'),
                 )
               else
@@ -172,7 +173,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                 _EmptySectionCard(
                   title: 'No guides submitted',
                   message: 'Create travel routes and itineraries for Malaysia.',
-                  actionLabel: 'Create a travel guide',
+                  actionLabel: context.tr('Create a travel guide'),
                   onAction: () => Navigator.pushNamed(context, '/submit-guide'),
                 )
               else
@@ -212,7 +213,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                     title: 'No restaurants submitted',
                     message:
                         'Recommend authentic eateries and local food gems.',
-                    actionLabel: 'Recommend a restaurant',
+                    actionLabel: context.tr('Recommend a restaurant'),
                     onAction: () =>
                         Navigator.pushNamed(context, '/add-restaurant'),
                   )

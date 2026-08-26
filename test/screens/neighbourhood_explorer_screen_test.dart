@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_local/controllers/auth_controller.dart';
 import 'package:live_local/controllers/guide_controller.dart';
+import 'package:live_local/controllers/localeats_controller.dart';
+import 'package:live_local/controllers/spot_controller.dart';
 import 'package:live_local/core/routing/protected_navigation.dart';
 import 'package:live_local/features/auth/data/demo_auth_repository.dart';
 import 'package:live_local/features/guides/data/demo_guide_repository.dart';
 import 'package:live_local/features/guides/presentation/submit_guide_screen.dart';
+import 'package:live_local/features/restaurants/data/demo_local_eats_repository.dart';
+import 'package:live_local/features/spots/data/demo_spot_repository.dart';
 import 'package:live_local/screens/guide_detail_screen.dart';
 import 'package:live_local/screens/neighbourhood_explorer_screen.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +39,16 @@ void main() {
         providers: [
           ChangeNotifierProvider.value(value: authController),
           ChangeNotifierProvider.value(value: guideController),
+          ChangeNotifierProvider(
+            create: (_) => SpotController(
+              repository: DemoSpotRepository(authRepository),
+            ),
+          ),
+          ChangeNotifierProvider(
+            create: (_) => LocalEatsController(
+              repository: DemoLocalEatsRepository(authRepository),
+            ),
+          ),
           Provider<ProtectedNavigation>.value(value: protectedNav),
         ],
         child: MaterialApp(

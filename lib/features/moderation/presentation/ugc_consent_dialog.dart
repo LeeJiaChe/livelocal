@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/config/legal_urls.dart';
 
@@ -63,10 +64,14 @@ class _UgcConsentDialogState extends State<UgcConsentDialog> {
       if (mounted) {
         Navigator.of(context).pop(true);
       }
-    } on PostgrestException catch (e) {
+    } on PostgrestException catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to accept rules: ${e.message}')),
+          const SnackBar(
+            content: Text(
+              'Community Rules acceptance could not be saved. Try again.',
+            ),
+          ),
         );
       }
     } catch (e) {

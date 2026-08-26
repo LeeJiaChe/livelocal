@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/presentation/app_state_view.dart';
@@ -43,7 +44,7 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
               icon: Icons.cloud_off_outlined,
               title: 'Blocked accounts unavailable',
               message: controller.errorMessage!,
-              actionLabel: 'Try again',
+              actionLabel: context.tr('Try again'),
               onAction: controller.loadBlockedUsers,
             );
           }

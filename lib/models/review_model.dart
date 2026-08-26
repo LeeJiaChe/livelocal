@@ -1,3 +1,19 @@
+import 'dart:typed_data';
+
+class ReviewPhotoModel {
+  const ReviewPhotoModel({
+    required this.path,
+    required this.url,
+    required this.sortOrder,
+    this.bytes,
+  });
+
+  final String path;
+  final String url;
+  final int sortOrder;
+  final Uint8List? bytes;
+}
+
 class ReviewModel {
   final String id;
   final String? spotId;
@@ -6,7 +22,7 @@ class ReviewModel {
   final String userName;
   final double rating;
   final String comment;
-  final String? photoUrl;
+  final List<ReviewPhotoModel> photos;
   final bool isFlagged;
   final String? flagReason;
   final DateTime createdAt;
@@ -25,7 +41,7 @@ class ReviewModel {
     required this.userName,
     required this.rating,
     required this.comment,
-    this.photoUrl,
+    this.photos = const [],
     this.isFlagged = false,
     this.flagReason,
     required this.createdAt,
@@ -45,7 +61,7 @@ class ReviewModel {
         'user_name': userName,
         'rating': rating,
         'comment': comment,
-        'photo_url': photoUrl,
+        'photo_paths': photos.map((photo) => photo.path).toList(),
         'is_flagged': isFlagged,
         'flag_reason': flagReason,
         'created_at': createdAt.toIso8601String(),
@@ -64,7 +80,15 @@ class ReviewModel {
         userName: map['user_name'] ?? 'Anonymous',
         rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
         comment: map['comment'] ?? '',
-        photoUrl: map['photo_url'],
+        photos: (map['photos'] as List<dynamic>? ?? const [])
+            .map(
+              (raw) => ReviewPhotoModel(
+                path: (raw as Map)['path'] as String,
+                url: raw['url'] as String? ?? '',
+                sortOrder: (raw['sort_order'] as num?)?.toInt() ?? 0,
+              ),
+            )
+            .toList(growable: false),
         isFlagged: map['is_flagged'] ?? false,
         flagReason: map['flag_reason'],
         createdAt: DateTime.parse(
@@ -92,7 +116,7 @@ class ReviewModel {
         userName: userName,
         rating: rating,
         comment: comment,
-        photoUrl: photoUrl,
+        photos: photos,
         isFlagged: isFlagged,
         flagReason: flagReason,
         createdAt: createdAt,

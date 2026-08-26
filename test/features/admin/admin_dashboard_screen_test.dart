@@ -5,6 +5,7 @@ import 'package:live_local/controllers/auth_controller.dart';
 import 'package:live_local/controllers/guide_controller.dart';
 import 'package:live_local/controllers/localeats_controller.dart';
 import 'package:live_local/controllers/spot_controller.dart';
+import 'package:live_local/core/localization/app_localizations.dart';
 import 'package:live_local/features/admin/data/demo_admin_repository.dart';
 import 'package:live_local/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:live_local/features/admin/presentation/widgets/admin_section_header.dart';
@@ -77,6 +78,7 @@ void main() {
     Widget createWidgetUnderTest() {
       return MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AppLocaleController()),
           ChangeNotifierProvider.value(value: authController),
           ChangeNotifierProvider.value(value: accountController),
           ChangeNotifierProvider.value(value: adminController),
@@ -97,6 +99,7 @@ void main() {
     Widget createMobileWidgetUnderTest({required Size size}) {
       return MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AppLocaleController()),
           ChangeNotifierProvider.value(value: authController),
           ChangeNotifierProvider.value(value: accountController),
           ChangeNotifierProvider.value(value: adminController),
@@ -134,16 +137,16 @@ void main() {
       expect(find.text('Admin Center'), findsWidgets);
       expect(find.text('Needs review'), findsOneWidget);
 
-      // Switch to Review
-      await tester.tap(find.text('Review').first);
+      // Switch to Review Queue
+      await tester.tap(find.text('Review Queue').first);
       await tester.pumpAndSettle();
       expect(
         find.widgetWithText(AdminSectionHeader, 'Review Queue'),
         findsOneWidget,
       );
 
-      // Switch to Guides
-      await tester.tap(find.text('Guides').first);
+      // Switch to Content
+      await tester.tap(find.text('Content').first);
       await tester.pumpAndSettle();
       expect(
         find.widgetWithText(AdminSectionHeader, 'Guide Management'),
@@ -158,13 +161,10 @@ void main() {
         findsOneWidget,
       );
 
-      // Switch to Audit
-      await tester.tap(find.text('Audit').first);
+      // Switch to More -> Audit History
+      await tester.tap(find.text('More').first);
       await tester.pumpAndSettle();
-      expect(
-        find.widgetWithText(AdminSectionHeader, 'Audit History'),
-        findsOneWidget,
-      );
+      expect(find.text('Audit History'), findsOneWidget);
     });
 
     testWidgets('22. non-admin access denied safely', (tester) async {
@@ -229,13 +229,13 @@ void main() {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Review
-      await tester.tap(find.text('Review').first);
+      // Go to Review Queue
+      await tester.tap(find.text('Review Queue').first);
       await tester.pumpAndSettle();
 
       // Items rendered
-      expect(find.text('Bukit Bintang Alley Roastery'), findsOneWidget);
-      expect(find.text('Kopitiam Heritage Noodle House'), findsOneWidget);
+      expect(find.text('Penang Botanic Gardens'), findsOneWidget);
+      expect(find.text('Guan Heong Biscuit Shop'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('Jonker Street Evening Food Trail'),
         150,
@@ -254,7 +254,7 @@ void main() {
       );
       await tester.tap(find.text('Reports'));
       await tester.pumpAndSettle();
-      expect(find.text('Bukit Bintang Alley Roastery'), findsNothing);
+      expect(find.text('Penang Botanic Gardens'), findsNothing);
       expect(find.textContaining('Unverified business hours'), findsOneWidget);
 
       // Return to All
@@ -278,7 +278,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Spot is now approved and removed from pending review queue
-      expect(find.text('Bukit Bintang Alley Roastery'), findsNothing);
+      expect(find.text('Penang Botanic Gardens'), findsNothing);
     });
 
     testWidgets(
@@ -287,8 +287,8 @@ void main() {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Guides tab
-      await tester.tap(find.text('Guides').first);
+      // Go to Content tab
+      await tester.tap(find.text('Content').first);
       await tester.pumpAndSettle();
 
       // Admin Drafts section
@@ -392,8 +392,10 @@ void main() {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Audit tab
-      await tester.tap(find.text('Audit').first);
+      // Go to More -> Audit History
+      await tester.tap(find.text('More').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Audit History'));
       await tester.pumpAndSettle();
 
       expect(
@@ -427,11 +429,13 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Review Queue'),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -439,7 +443,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Audit'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -452,11 +456,13 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Review Queue'),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -464,7 +470,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Audit'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -477,11 +483,13 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Review Queue'),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -489,7 +497,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Audit'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });

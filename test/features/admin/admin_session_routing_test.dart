@@ -6,6 +6,7 @@ import 'package:live_local/controllers/guide_controller.dart';
 import 'package:live_local/controllers/itinerary_controller.dart';
 import 'package:live_local/controllers/localeats_controller.dart';
 import 'package:live_local/controllers/spot_controller.dart';
+import 'package:live_local/core/localization/app_localizations.dart';
 import 'package:live_local/features/admin/data/demo_admin_repository.dart';
 import 'package:live_local/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:live_local/features/auth/data/demo_auth_repository.dart';
@@ -88,6 +89,7 @@ void main() {
     Widget createWidgetUnderTest() {
       return MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AppLocaleController()),
           ChangeNotifierProvider.value(value: authController),
           ChangeNotifierProvider.value(value: accountController),
           ChangeNotifierProvider.value(value: adminController),
@@ -170,11 +172,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Ensure bottom navigation has exactly Spots, Eats, Saved, Guides, Profile
-      expect(find.text('Spots'), findsOneWidget);
-      expect(find.text('Eats'), findsOneWidget);
+      // Ensure bottom navigation has exactly Home, Explore, Saved, Trips, Profile
+      expect(find.text('Home'), findsOneWidget);
+      expect(find.text('Explore'), findsOneWidget);
       expect(find.text('Saved'), findsOneWidget);
-      expect(find.text('Guides'), findsOneWidget);
+      expect(find.text('Trips'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
       expect(find.text('Admin'), findsNothing);
     });

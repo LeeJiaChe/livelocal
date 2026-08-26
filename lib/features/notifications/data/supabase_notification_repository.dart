@@ -10,13 +10,16 @@ class SupabaseNotificationRepository implements NotificationRepository {
   final SupabaseClient _client;
 
   @override
-  Future<List<NotificationModel>> fetchMine() async {
+  Future<List<NotificationModel>> fetchMine({
+    required int offset,
+    required int limit,
+  }) async {
     try {
       final rows = await _client
           .from('notifications')
           .select()
           .order('created_at', ascending: false)
-          .limit(100);
+          .range(offset, offset + limit - 1);
       return rows.map(NotificationModel.fromMap).toList();
     } on PostgrestException catch (error) {
       throw _error(error, 'Notifications could not be loaded.');

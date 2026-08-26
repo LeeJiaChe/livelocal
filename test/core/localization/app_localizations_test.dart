@@ -1,0 +1,76 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:live_local/core/localization/app_localizations.dart';
+
+void main() {
+  group('AppLocalizations', () {
+    const english = AppLocalizations(Locale('en'));
+    const malay = AppLocalizations(Locale('ms'));
+
+    test('English source copy passes through unchanged', () {
+      expect(english.translate('Creator Studio'), 'Creator Studio');
+    });
+
+    test('core role and workflow copy has natural BM translations', () {
+      expect(malay.translate('Creator Studio'), 'Studio Pencipta');
+      expect(malay.translate('Review Queue'), 'Barisan semakan');
+      expect(malay.translate('Needs changes'), 'Perlu perubahan');
+      expect(
+        malay.translate('Review photos'),
+        isNot(equals('Review photos')),
+      );
+    });
+
+    test('dynamic product copy is localized without altering values', () {
+      expect(malay.translate('4 approved places'), '4 tempat yang diluluskan');
+      expect(malay.translate('5 stars'), '5 bintang');
+      expect(malay.translate('Copy LOCAL10'), 'Salin LOCAL10');
+      expect(malay.translate('3h ago'), '3 jam lalu');
+      expect(
+        malay.translate('Enter at least 20 characters.'),
+        'Masukkan sekurang-kurangnya 20 aksara.',
+      );
+      expect(
+        malay.translate('Enter Full address (at least 5 characters).'),
+        'Masukkan Alamat penuh (sekurang-kurangnya 5 aksara).',
+      );
+      expect(
+        malay.translate('Use a matching instagram.com HTTPS URL.'),
+        'Gunakan URL HTTPS instagram.com yang sepadan.',
+      );
+    });
+
+    test('legacy long-form role screens have genuine BM copy', () {
+      expect(
+        malay.translate(
+          'Community travel guides are reviewed by LiveLocal before becoming public. Once approved, your itinerary will be visible to all travellers.',
+        ),
+        contains('Panduan perjalanan komuniti'),
+      );
+      expect(
+        malay.translate(
+          'Your restaurant submission has been sent for moderation. Once approved by an administrator, it will appear in Local Eats.',
+        ),
+        contains('Sumbangan restoran anda'),
+      );
+      expect(
+        malay.translate(
+          'Your account will be disabled now and scheduled for permanent deletion after 14 days. You can recover your account during this grace period by signing in and confirming recovery.',
+        ),
+        contains('Akaun anda akan dinyahaktifkan'),
+      );
+    });
+
+    test('proper names and unknown user content remain unchanged', () {
+      expect(malay.translate('Pasar Siti Khadijah'), 'Pasar Siti Khadijah');
+      expect(malay.translate('Alex Eats'), 'Alex Eats');
+      expect(malay.translate('TikTok'), 'TikTok');
+    });
+
+    test('never fabricates prefixed Malay copy', () {
+      expect(malay.translate('Unregistered sentence'), 'Unregistered sentence');
+      expect(
+          malay.translate('Unregistered sentence'), isNot(contains('[Malay]')));
+    });
+  });
+}

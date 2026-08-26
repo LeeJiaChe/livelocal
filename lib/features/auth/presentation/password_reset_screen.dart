@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../domain/auth_repository.dart';
@@ -64,15 +65,15 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(
-                      labelText: 'Email address',
-                      prefixIcon: Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.tr('Email address'),
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      border: const OutlineInputBorder(),
                     ),
                     validator: (value) {
                       final email = value?.trim() ?? '';
                       if (!email.contains('@') || !email.contains('.')) {
-                        return 'Enter a valid email address.';
+                        return context.tr('Enter a valid email address.');
                       }
                       return null;
                     },

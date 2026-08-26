@@ -70,7 +70,7 @@ void main() {
       );
       expect(created, isTrue);
       expect(controller.itinerarySteps, hasLength(1));
-      expect(controller.itinerarySteps.first['area'], 'George Town');
+      expect(controller.itinerarySteps.first['area'], 'Air Itam');
       expect(controller.savedItineraries, hasLength(1));
       expect(repository.locationPreferenceForDemo?.mode, 'manual');
 

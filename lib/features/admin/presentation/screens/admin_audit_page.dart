@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../controllers/admin_controller.dart';
@@ -57,7 +58,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         const SizedBox(height: 8),
         SearchBar(
           controller: _searchCtrl,
-          hintText: 'Search audit records by action, actor, or reason',
+          hintText:
+              context.tr('Search audit records by action, actor, or reason'),
           leading: const Icon(Icons.search),
           trailing: [
             if (_searchCtrl.text.isNotEmpty)

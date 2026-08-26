@@ -97,6 +97,7 @@ class DemoGuideRepository implements GuideRepository {
       routeOverview: input.routeOverview.trim(),
       stops: input.stops,
       walkingSequence: input.walkingSequence,
+      stopDetails: input.stopDetails,
       estimatedDuration: input.estimatedDuration.trim(),
       status: 'submitted',
       authorDisplayName: account.fullName,
@@ -135,6 +136,7 @@ class DemoGuideRepository implements GuideRepository {
       stops: input.stops.map((item) => item.trim()).toList(),
       walkingSequence:
           input.walkingSequence.map((item) => item.trim()).toList(),
+      stopDetails: input.stopDetails,
       estimatedDuration: input.estimatedDuration.trim(),
       status: 'draft',
       version: guide == null ? 1 : guide.version + 1,

@@ -50,12 +50,12 @@ void main() {
     final result = await controller.submitDraft(
       ctx,
       input: const SpotDraftInput(
-        name: 'Chop Seng Hin Kopitiam',
-        category: 'Kopitiam',
+        name: 'Kek Lok Si Temple',
+        category: 'Culture',
         description: 'A sufficiently detailed duplicate spot description.',
-        state: 'Penang',
-        city: 'George Town',
-        address: '142 Lebuh Carnarvon, 10100 George Town, Pulau Pinang',
+        state: 'Pulau Pinang',
+        city: 'Air Itam',
+        address: '1000-L, Tingkat Lembah Ria 1, 11500 Ayer Itam, Pulau Pinang',
         priceRange: r'$',
         bestTime: 'Morning',
         thingsToDo: 'Try local coffee',

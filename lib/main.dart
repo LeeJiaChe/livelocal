@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/config/app_environment.dart';
@@ -230,6 +232,9 @@ class LiveLocalApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<AppConfiguration>.value(value: configuration),
+        ChangeNotifierProvider(
+          create: (_) => AppLocaleController()..initialize(),
+        ),
         Provider<ProtectedNavigation>(create: (_) => ProtectedNavigation()),
         ChangeNotifierProvider(
           create: (_) =>
@@ -273,80 +278,93 @@ class LiveLocalApp extends StatelessWidget {
           create: (_) => ModerationController(repository: moderationRepository),
         ),
       ],
-      child: AuthNavigationCoordinator(
-        navigatorKey: navigatorKey,
-        child: MaterialApp(
-          navigatorKey: navigatorKey,
-          title: 'LiveLocal',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          initialRoute: '/home',
-          builder: (context, child) {
-            final content = child ?? const SizedBox.shrink();
-            if (!configuration.isDemo) return content;
-            return Banner(
-              message: 'DEMO',
-              location: BannerLocation.topEnd,
-              color: AppColors.error,
-              child: content,
-            );
-          },
-          routes: {
-            '/welcome': (context) => const WelcomeScreen(),
-            '/login': (context) => const LoginScreen(),
-            '/register': (context) => const RegisterScreen(),
-            '/password-reset': (context) => const PasswordResetScreen(),
-            '/set-new-password': (context) => const SetNewPasswordScreen(),
-            '/notifications': (context) => const NotificationsScreen(),
-            '/blocked-users': (context) => const BlockedUsersScreen(),
-            '/my-submissions': (context) => const MySubmissionsScreen(),
-            '/submit-spot': (context) => const SubmitSpotScreen(),
-            '/submit-guide': (context) => const SubmitGuideScreen(),
-            '/add-restaurant': (context) => const AddRestaurantScreen(),
-            '/recommend-restaurant': (context) => const AddRestaurantScreen(),
-            '/creator-application': (context) =>
-                const CreatorApplicationScreen(),
-            '/account-deletion': (context) => const ProfileScreen(),
-            '/restaurant-detail': (context) {
-              final arguments = ModalRoute.of(context)?.settings.arguments;
-              if (arguments is! RestaurantDetailArguments) {
-                return const ConfigurationFailureApp(
-                  message: 'The requested restaurant is unavailable.',
+      child: Builder(
+        builder: (context) {
+          return AuthNavigationCoordinator(
+            navigatorKey: navigatorKey,
+            child: MaterialApp(
+              navigatorKey: navigatorKey,
+              title: 'LiveLocal',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.light,
+              locale: context.watch<AppLocaleController>().locale,
+              supportedLocales: AppLocalizations.supportedLocales,
+              localizationsDelegates: const [
+                AppLocalizationsDelegate(),
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              initialRoute: '/home',
+              builder: (context, child) {
+                final content = child ?? const SizedBox.shrink();
+                if (!configuration.isDemo) return content;
+                return Banner(
+                  message: 'DEMO',
+                  location: BannerLocation.topEnd,
+                  color: AppColors.error,
+                  child: content,
                 );
-              }
-              return RestaurantDetailScreen(
-                restaurant: arguments.restaurant,
-                pendingAction: arguments.pendingAction,
-              );
-            },
-            '/saved-places': (context) => const SavedPlacesScreen(),
-            '/spot-detail': (context) {
-              final arguments = ModalRoute.of(context)?.settings.arguments;
-              if (arguments is! SpotDetailArguments) {
-                return const ConfigurationFailureApp(
-                  message: 'The requested spot is unavailable.',
-                );
-              }
-              return SpotDetailScreen(
-                spot: arguments.spot,
-                pendingAction: arguments.pendingAction,
-              );
-            },
-            '/guide-detail': (context) {
-              final arguments = ModalRoute.of(context)?.settings.arguments;
-              if (arguments is! GuideDetailArguments) {
-                return const ConfigurationFailureApp(
-                  message: 'The requested guide is unavailable.',
-                );
-              }
-              return GuideDetailScreen(
-                guide: arguments.guide,
-                pendingReport: arguments.pendingReport,
-              );
-            },
-            '/home': (context) => const SessionGate(),
-          },
-        ),
+              },
+              routes: {
+                '/welcome': (context) => const WelcomeScreen(),
+                '/login': (context) => const LoginScreen(),
+                '/register': (context) => const RegisterScreen(),
+                '/password-reset': (context) => const PasswordResetScreen(),
+                '/set-new-password': (context) => const SetNewPasswordScreen(),
+                '/notifications': (context) => const NotificationsScreen(),
+                '/blocked-users': (context) => const BlockedUsersScreen(),
+                '/my-submissions': (context) => const MySubmissionsScreen(),
+                '/submit-spot': (context) => const SubmitSpotScreen(),
+                '/submit-guide': (context) => const SubmitGuideScreen(),
+                '/add-restaurant': (context) => const AddRestaurantScreen(),
+                '/recommend-restaurant': (context) =>
+                    const AddRestaurantScreen(),
+                '/creator-application': (context) =>
+                    const CreatorApplicationScreen(),
+                '/account-deletion': (context) => const ProfileScreen(),
+                '/restaurant-detail': (context) {
+                  final arguments = ModalRoute.of(context)?.settings.arguments;
+                  if (arguments is! RestaurantDetailArguments) {
+                    return const ConfigurationFailureApp(
+                      message: 'The requested restaurant is unavailable.',
+                    );
+                  }
+                  return RestaurantDetailScreen(
+                    restaurant: arguments.restaurant,
+                    pendingAction: arguments.pendingAction,
+                  );
+                },
+                '/saved-places': (context) => const SavedPlacesScreen(),
+                '/spot-detail': (context) {
+                  final arguments = ModalRoute.of(context)?.settings.arguments;
+                  if (arguments is! SpotDetailArguments) {
+                    return const ConfigurationFailureApp(
+                      message: 'The requested spot is unavailable.',
+                    );
+                  }
+                  return SpotDetailScreen(
+                    spot: arguments.spot,
+                    pendingAction: arguments.pendingAction,
+                  );
+                },
+                '/guide-detail': (context) {
+                  final arguments = ModalRoute.of(context)?.settings.arguments;
+                  if (arguments is! GuideDetailArguments) {
+                    return const ConfigurationFailureApp(
+                      message: 'The requested guide is unavailable.',
+                    );
+                  }
+                  return GuideDetailScreen(
+                    guide: arguments.guide,
+                    pendingReport: arguments.pendingReport,
+                  );
+                },
+                '/home': (context) => const SessionGate(),
+              },
+            ),
+          );
+        },
       ),
     );
   }

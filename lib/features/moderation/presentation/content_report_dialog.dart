@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import 'moderation_controller.dart';
@@ -24,9 +25,9 @@ Future<bool> showContentReportDialog(
               if (!brokenLinkOnly)
                 DropdownButtonFormField<String>(
                   initialValue: reason,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Reason'),
+                    border: const OutlineInputBorder(),
                   ),
                   items: const [
                     DropdownMenuItem(
@@ -52,9 +53,11 @@ Future<bool> showContentReportDialog(
                 minLines: 3,
                 maxLines: 6,
                 decoration: InputDecoration(
-                  labelText: brokenLinkOnly
-                      ? 'What happens when you open it?'
-                      : 'Additional context (optional)',
+                  labelText: context.tr(
+                    brokenLinkOnly
+                        ? 'What happens when you open it?'
+                        : 'Additional context (optional)',
+                  ),
                   alignLabelWithHint: true,
                   border: const OutlineInputBorder(),
                 ),

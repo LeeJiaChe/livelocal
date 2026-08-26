@@ -12,6 +12,8 @@ function createMockAdminClient(options?: {
   onQuotaRpc?: () => void;
   onOutcomeRpc?: () => void;
   onConnectionQuery?: () => void;
+  roleLookupFails?: boolean;
+  accessLookupFails?: boolean;
 }): SupabaseClient<EdgeDatabase> {
   const userId = options?.userId ?? "00000000-0000-0000-0000-000000000001";
   const role = options?.role ?? "influencer";
@@ -39,7 +41,9 @@ function createMockAdminClient(options?: {
                 maybeSingle: () =>
                   Promise.resolve({
                     data: { role, revoked_at: null },
-                    error: null,
+                    error: options?.roleLookupFails
+                      ? { message: "role lookup failed" }
+                      : null,
                   }),
               }),
             }),
@@ -53,7 +57,9 @@ function createMockAdminClient(options?: {
               maybeSingle: () =>
                 Promise.resolve({
                   data: { status: accessStatus, ends_at: null },
-                  error: null,
+                  error: options?.accessLookupFails
+                    ? { message: "access lookup failed" }
+                    : null,
                 }),
             }),
           }),
@@ -98,6 +104,29 @@ function createMockAdminClient(options?: {
   } as unknown as SupabaseClient<EdgeDatabase>;
 }
 
+function createMockAuthClient(options?: {
+  authenticated?: boolean;
+}): SupabaseClient<EdgeDatabase> {
+  return {
+    auth: {
+      getUser: (_jwt: string) =>
+        Promise.resolve(
+          options?.authenticated == false
+            ? { data: { user: null }, error: { message: "invalid JWT" } }
+            : {
+              data: {
+                user: {
+                  id: "00000000-0000-0000-0000-000000000001",
+                  email_confirmed_at: new Date().toISOString(),
+                },
+              },
+              error: null,
+            },
+        ),
+    },
+  } as unknown as SupabaseClient<EdgeDatabase>;
+}
+
 Deno.test("TikTok profile URL is rejected with PROFILE_IMPORT_NOT_SUPPORTED before quota, OAuth, or AI", async () => {
   let quotaCalled = false;
   let connectionQueried = false;
@@ -124,6 +153,7 @@ Deno.test("TikTok profile URL is rejected with PROFILE_IMPORT_NOT_SUPPORTED befo
   });
 
   const response = await handleGenerateRequest(request, {
+    authClient: createMockAuthClient(),
     adminClient: mockAdmin,
     fetcher: () => {
       fetcherCalled = true;
@@ -166,6 +196,7 @@ Deno.test("Instagram profile URL is rejected with PROFILE_IMPORT_NOT_SUPPORTED b
   });
 
   const response = await handleGenerateRequest(request, {
+    authClient: createMockAuthClient(),
     adminClient: mockAdmin,
     fetcher: () => {
       fetcherCalled = true;
@@ -211,6 +242,7 @@ Deno.test("valid TikTok post runs through pipeline without requiring OAuth or SO
   });
 
   const response = await handleGenerateRequest(request, {
+    authClient: createMockAuthClient(),
     adminClient: mockAdmin,
     env: {
       AI_PROVIDER: "openai_compatible",
@@ -301,6 +333,7 @@ Deno.test("valid Instagram post/reel runs through pipeline without requiring OAu
   });
 
   const response = await handleGenerateRequest(request, {
+    authClient: createMockAuthClient(),
     adminClient: mockAdmin,
     env: {
       AI_PROVIDER: "openai_compatible",
@@ -363,6 +396,51 @@ Deno.test("valid Instagram post/reel runs through pipeline without requiring OAu
   equal(data.candidates[0].restaurantName, "Deen Maju Nasi Kandar");
   equal(quotaCalled, true);
   equal(connectionQueried, false);
+});
+
+Deno.test("tourist is denied Creator generation after successful authorization lookups", async () => {
+  const request = new Request("https://localhost/generate-restaurant-listing", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer valid-tourist-jwt",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      sourceUrl: "https://www.tiktok.com/@creator/video/7123456789012345678",
+    }),
+  });
+
+  const response = await handleGenerateRequest(request, {
+    authClient: createMockAuthClient(),
+    adminClient: createMockAdminClient({ role: "tourist" }),
+  });
+
+  equal(response.status, 403);
+  const data = await response.json();
+  equal(data.error?.code, "INFLUENCER_REQUIRED");
+});
+
+Deno.test("account access lookup failure is a sanitized 503, not Creator-required", async () => {
+  const request = new Request("https://localhost/generate-restaurant-listing", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer valid-creator-jwt",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      sourceUrl: "https://www.tiktok.com/@creator/video/7123456789012345678",
+    }),
+  });
+
+  const response = await handleGenerateRequest(request, {
+    authClient: createMockAuthClient(),
+    adminClient: createMockAdminClient({ accessLookupFails: true }),
+  });
+
+  equal(response.status, 503);
+  const data = await response.json();
+  equal(data.error?.code, "AUTHORIZATION_CHECK_FAILED");
+  equal(data.error?.message, "Creator access could not be checked");
 });
 
 function equal(actual: unknown, expected: unknown) {

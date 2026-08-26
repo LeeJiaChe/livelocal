@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
@@ -57,8 +58,8 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                 autofocus: true,
                 maxLength: 80,
                 decoration: InputDecoration(
-                  hintText: 'e.g. Weekend in Penang, KL Coffee',
-                  labelText: 'Collection name',
+                  hintText: context.tr('e.g. Weekend in Penang, KL Coffee'),
+                  labelText: context.tr('Collection name'),
                   errorText: dialogError,
                 ),
                 textCapitalization: TextCapitalization.words,
@@ -184,7 +185,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
         title: const Text('Saved collections'),
         actions: [
           IconButton(
-            tooltip: 'New collection',
+            tooltip: context.tr('New collection'),
             icon: const Icon(Icons.add),
             onPressed: _showCreateCollectionDialog,
           ),
@@ -235,7 +236,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                   icon: Icons.wifi_off_outlined,
                   title: 'Saved collections could not be loaded',
                   message: controller.errorMessage!,
-                  actionLabel: 'Try again',
+                  actionLabel: context.tr('Try again'),
                   onAction: controller.loadSavedPlaces,
                 ),
               )

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -303,7 +304,7 @@ class _AuthenticatedProfileView extends StatelessWidget {
                   obscureText: obscure,
                   autofillHints: const [AutofillHints.password],
                   decoration: InputDecoration(
-                    labelText: 'Current password',
+                    labelText: context.tr('Current password'),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       onPressed: () => setDialogState(() => obscure = !obscure),
@@ -316,9 +317,9 @@ class _AuthenticatedProfileView extends StatelessWidget {
                 const SizedBox(height: 12),
                 TextField(
                   controller: confirmation,
-                  decoration: const InputDecoration(
-                    labelText: 'Type DELETE to confirm',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Type DELETE to confirm'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],
@@ -465,7 +466,7 @@ class _ProfileHeroSection extends StatelessWidget {
                   right: -4,
                   bottom: -4,
                   child: IconButton.filledTonal(
-                    tooltip: 'Change profile photo',
+                    tooltip: context.tr('Change profile photo'),
                     iconSize: 20,
                     visualDensity: VisualDensity.compact,
                     onPressed: isLoading ? null : onEditPhoto,
@@ -637,7 +638,7 @@ class _EditProfileBottomSheetState extends State<_EditProfileBottomSheet> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Close',
+                  tooltip: context.tr('Close'),
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
                 ),
@@ -648,16 +649,18 @@ class _EditProfileBottomSheetState extends State<_EditProfileBottomSheet> {
               controller: _nameController,
               autofocus: true,
               maxLength: 80,
-              decoration: const InputDecoration(
-                labelText: 'Display name',
-                hintText: 'Enter your name',
-                prefixIcon: Icon(Icons.person_outline),
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.tr('Display name'),
+                hintText: context.tr('Enter your name'),
+                prefixIcon: const Icon(Icons.person_outline),
+                border: const OutlineInputBorder(),
               ),
               validator: (value) {
                 final trimmed = value?.trim() ?? '';
                 if (trimmed.length < 2 || trimmed.length > 80) {
-                  return 'Use a display name between 2 and 80 characters.';
+                  return context.tr(
+                    'Use a display name between 2 and 80 characters.',
+                  );
                 }
                 return null;
               },

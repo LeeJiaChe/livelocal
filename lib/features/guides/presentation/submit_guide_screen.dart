@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/app_spacing.dart';
@@ -14,6 +15,9 @@ import '../../../shared/presentation/contributions/contribution_section.dart';
 import '../../../shared/presentation/contributions/contribution_success_view.dart';
 
 import '../../../constants/malaysia_states.dart';
+import '../../../models/guide_model.dart';
+import '../../restaurants/presentation/local_eats_controller.dart';
+import '../../spots/presentation/spot_controller.dart';
 
 class SubmitGuideScreen extends StatefulWidget {
   const SubmitGuideScreen({super.key});
@@ -79,6 +83,19 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final controller = context.watch<GuideController>();
+    final listingChoices = <_ListingChoice>[
+      ...context
+          .watch<SpotController>()
+          .spots
+          .map((spot) => _ListingChoice('spot', spot.id, spot.name)),
+      ...context.watch<LocalEatsController>().restaurants.map(
+            (restaurant) => _ListingChoice(
+              'restaurant',
+              restaurant.id,
+              restaurant.name,
+            ),
+          ),
+    ];
 
     if (!auth.canWrite) {
       return Scaffold(
@@ -180,7 +197,7 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                 _field(
                   _title,
                   'Guide title',
-                  hintText: 'e.g. Penang Street Food in One Day',
+                  hintText: context.tr('e.g. Penang Street Food in One Day'),
                   minLength: 3,
                   maxLength: 160,
                 ),
@@ -188,8 +205,9 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                 _field(
                   _overview,
                   'Description & route summary',
-                  hintText:
-                      'Describe the route theme, ideal timing, and general highlights...',
+                  hintText: context.tr(
+                    'Describe the route theme, ideal timing, and general highlights...',
+                  ),
                   minLength: 20,
                   maxLength: 3000,
                   maxLines: 4,
@@ -205,10 +223,11 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                           'Select state',
                           overflow: TextOverflow.ellipsis,
                         ),
-                        decoration: const InputDecoration(labelText: 'State'),
+                        decoration:
+                            InputDecoration(labelText: context.tr('State')),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
-                            return 'Select state.';
+                            return context.tr('Select state.');
                           }
                           return null;
                         },
@@ -229,7 +248,7 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                       child: _field(
                         _duration,
                         'Estimated duration',
-                        hintText: 'e.g. 1 day, Half day, 3D2N',
+                        hintText: context.tr('e.g. 1 day, Half day, 3D2N'),
                         minLength: 2,
                         maxLength: 80,
                       ),
@@ -240,7 +259,8 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                 _field(
                   _location,
                   'Neighbourhood or area',
-                  hintText: 'e.g. George Town, Jonker Street, Bukit Bintang',
+                  hintText: context
+                      .tr('e.g. George Town, Jonker Street, Bukit Bintang'),
                   minLength: 2,
                   maxLength: 120,
                 ),
@@ -307,7 +327,7 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                               ),
                               if (_stops.length > 2)
                                 IconButton(
-                                  tooltip: 'Remove stop',
+                                  tooltip: context.tr('Remove stop'),
                                   icon: const Icon(Icons.remove_circle_outline,
                                       size: 20),
                                   onPressed: () => _removeStop(index),
@@ -315,32 +335,97 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                             ],
                           ),
                           const SizedBox(height: AppSpacing.x1),
-                          TextFormField(
-                            controller: stop.stopName,
-                            decoration: const InputDecoration(
-                              labelText: 'Stop name / place',
-                              hintText: 'e.g. Toh Soon Cafe',
-                            ),
-                            validator: (val) {
-                              if ((val?.trim().length ?? 0) < 2) {
-                                return 'Enter stop name.';
-                              }
-                              return null;
-                            },
-                            onChanged: (_) => setState(() {}),
+                          SegmentedButton<GuideStopKind>(
+                            segments: const [
+                              ButtonSegment(
+                                value: GuideStopKind.listing,
+                                icon: Icon(Icons.verified_outlined),
+                                label: Text('LiveLocal listing'),
+                              ),
+                              ButtonSegment(
+                                value: GuideStopKind.custom,
+                                icon: Icon(Icons.add_location_alt_outlined),
+                                label: Text('Custom stop'),
+                              ),
+                            ],
+                            selected: {stop.kind},
+                            onSelectionChanged: (selection) => setState(() {
+                              stop.kind = selection.first;
+                              stop.listingKey = null;
+                              stop.stopName.clear();
+                            }),
                           ),
+                          const SizedBox(height: AppSpacing.x1),
+                          if (stop.kind == GuideStopKind.listing)
+                            DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              initialValue: stop.listingKey,
+                              decoration: InputDecoration(
+                                labelText:
+                                    context.tr('Approved Spot or Restaurant'),
+                                helperText: context.tr(
+                                  'Verified LiveLocal listings are labelled separately from custom stops.',
+                                ),
+                              ),
+                              items: listingChoices
+                                  .map((choice) => DropdownMenuItem(
+                                        value: choice.key,
+                                        child: Text(
+                                          '${choice.type == 'spot' ? 'Spot' : 'Restaurant'} · ${choice.name}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ))
+                                  .toList(),
+                              validator: (value) => value == null
+                                  ? context.tr('Choose an approved listing.')
+                                  : null,
+                              onChanged: (value) {
+                                final matches = listingChoices
+                                    .where((item) => item.key == value);
+                                final choice =
+                                    matches.isEmpty ? null : matches.first;
+                                setState(() {
+                                  stop.listingKey = value;
+                                  stop.stopName.text = choice?.name ?? '';
+                                });
+                              },
+                            )
+                          else
+                            TextFormField(
+                              controller: stop.stopName,
+                              decoration: InputDecoration(
+                                labelText: context.tr('Custom stop name'),
+                                hintText: context.tr(
+                                  'e.g. MRT exit, meeting point, or landmark',
+                                ),
+                                helperText: context.tr(
+                                  'Custom stops are context only and are not approved LiveLocal listings.',
+                                ),
+                              ),
+                              validator: (val) {
+                                if ((val?.trim().length ?? 0) < 2) {
+                                  return context.tr('Enter stop name.');
+                                }
+                                return null;
+                              },
+                              onChanged: (_) => setState(() {}),
+                            ),
                           const SizedBox(height: AppSpacing.x1),
                           TextFormField(
                             controller: stop.walkingInstruction,
                             maxLines: 2,
-                            decoration: const InputDecoration(
-                              labelText: 'Tips & walking directions',
-                              hintText:
-                                  'e.g. Order charcoal toast and coffee, then walk 5 mins to Armenian St.',
+                            decoration: InputDecoration(
+                              labelText:
+                                  context.tr('Tips & walking directions'),
+                              hintText: context.tr(
+                                'e.g. Order charcoal toast and coffee, then walk 5 mins to Armenian St.',
+                              ),
                             ),
                             validator: (val) {
                               if ((val?.trim().length ?? 0) < 3) {
-                                return 'Enter tips or directions for this stop.';
+                                return context.tr(
+                                  'Enter tips or directions for this stop.',
+                                );
                               }
                               return null;
                             },
@@ -421,13 +506,15 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
       maxLines: maxLines,
       maxLength: maxLength,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: context.tr(label),
         hintText: hintText,
         alignLabelWithHint: maxLines > 1,
       ),
       validator: (value) {
         final length = value?.trim().length ?? 0;
-        if (length < minLength) return 'Enter at least $minLength characters.';
+        if (length < minLength) {
+          return context.tr('Enter at least $minLength characters.');
+        }
         return null;
       },
       onChanged: (_) => setState(() {}),
@@ -458,6 +545,18 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
       stops: _stops.map((s) => s.stopName.text.trim()).toList(),
       walkingSequence:
           _stops.map((s) => s.walkingInstruction.text.trim()).toList(),
+      stopDetails: _stops.map((stop) {
+        final listingParts = stop.listingKey?.split(':');
+        return GuideStopModel(
+          kind: stop.kind,
+          name: stop.stopName.text.trim(),
+          instruction: stop.walkingInstruction.text.trim(),
+          listingType: listingParts?.first,
+          listingId: listingParts != null && listingParts.length == 2
+              ? listingParts.last
+              : null,
+        );
+      }).toList(),
       estimatedDuration: _duration.text.trim(),
     );
 
@@ -474,6 +573,8 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
 }
 
 class _StopDraft {
+  GuideStopKind kind = GuideStopKind.listing;
+  String? listingKey;
   final TextEditingController stopName = TextEditingController();
   final TextEditingController walkingInstruction = TextEditingController();
 
@@ -481,4 +582,13 @@ class _StopDraft {
     stopName.dispose();
     walkingInstruction.dispose();
   }
+}
+
+class _ListingChoice {
+  const _ListingChoice(this.type, this.id, this.name);
+
+  final String type;
+  final String id;
+  final String name;
+  String get key => '$type:$id';
 }

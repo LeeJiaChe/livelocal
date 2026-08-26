@@ -4,6 +4,7 @@ import 'package:live_local/features/guides/data/demo_guide_repository.dart';
 import 'package:live_local/features/guides/domain/guide_repository.dart';
 import 'package:live_local/features/guides/presentation/guide_controller.dart';
 import 'package:live_local/services/seed_data_service.dart';
+import 'package:live_local/models/guide_model.dart';
 
 void main() {
   const draftInput = GuideDraftInput(
@@ -14,6 +15,18 @@ void main() {
         'A calm, accessible morning route through food and heritage stops.',
     stops: ['Breakfast stop', 'Heritage street'],
     walkingSequence: ['Start at breakfast', 'Continue to heritage street'],
+    stopDetails: [
+      GuideStopModel(
+        kind: GuideStopKind.custom,
+        name: 'Breakfast stop',
+        instruction: 'Start at breakfast',
+      ),
+      GuideStopModel(
+        kind: GuideStopKind.custom,
+        name: 'Heritage street',
+        instruction: 'Continue to heritage street',
+      ),
+    ],
     estimatedDuration: '2 hours',
   );
 
@@ -74,6 +87,18 @@ void main() {
             walkingSequence: [
               'Start at breakfast',
               'Continue along the accessible path'
+            ],
+            stopDetails: [
+              GuideStopModel(
+                kind: GuideStopKind.custom,
+                name: 'Breakfast stop',
+                instruction: 'Start at breakfast',
+              ),
+              GuideStopModel(
+                kind: GuideStopKind.custom,
+                name: 'Accessible heritage street',
+                instruction: 'Continue along the accessible path',
+              ),
             ],
             estimatedDuration: '2 hours',
           ),
