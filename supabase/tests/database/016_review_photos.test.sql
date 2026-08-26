@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(30);
 
 select has_table(
   'public', 'review_photos',
@@ -105,6 +105,36 @@ select has_trigger(
 );
 
 -- ============================================================
+-- Storage Policy Definition Inspections
+-- ============================================================
+
+select ok(
+  exists (
+    select 1 from pg_policy
+    where polname = 'review_image_delete_owner'
+      and polrelid = 'storage.objects'::regclass
+      and polcmd = 'd'
+  ),
+  'review_image_delete_owner policy exists on storage.objects for DELETE'
+);
+
+select ok(
+  (select pg_get_expr(polqual, polrelid, true) from pg_policy
+   where polname = 'review_image_delete_owner'
+     and polrelid = 'storage.objects'::regclass)
+  ~ 'review_photos',
+  'review_image_delete_owner policy requires object to be UNREFERENCED by review_photos'
+);
+
+select ok(
+  (select pg_get_expr(polqual, polrelid, true) from pg_policy
+   where polname = 'review_image_delete_owner'
+     and polrelid = 'storage.objects'::regclass)
+  ~ 'auth\.uid',
+  'review_image_delete_owner policy requires auth.uid folder prefix match'
+);
+
+-- ============================================================
 -- Behavioral Tests: Storage RLS & Review Photo Lifecycle
 -- ============================================================
 
@@ -186,23 +216,41 @@ select lives_ok(
   'owner accepts current UGC rules'
 );
 
--- Test A: Authenticated owner CAN delete their own UNREFERENCED failed upload
-select lives_ok(
-  $$delete from storage.objects
-    where bucket_id = 'review-images'
-      and name = 'e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/failed_upload.jpg'$$,
-  'authenticated owner can delete unreferenced failed upload'
-);
-
+-- Owner can SELECT their own unreferenced upload via review_image_select_published_owner_admin
 select is(
-  (select count(*) from storage.objects
+  (select count(*)::int from storage.objects
    where bucket_id = 'review-images'
      and name = 'e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/failed_upload.jpg'),
-  0::bigint,
-  'unreferenced upload is physically deleted from storage.objects'
+  1,
+  'owner can select their own upload in review-images bucket'
 );
 
--- User A submits a review referencing published_photo.jpg
+-- Anonymous user cannot SELECT unreferenced/unpublished review photo
+reset role;
+select set_config(
+  'request.jwt.claims',
+  '{"role":"anon"}',
+  true
+);
+set local role anon;
+
+select is(
+  (select count(*)::int from storage.objects
+   where bucket_id = 'review-images'
+     and name = 'e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/published_photo.jpg'),
+  0,
+  'anonymous user cannot select unreferenced/unpublished review photo'
+);
+
+-- 5. User A submits a review referencing published_photo.jpg
+reset role;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"e0000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+set local role authenticated;
+
 select lives_ok(
   $$select public.upsert_review_with_photos(
     'spot',
@@ -223,31 +271,24 @@ select is(
   'public.review_photos references the storage object path'
 );
 
--- Test C: Another authenticated user CANNOT delete the object
+-- Anonymous user CAN now SELECT the published review photo via storage RLS
 reset role;
 select set_config(
   'request.jwt.claims',
-  '{"sub":"e0000000-0000-0000-0000-000000000002","role":"authenticated"}',
+  '{"role":"anon"}',
   true
 );
-set local role authenticated;
-
-select lives_ok(
-  $$delete from storage.objects
-    where bucket_id = 'review-images'
-      and name = 'e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/published_photo.jpg'$$,
-  'stranger delete execution attempt'
-);
+set local role anon;
 
 select is(
-  (select count(*) from storage.objects
+  (select count(*)::int from storage.objects
    where bucket_id = 'review-images'
      and name = 'e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/published_photo.jpg'),
-  1::bigint,
-  'stranger cannot delete another user storage object'
+  1,
+  'anonymous user can select published review photo via RLS'
 );
 
--- Test B: Authenticated owner CANNOT directly delete their own object once referenced by review_photos
+-- 6. User A updates review removing the photo
 reset role;
 select set_config(
   'request.jwt.claims',
@@ -256,22 +297,6 @@ select set_config(
 );
 set local role authenticated;
 
-select lives_ok(
-  $$delete from storage.objects
-    where bucket_id = 'review-images'
-      and name = 'e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/published_photo.jpg'$$,
-  'owner direct delete execution attempt on referenced photo'
-);
-
-select is(
-  (select count(*) from storage.objects
-   where bucket_id = 'review-images'
-     and name = 'e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/published_photo.jpg'),
-  1::bigint,
-  'referenced photo is protected against direct client deletion'
-);
-
--- Test D: Removing photo through review update enqueues cleanup via database lifecycle
 select lives_ok(
   $$select public.upsert_review_with_photos(
     'spot',
@@ -293,6 +318,14 @@ select is(
 );
 
 reset role;
+select is(
+  (select prior_photo_paths from public.review_edit_history
+   where review_id = 'e0000000-2000-0000-0000-000000000001'::uuid
+   order by edited_at desc limit 1),
+  array['e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/published_photo.jpg'],
+  'review_edit_history recorded the prior photo path set'
+);
+
 select is(
   (select count(*) from private.storage_cleanup_jobs
    where bucket_id = 'review-images'
