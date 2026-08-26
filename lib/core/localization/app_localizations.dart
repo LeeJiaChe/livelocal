@@ -147,6 +147,11 @@ class AppLocalizations {
         RegExp(r'^Use a matching (.+) HTTPS URL\.$'),
         (match) => 'Gunakan URL HTTPS ${match[1]} yang sepadan.',
       ),
+      (
+        RegExp(r'^(.+) blocked\. Their public content is hidden for you\.$'),
+        (match) =>
+            '${match[1] == 'Anonymous reviewer' ? 'Pengulas tanpa nama' : (match[1] == 'Account' ? 'Akaun' : (match[1] == 'Reviewer' ? 'Pengulas' : match[1]))} telah disekat. Kandungan awam mereka disembunyikan untuk anda.',
+      ),
     ];
     for (final (pattern, replacement) in replacements) {
       final match = pattern.firstMatch(source);
@@ -631,6 +636,12 @@ class AppLocalizations {
     'Block creator': 'Sekat Pencipta',
     'Block reviewer': 'Sekat pengulas',
     'Block this reviewer': 'Sekat pengulas ini',
+    'Anonymous reviewer': 'Pengulas tanpa nama',
+    'Reviewer blocked.': 'Pengulas telah disekat.',
+    'Reviewer blocked. Their public content is hidden for you.':
+        'Pengulas telah disekat. Kandungan awam mereka disembunyikan untuk anda.',
+    'Account blocked. Their public content is hidden for you.':
+        'Akaun telah disekat. Kandungan awam mereka disembunyikan untuk anda.',
     'Hide this review for me': 'Sembunyikan ulasan ini untuk saya',
     'One report does not hide it from everyone.':
         'Satu laporan tidak menyembunyikannya daripada semua pengguna.',

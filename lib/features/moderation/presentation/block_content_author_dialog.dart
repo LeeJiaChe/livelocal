@@ -41,11 +41,16 @@ Future<bool> showBlockContentAuthorDialog(
   );
   if (!context.mounted) return blocked;
   final displayName = controller.lastBlock?.displayName;
+  final isAnonymous =
+      displayName == 'Anonymous reviewer' || displayName == 'Anonymous';
+  final successMessage = isAnonymous
+      ? 'Reviewer blocked. Their public content is hidden for you.'
+      : '${displayName ?? 'Account'} blocked. Their public content is hidden for you.';
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
         blocked
-            ? '${displayName ?? 'Account'} blocked. Their public content is hidden for you.'
+            ? successMessage
             : controller.errorMessage ?? 'The account could not be blocked.',
       ),
     ),

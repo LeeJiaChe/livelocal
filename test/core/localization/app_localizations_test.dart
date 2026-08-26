@@ -42,6 +42,13 @@ void main() {
       expect(malay.translate('Anonymous'), 'Tanpa Nama');
       expect(malay.translate('Your review'), 'Ulasan anda');
       expect(malay.translate('Block this reviewer'), 'Sekat pengulas ini');
+      expect(malay.translate('Anonymous reviewer'), 'Pengulas tanpa nama');
+      expect(malay.translate('Reviewer blocked.'), 'Pengulas telah disekat.');
+      expect(
+        malay.translate(
+            'Reviewer blocked. Their public content is hidden for you.'),
+        'Pengulas telah disekat. Kandungan awam mereka disembunyikan untuk anda.',
+      );
     });
 
     test('dynamic product copy is localized without altering values', () {

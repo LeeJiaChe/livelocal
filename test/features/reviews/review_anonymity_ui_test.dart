@@ -351,6 +351,12 @@ void main() {
     await tester.tap(find.text('Block account'));
     await tester.pumpAndSettle();
 
+    // Verify generic anonymous block message is displayed (no real name)
+    expect(
+      find.text('Reviewer blocked. Their public content is hidden for you.'),
+      findsOneWidget,
+    );
+
     // Verify backend block was called using targetType: review and targetId: review.id, NOT user_id
     expect(moderationRepository.blockCalls.length, 1);
     expect(moderationRepository.blockCalls.first['targetType'], 'review');
@@ -398,6 +404,22 @@ void main() {
     // Verify Malay action names
     expect(find.text('Laporkan ulasan'), findsOneWidget);
     expect(find.text('Sekat pengulas ini'), findsOneWidget);
+
+    // Tap Sekat pengulas ini
+    await tester.tap(find.text('Sekat pengulas ini'));
+    await tester.pumpAndSettle();
+
+    // Confirm dialog in BM
+    expect(find.text('Sekat akaun ini?'), findsOneWidget);
+    await tester.tap(find.text('Sekat akaun'));
+    await tester.pumpAndSettle();
+
+    // Verify generic BM snackbar message
+    expect(
+      find.text(
+          'Pengulas telah disekat. Kandungan awam mereka disembunyikan untuk anda.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Own anonymous review does not show Block or Report options',

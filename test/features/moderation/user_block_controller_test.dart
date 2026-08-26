@@ -22,6 +22,26 @@ void main() {
     expect(controller.blockedUsers, isEmpty);
   });
 
+  test('anonymous reviewer block uses opaque id and generic name', () async {
+    final repository = _FakeModerationRepository();
+    final controller = ModerationController(repository: repository);
+
+    expect(
+      await controller.blockContentAuthor(
+        targetType: 'review',
+        targetId: 'anon-review-99',
+      ),
+      isTrue,
+    );
+    expect(controller.lastBlock?.userId, 'opaque-block-uuid-1234');
+    expect(controller.lastBlock?.displayName, 'Anonymous reviewer');
+    expect(controller.blockedUsers, hasLength(1));
+    expect(controller.blockedUsers.first.displayName, 'Anonymous reviewer');
+
+    expect(await controller.unblockUser('opaque-block-uuid-1234'), isTrue);
+    expect(controller.blockedUsers, isEmpty);
+  });
+
   test('unsupported adapters fail honestly instead of simulating a block',
       () async {
     final repository = _FakeModerationRepository(supportsBlocking: false);
@@ -55,18 +75,21 @@ class _FakeModerationRepository implements ModerationRepository {
     required String targetId,
   }) async {
     blockCalls += 1;
+    final isAnon = targetId.contains('anon');
+    final blockId = isAnon ? 'opaque-block-uuid-1234' : 'author-1';
+    final name = isAnon ? 'Anonymous reviewer' : 'Test Author';
     _blocked
       ..clear()
       ..add(
         BlockedUser(
-          userId: 'author-1',
-          displayName: 'Test Author',
+          userId: blockId,
+          displayName: name,
           blockedAt: DateTime.utc(2026, 8, 5),
         ),
       );
-    return const UserBlockReceipt(
-      userId: 'author-1',
-      displayName: 'Test Author',
+    return UserBlockReceipt(
+      userId: blockId,
+      displayName: name,
     );
   }
 
