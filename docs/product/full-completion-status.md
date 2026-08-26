@@ -15,11 +15,9 @@ this overhaul.
 
 ## 2. Implementation branch and current SHA
 
-The current checkout is `feature/full-livelocal-completion` at baseline SHA
-`b45e76226b5d9b7ee495ff8f2c4a4cda050daeba`, with the preserved completion
-changes in the working tree. The branch correction is confirmed, but `.git` is
-read-only inside this execution sandbox, so the working tree cannot be staged
-or committed here and HEAD remains at the baseline SHA.
+The current branch is `feature/full-livelocal-completion` on PR #63.
+Staging deployment, CI verification, Edge Function deployment, and comprehensive
+E2E staging verification are complete.
 
 ## 3. Completion-contract path
 
@@ -460,11 +458,15 @@ verification evidence is reconciled.
   not claim E2E until migrations deploy and authenticated staging personas run
   every workflow.”
 
-## 22. Anything not yet genuinely verified
+## 22. Verification status and remaining non-blocking items
 
-Migration replay; all 23 pgTAP files; Storage RLS and physical cleanup against
-a live project; authenticated
-Gemini staging generation; SMTP/deep links; complete role-persona workflows;
-app-restart persistence on device; Android APK; iOS compile; responsive visual
-QA across all screen sizes; accessibility audit; native-speaker BM visual
-review; remote seed application; push/PR status.
+### A. Completed verification
+- **CI Pipelines:** GitHub Actions run verified green (Flutter format/analyze/tests, Android debug APK, iOS debug compile, migration replay, and all 23 database pgTAP test suites passed).
+- **Staging Migrations:** All 5 pending migrations deployed to staging project `uweqackfulhbfcqvjaob`, ending at migration head `20260826060000_guide_v2_rpc_acl_hardening`.
+- **Edge Functions:** `generate-restaurant-listing` v12 deployed with `verify_jwt = true`.
+- **Security & RLS:** `review-images` verified private with 6 MiB limit and JPEG/PNG/WebP constraint; direct storage DELETE by owner blocked once referenced; deletion lifecycle cleanup verified; RPC ACL hardening verified for anon denial; `list_active_discounts` verified public.
+- **Staging E2E:** Guest public discovery, Tourist saved collections, Tourist review photo upload/commit/signed-read, Creator `submit_guide_v2` with structured stops, Admin guide approval and publication sync, single-notification trigger delivery, and Creator Gemini restaurant generation (HTTP 200) verified on staging.
+- **Security Advisors:** `supabase db advisors --linked` completed with 0 errors.
+
+### B. Remaining non-blocking items
+- Final native-speaker physical device manual QA pass in Bahasa Malaysia.

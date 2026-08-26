@@ -124,6 +124,7 @@ export async function generateStructuredRestaurantCandidates(
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
+        "x-goog-api-key": apiKey,
         "content-type": "application/json",
       },
       body: JSON.stringify({
