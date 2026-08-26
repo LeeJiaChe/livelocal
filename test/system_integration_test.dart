@@ -52,7 +52,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
       expect(
-          spotCtrl.approvedSpots.every((s) => s.state == 'Pulau Pinang'), isTrue);
+        spotCtrl.approvedSpots.every((s) => s.state == 'Pulau Pinang'),
+        isTrue,
+      );
 
       spotCtrl.resetFilters();
       await tester.pump(const Duration(milliseconds: 400));

@@ -429,7 +429,9 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review Queue'));
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Review Queue'),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -454,7 +456,9 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review Queue'));
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Review Queue'),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -479,7 +483,9 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review Queue'));
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Review Queue'),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
