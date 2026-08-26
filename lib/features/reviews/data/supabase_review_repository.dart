@@ -51,11 +51,9 @@ class SupabaseReviewRepository
           .toList(growable: false);
       final photoRows = reviewIds.isEmpty
           ? const <dynamic>[]
-          : await _client
-              .from('review_photos')
-              .select('review_id, storage_path, sort_order')
-              .inFilter('review_id', reviewIds)
-              .order('sort_order');
+          : await _client.rpc('list_public_review_photos', params: {
+              'p_review_ids': reviewIds,
+            }) as List<dynamic>;
       final photosByReview = <String, List<ReviewPhotoModel>>{};
       for (final raw in photoRows) {
         final photo = Map<String, dynamic>.from(raw as Map);
@@ -150,7 +148,16 @@ class SupabaseReviewRepository
       final photoPaths = <String>[];
       for (final photo in photos) {
         if (photo.existingPath case final path?) {
-          photoPaths.add(path);
+          if (isAnonymous && !path.startsWith('reviews/')) {
+            final extension = path.split('.').last;
+            final newPath =
+                'reviews/$selectedReviewId/${const Uuid().v4()}.$extension';
+            await _client.storage.from('review-images').copy(path, newPath);
+            uploadedPaths.add(newPath);
+            photoPaths.add(newPath);
+          } else {
+            photoPaths.add(path);
+          }
           continue;
         }
         final bytes = photo.bytes;
@@ -245,7 +252,7 @@ class SupabaseReviewRepository
         userMessage: 'Use JPG, PNG, or WebP review photos.',
       );
     }
-    final path = '$userId/$reviewId/${const Uuid().v4()}.$extension';
+    final path = 'reviews/$reviewId/${const Uuid().v4()}.$extension';
     await _client.storage.from('review-images').uploadBinary(
           path,
           bytes,

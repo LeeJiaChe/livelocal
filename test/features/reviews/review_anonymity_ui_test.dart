@@ -458,4 +458,51 @@ void main() {
     expect(find.byTooltip('Edit review'), findsWidgets);
     expect(find.text('Block this reviewer'), findsNothing);
   });
+
+  testWidgets(
+      'Anonymous review with photos renders photos and hides author identity',
+      (tester) async {
+    final spot = SeedDataService.getInitialSpots().first;
+
+    final anonPhotoReview = ReviewModel(
+      id: 'anon-photo-review-1',
+      spotId: spot.id,
+      userId: 'hidden-photo-author-uuid',
+      userName: 'Anonymous',
+      rating: 5.0,
+      comment: 'Anonymous review with photo gallery.',
+      createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+      isAnonymous: true,
+      isOwnedByCurrentUser: false,
+      photos: const [
+        ReviewPhotoModel(
+          path: 'reviews/anon-photo-review-1/random-photo-1.jpg',
+          url:
+              'https://storage.local/reviews/anon-photo-review-1/random-photo-1.jpg',
+          sortOrder: 0,
+        ),
+      ],
+    );
+    reviewRepository.addReviewForTesting(anonPhotoReview);
+    await reviewController.loadReviews();
+
+    await tester.pumpWidget(
+      buildTestApp(
+        child: SpotDetailScreen(spot: spot),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Scroll to reviews
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Author is Anonymous, no author user ID leaked
+    expect(find.text('Anonymous'), findsWidgets);
+    expect(find.text('hidden-photo-author-uuid'), findsNothing);
+
+    // Photo thumbnail is present
+    expect(find.byType(Image), findsWidgets);
+  });
 }
