@@ -84,13 +84,19 @@ create policy review_image_select_published_owner_admin
   );
 
 -- Owners can remove an upload that failed before its review transaction was
--- committed. Referenced objects are normally removed through the cleanup
--- queue so database deletion and physical deletion remain recoverable.
+-- committed. Once an object is referenced by public.review_photos, it must not
+-- be deleted directly; physical removal is handled asynchronously through the
+-- cleanup queue so database integrity and auditability remain intact.
 create policy review_image_delete_owner
   on storage.objects for delete to authenticated
   using (
     bucket_id = 'review-images'
     and (storage.foldername(name))[1] = (select auth.uid())::text
+    and not exists (
+      select 1
+      from public.review_photos photo
+      where photo.storage_path = storage.objects.name
+    )
   );
 
 -- Extend the existing server-owned cleanup queue with the review bucket.
