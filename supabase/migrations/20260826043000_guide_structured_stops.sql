@@ -83,6 +83,36 @@ alter table public.published_guides
     and jsonb_array_length(stop_details) between 2 and 30
   );
 
+create or replace function private.auto_populate_guide_revision_stop_details()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public, private
+as $$
+begin
+  if new.stop_details is null or jsonb_typeof(new.stop_details) <> 'array' or jsonb_array_length(new.stop_details) = 0 then
+    if new.stops is not null and jsonb_typeof(new.stops) = 'array' and jsonb_array_length(new.stops) > 0 then
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'kind', 'custom',
+        'name', stop.value #>> '{}',
+        'instruction', coalesce(new.walking_sequence->(stop.ordinality::int - 1), '"Continue to the next stop"'::jsonb) #>> '{}'
+      ) order by stop.ordinality), '[]'::jsonb)
+      into new.stop_details
+      from jsonb_array_elements(new.stops) with ordinality as stop(value, ordinality);
+    else
+      new.stop_details := '[]'::jsonb;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger guide_revisions_auto_stop_details
+before insert or update on public.guide_revisions
+for each row execute function private.auto_populate_guide_revision_stop_details();
+
+revoke all on function private.auto_populate_guide_revision_stop_details() from public;
+
 create or replace function private.sync_published_guide_stop_details()
 returns trigger
 language plpgsql
@@ -196,9 +226,9 @@ $$;
 
 revoke all on function public.submit_guide_v2(text,text,text,text,jsonb,jsonb,jsonb,text) from public;
 revoke all on function public.admin_save_guide_draft_v2(uuid,text,text,text,text,jsonb,jsonb,jsonb,text,integer) from public;
-revoke execute on function public.submit_guide(text,text,text,text,jsonb,jsonb,text) from authenticated;
-revoke execute on function public.admin_save_guide_draft(uuid,text,text,text,text,jsonb,jsonb,text,integer) from authenticated;
 grant execute on function public.submit_guide_v2(text,text,text,text,jsonb,jsonb,jsonb,text) to authenticated;
 grant execute on function public.admin_save_guide_draft_v2(uuid,text,text,text,text,jsonb,jsonb,jsonb,text,integer) to authenticated;
+grant execute on function public.submit_guide(text,text,text,text,jsonb,jsonb,text) to authenticated;
+grant execute on function public.admin_save_guide_draft(uuid,text,text,text,text,jsonb,jsonb,text,integer) to authenticated;
 
 commit;

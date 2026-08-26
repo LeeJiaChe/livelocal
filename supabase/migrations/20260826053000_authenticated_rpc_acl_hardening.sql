@@ -59,6 +59,15 @@ grant execute on function public.set_review_vote(uuid, integer)
 grant execute on function public.submit_guide(
   text, text, text, text, jsonb, jsonb, text
 ) to authenticated;
+grant execute on function public.admin_save_guide_draft(
+  uuid, text, text, text, text, jsonb, jsonb, text, integer
+) to authenticated;
+grant execute on function public.admin_save_guide_draft_v2(
+  uuid, text, text, text, text, jsonb, jsonb, jsonb, text, integer
+) to authenticated;
+grant execute on function public.submit_guide_v2(
+  text, text, text, text, jsonb, jsonb, jsonb, text
+) to authenticated;
 grant execute on function public.toggle_spot_upvote(uuid)
   to authenticated;
 

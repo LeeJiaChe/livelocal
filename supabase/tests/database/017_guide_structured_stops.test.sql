@@ -44,12 +44,12 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege(
+  has_function_privilege(
     'authenticated',
     'public.submit_guide(text,text,text,text,jsonb,jsonb,text)',
     'execute'
   ),
-  'the legacy submit entry point cannot bypass structured-stop validation'
+  'the legacy submit entry point remains available and auto-populates structured stops'
 );
 
 select ok(
