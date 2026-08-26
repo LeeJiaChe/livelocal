@@ -156,8 +156,12 @@ select set_config(
   true
 );
 set local role authenticated;
-select is((select count(*) from public.user_blocks), 0::bigint,
-  'another user cannot see private block relationships');
+select throws_ok(
+  'select count(*) from public.user_blocks',
+  '42501',
+  null,
+  'authenticated user cannot directly select public.user_blocks table'
+);
 
 reset role;
 select set_config(
