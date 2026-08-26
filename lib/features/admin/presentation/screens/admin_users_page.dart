@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../controllers/admin_controller.dart';
@@ -96,7 +97,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         const SizedBox(height: 8),
         SearchBar(
           controller: _searchCtrl,
-          hintText: 'Search by name or email',
+          hintText: context.tr('Search by name or email'),
           leading: const Icon(Icons.search),
           trailing: [
             if (_searchCtrl.text.isNotEmpty)
@@ -230,7 +231,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                           child: Icon(Icons.lock_outline),
                         )
                       : PopupMenuButton<String>(
-                          tooltip: 'Manage account access',
+                          tooltip: context.tr('Manage account access'),
                           onSelected: (action) =>
                               _handleAccountAccess(account, action),
                           itemBuilder: (_) => [

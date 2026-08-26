@@ -20,21 +20,22 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
             RestaurantModel(
               id: 'demo-restaurant-pending-1',
               revisionId: 'demo-restaurant-rev-1',
-              name: 'Kopitiam Heritage Noodle House',
-              address: '45 Jalan Sultan',
-              state: 'Kuala Lumpur',
-              city: 'Kuala Lumpur',
-              cuisineType: 'Local Kopitiam',
+              name: 'Guan Heong Biscuit Shop',
+              address: '28, Jalan Sultan Iskandar, 30000 Ipoh, Perak',
+              state: 'Perak',
+              city: 'Ipoh',
+              cuisineType: 'Bakery / Heritage',
               priceRange: r'$',
               reviewedDishes:
-                  'Signature dry chili pan mee and traditional kaya toast',
+                  'Meat floss biscuit, salted egg pastry, and heong peah',
               influencerId: 'usr-influencer-1',
-              influencerName: 'Demo Influencer',
-              socialMediaUrl:
-                  'https://www.tiktok.com/@foodie/video/1234567890123456789',
+              influencerName: 'LiveLocal Creator',
+              socialMediaUrl: 'https://www.instagram.com/guanheong/',
               coverPhotoUrl:
                   'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
               status: 'submitted',
+              latitude: 4.5942,
+              longitude: 101.0825,
             ),
         ]),
         _discounts = List.of(SeedDataService.getInitialDiscountCodes()) {

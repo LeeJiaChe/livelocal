@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../../controllers/admin_controller.dart';
 import '../../../../controllers/guide_controller.dart';
@@ -436,37 +438,66 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
           ],
           if (showReports) ...[
             for (final moderationCase in admin.moderationCases)
-              AdminQueueCard(
-                typeLabel: 'CONTENT REPORT',
-                typeIcon: Icons.flag_outlined,
-                title:
-                    '${moderationCase.targetType}: ${moderationCase.targetPreview}',
-                subtitle: 'Reason: ${moderationCase.reason}',
-                details: moderationCase.explanation,
-                status: moderationCase.status,
-                actions: [
-                  OutlinedButton(
-                    onPressed: () =>
-                        _moderateReport(moderationCase, 'dismissed'),
-                    child: const Text('Dismiss'),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AdminQueueCard(
+                    typeLabel: 'CONTENT REPORT',
+                    typeIcon: Icons.flag_outlined,
+                    title:
+                        '${moderationCase.targetType}: ${moderationCase.targetPreview}',
+                    subtitle: 'Reason: ${moderationCase.reason}',
+                    details: moderationCase.explanation,
+                    status: moderationCase.status,
+                    actions: [
+                      OutlinedButton(
+                        onPressed: () =>
+                            _moderateReport(moderationCase, 'dismissed'),
+                        child: const Text('Dismiss'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () =>
+                            _moderateReport(moderationCase, 'escalated'),
+                        child: const Text('Escalate'),
+                      ),
+                      FilledButton(
+                        onPressed: () =>
+                            _moderateReport(moderationCase, 'upheld'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.error,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onError,
+                        ),
+                        child: Text(
+                          moderationCase.reason == 'broken_link'
+                              ? 'Remove link'
+                              : 'Remove content',
+                        ),
+                      ),
+                    ],
                   ),
-                  OutlinedButton(
-                    onPressed: () =>
-                        _moderateReport(moderationCase, 'escalated'),
-                    child: const Text('Escalate'),
-                  ),
-                  FilledButton(
-                    onPressed: () => _moderateReport(moderationCase, 'upheld'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.error,
-                      foregroundColor: Theme.of(context).colorScheme.onError,
+                  if (moderationCase.reviewPhotoUrls.isNotEmpty)
+                    SizedBox(
+                      height: 96,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: moderationCase.reviewPhotoUrls.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, index) => ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: CachedNetworkImage(
+                            imageUrl: moderationCase.reviewPhotoUrls[index],
+                            width: 112,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => const SizedBox(
+                              width: 112,
+                              child: Icon(Icons.broken_image_outlined),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      moderationCase.reason == 'broken_link'
-                          ? 'Remove link'
-                          : 'Remove content',
-                    ),
-                  ),
                 ],
               ),
           ],

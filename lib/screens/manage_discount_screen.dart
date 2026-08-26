@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/auth_controller.dart';
@@ -96,9 +97,9 @@ class _ManageDiscountScreenState extends State<ManageDiscountScreen> {
                   const SizedBox(height: 24),
                   DropdownButtonFormField<String>(
                     initialValue: _restaurantId,
-                    decoration: const InputDecoration(
-                      labelText: 'Approved restaurant',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.tr('Approved restaurant'),
+                      border: const OutlineInputBorder(),
                     ),
                     items: restaurants
                         .map(
@@ -109,8 +110,9 @@ class _ManageDiscountScreenState extends State<ManageDiscountScreen> {
                         )
                         .toList(),
                     onChanged: (value) => setState(() => _restaurantId = value),
-                    validator: (value) =>
-                        value == null ? 'Choose a restaurant.' : null,
+                    validator: (value) => value == null
+                        ? context.tr('Choose a restaurant.')
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -118,16 +120,18 @@ class _ManageDiscountScreenState extends State<ManageDiscountScreen> {
                     textCapitalization: TextCapitalization.characters,
                     autocorrect: false,
                     maxLength: 32,
-                    decoration: const InputDecoration(
-                      labelText: 'Code',
-                      hintText: 'LOCAL10',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.tr('Code'),
+                      hintText: context.tr('LOCAL10'),
+                      border: const OutlineInputBorder(),
                     ),
                     validator: (value) {
                       final normalized = value?.trim() ?? '';
                       if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$')
                           .hasMatch(normalized)) {
-                        return 'Use 3–32 letters, numbers, hyphens or underscores.';
+                        return context.tr(
+                          'Use 3–32 letters, numbers, hyphens or underscores.',
+                        );
                       }
                       return null;
                     },
@@ -138,9 +142,9 @@ class _ManageDiscountScreenState extends State<ManageDiscountScreen> {
                     maxLength: 500,
                     minLines: 2,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Offer description',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.tr('Offer description'),
+                      border: const OutlineInputBorder(),
                     ),
                     validator: _required,
                   ),
@@ -150,11 +154,12 @@ class _ManageDiscountScreenState extends State<ManageDiscountScreen> {
                     maxLength: 2000,
                     minLines: 3,
                     maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText: 'Redemption terms',
-                      hintText:
-                          'State exclusions, minimum spend, and how to redeem.',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.tr('Redemption terms'),
+                      hintText: context.tr(
+                        'State exclusions, minimum spend, and how to redeem.',
+                      ),
+                      border: const OutlineInputBorder(),
                     ),
                     validator: _required,
                   ),

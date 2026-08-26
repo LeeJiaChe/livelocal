@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../controllers/guide_controller.dart';
@@ -116,7 +117,7 @@ class _AdminGuidesPageState extends State<AdminGuidesPage> {
         const SizedBox(height: 8),
         SearchBar(
           controller: _searchCtrl,
-          hintText: 'Search guides by title or area',
+          hintText: context.tr('Search guides by title or area'),
           leading: const Icon(Icons.search),
           trailing: [
             if (_searchCtrl.text.isNotEmpty)

@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/config/app_environment.dart';
@@ -230,6 +232,9 @@ class LiveLocalApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<AppConfiguration>.value(value: configuration),
+        ChangeNotifierProvider(
+          create: (_) => AppLocaleController()..initialize(),
+        ),
         Provider<ProtectedNavigation>(create: (_) => ProtectedNavigation()),
         ChangeNotifierProvider(
           create: (_) =>
@@ -280,6 +285,14 @@ class LiveLocalApp extends StatelessWidget {
           title: 'LiveLocal',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
+          locale: context.watch<AppLocaleController>().locale,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           initialRoute: '/home',
           builder: (context, child) {
             final content = child ?? const SizedBox.shrink();

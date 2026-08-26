@@ -81,9 +81,12 @@ below.
   host. Signing/on-device tests remain external.
 - Read-only offline discovery cache is not implemented. Network mutations fail
   honestly; full offline writes remain deferred.
-- English UI copy has not yet been extracted fully into Flutter localization
-  resources. Full Bahasa Malaysia support remains deferred, but resource
-  extraction and expansion testing are still required before release.
+- English/Bahasa Malaysia locale selection is persisted and the shared text
+  layer covers reachable role navigation, auth, discovery, contribution,
+  planning, review, notification, moderation, and Admin copy. The static pass
+  includes validators, hints, tooltips, dialogs, states, and long-form legacy
+  bodies. Proper names and user/place content intentionally remain unchanged;
+  native-speaker visual review on a runnable device remains a release check.
 - Duplicate detection supports selecting the existing listing or a justified
   override. A destructive admin merge tool is not implemented and requires
   explicit review-conflict, save, itinerary, audit, and rollback rules.

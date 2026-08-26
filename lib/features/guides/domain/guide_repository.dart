@@ -8,6 +8,7 @@ class GuideDraftInput {
     required this.routeOverview,
     required this.stops,
     required this.walkingSequence,
+    required this.stopDetails,
     required this.estimatedDuration,
   });
 
@@ -17,6 +18,7 @@ class GuideDraftInput {
   final String routeOverview;
   final List<String> stops;
   final List<String> walkingSequence;
+  final List<GuideStopModel> stopDetails;
   final String estimatedDuration;
 }
 

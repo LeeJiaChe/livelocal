@@ -30,9 +30,23 @@ class SupabaseAdminRepository implements AdminRepository {
   @override
   Future<List<AdminModerationCase>> fetchModerationCases() async {
     final response = await _rpc('admin_list_moderation_cases');
-    return (response as List<dynamic>).map((raw) {
+    final cases = <AdminModerationCase>[];
+    for (final raw in response as List<dynamic>) {
       final row = Map<String, dynamic>.from(raw as Map);
-      return AdminModerationCase(
+      final photoUrls = <String>[];
+      for (final path
+          in row['review_photo_paths'] as List<dynamic>? ?? const <dynamic>[]) {
+        try {
+          photoUrls.add(
+            await _client.storage
+                .from('review-images')
+                .createSignedUrl(path as String, 3600),
+          );
+        } catch (_) {
+          // The report remains actionable when a media object is unavailable.
+        }
+      }
+      cases.add(AdminModerationCase(
         id: row['id'] as String,
         targetType: row['target_type'] as String,
         targetId: row['target_id'] as String,
@@ -42,8 +56,10 @@ class SupabaseAdminRepository implements AdminRepository {
         version: (row['version'] as num).toInt(),
         targetPreview: row['target_preview'] as String,
         createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
-      );
-    }).toList();
+        reviewPhotoUrls: photoUrls,
+      ));
+    }
+    return cases;
   }
 
   @override

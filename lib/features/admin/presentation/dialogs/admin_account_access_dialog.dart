@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 
 import '../../domain/admin_repository.dart';
 
@@ -93,9 +94,9 @@ class _AdminAccountAccessDialogWidgetState
             if (targetStatus == 'restricted') ...[
               DropdownButtonFormField<int>(
                 initialValue: _restrictionDays,
-                decoration: const InputDecoration(
-                  labelText: 'Restriction duration',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.tr('Restriction duration'),
+                  border: const OutlineInputBorder(),
                 ),
                 items: const [
                   DropdownMenuItem(value: 1, child: Text('1 day')),
@@ -113,11 +114,12 @@ class _AdminAccountAccessDialogWidgetState
                 controller: _publicMessage,
                 maxLength: 500,
                 maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Message shown to the user',
-                  border: OutlineInputBorder(),
-                  helperText:
-                      'Displayed to the user on restricted account screen.',
+                decoration: InputDecoration(
+                  labelText: context.tr('Message shown to the user'),
+                  border: const OutlineInputBorder(),
+                  helperText: context.tr(
+                    'Displayed to the user on restricted account screen.',
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -127,10 +129,10 @@ class _AdminAccountAccessDialogWidgetState
               maxLength: 1000,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Internal decision reason',
-                border: OutlineInputBorder(),
-                helperText: 'Recorded in the admin audit history.',
+              decoration: InputDecoration(
+                labelText: context.tr('Internal decision reason'),
+                border: const OutlineInputBorder(),
+                helperText: context.tr('Recorded in the admin audit history.'),
               ),
             ),
           ],

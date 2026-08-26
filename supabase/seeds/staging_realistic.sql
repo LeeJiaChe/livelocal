@@ -3687,4 +3687,163 @@ INSERT INTO public.moderation_cases (id, reporter_id, target_type, target_id, re
 VALUES ('00000000-0500-0000-0000-000000000006', NULL, 'review', '00000000-0400-0000-0000-000000000001', 'spam', 'Review mentions unrelated parking lot operator outside the main attraction grounds.', 'pending'::public.moderation_case_status, 1, clock_timestamp() - interval '1 days', clock_timestamp() - interval '1 days')
 ON CONFLICT (id) DO UPDATE SET reason = EXCLUDED.reason, explanation = EXCLUDED.explanation, status = EXCLUDED.status;
 
+-- 6. REGIONAL COVERAGE COMPLETION
+-- Verified public entities for states/territories absent from the original
+-- catalogue. Fixed QA UUIDs keep this block safe to replay without touching
+-- unrelated staging content.
+
+INSERT INTO public.spots (
+  id, owner_id, current_revision_id, approved_revision_id,
+  moderation_version, created_at
+)
+SELECT id, NULL, NULL, NULL, 1, clock_timestamp() - interval '20 days'
+FROM (VALUES
+  ('00000000-0100-0000-0000-00000000002b'::uuid),
+  ('00000000-0100-0000-0000-00000000002c'::uuid),
+  ('00000000-0100-0000-0000-00000000002d'::uuid),
+  ('00000000-0100-0000-0000-00000000002e'::uuid),
+  ('00000000-0100-0000-0000-00000000002f'::uuid)
+) fixture(id)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.spot_revisions (
+  id, spot_id, revision_number, author_id, status, name, category,
+  description, state, city, address, price_range, best_time, things_to_do,
+  image_path, latitude, longitude, submitted_at, decided_at, created_at,
+  updated_at
+) VALUES
+(
+  '00000000-0110-0000-0000-00000000002b',
+  '00000000-0100-0000-0000-00000000002b', 1, NULL, 'approved',
+  'Pasar Siti Khadijah', 'Market',
+  'Kota Bharu''s three-storey central market is known for Kelantanese produce, traditional food, batik, songket, and a predominantly women-led trading community.',
+  'Kelantan', 'Kota Bharu',
+  'Jalan Buluh Kubu, Bandar Kota Bharu, 15000 Kota Bharu, Kelantan',
+  '$', 'Morning (7:00 AM - 11:00 AM)',
+  'Browse Kelantanese produce, traditional kuih, batik, songket, and local crafts',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Pasar_Besar_Siti_Khadijah%2C_Kota_Bharu%2C_Malaysia_%284014496412%29.jpg',
+  6.13008, 102.23925, clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days', clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days'
+),
+(
+  '00000000-0110-0000-0000-00000000002c',
+  '00000000-0100-0000-0000-00000000002c', 1, NULL, 'approved',
+  'Royal Museum of Seri Menanti', 'Heritage',
+  'Completed in 1908, this former royal residence is one of Malaysia''s last remaining wooden palaces and now presents royal regalia and state heritage.',
+  'Negeri Sembilan', 'Seri Menanti',
+  'Istana Lama Seri Menanti, 71550 Seri Menanti, Kuala Pilah, Negeri Sembilan',
+  '$', 'Morning to afternoon',
+  'Explore the timber palace architecture and royal heritage displays',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Istana_Lama_Seri_Menanti_February_1964.jpg',
+  2.69800, 102.15647, clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days', clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days'
+),
+(
+  '00000000-0110-0000-0000-00000000002d',
+  '00000000-0100-0000-0000-00000000002d', 1, NULL, 'approved',
+  'Gua Kelam', 'Nature',
+  'A limestone cave and former tin-mining passage in Kaki Bukit, with a subterranean stream, cave formations, and visitor walkways within the Perlis State Park landscape.',
+  'Perlis', 'Kaki Bukit',
+  'Kompleks Eko Pelancongan Gua Kelam, 02200 Kaki Bukit, Perlis',
+  '$', 'Morning in dry weather',
+  'Follow the cave walkway and learn about limestone geology and mining history',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Gua_Kelam_%2831617308785%29.jpg',
+  6.57806, 100.20306, clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days', clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days'
+),
+(
+  '00000000-0110-0000-0000-00000000002e',
+  '00000000-0100-0000-0000-00000000002e', 1, NULL, 'approved',
+  'Putra Mosque (Masjid Putra)', 'Architecture',
+  'Putrajaya''s rose-granite landmark mosque stands beside Putrajaya Lake and combines Persian Islamic influences with Malaysian craft and materials.',
+  'Putrajaya', 'Putrajaya',
+  'Persiaran Persekutuan, Presint 1, 62502 Putrajaya',
+  '$', 'Outside prayer times',
+  'View the pink dome, lakeside setting, courtyard, and Islamic architectural details',
+  'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Masjid_Putrajaya.jpg/960px-Masjid_Putrajaya.jpg',
+  2.93608, 101.68900, clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days', clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days'
+),
+(
+  '00000000-0110-0000-0000-00000000002f',
+  '00000000-0100-0000-0000-00000000002f', 1, NULL, 'approved',
+  'Labuan War Cemetery', 'Heritage',
+  'A Commonwealth World War II cemetery and remembrance site on Labuan, with thousands of burials connected to the Borneo campaign and Sandakan death marches.',
+  'Labuan', 'Victoria',
+  'Jalan Tanjung Batu, 87000 Labuan, Wilayah Persekutuan Labuan',
+  '$', 'Morning or late afternoon',
+  'Visit respectfully, read the memorial panels, and reflect on North Borneo history',
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Labuan_Malaysia_War-Cemetery-04.jpg',
+  5.28708, 115.26223, clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days', clock_timestamp() - interval '20 days',
+  clock_timestamp() - interval '19 days'
+)
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  category = EXCLUDED.category,
+  description = EXCLUDED.description,
+  state = EXCLUDED.state,
+  city = EXCLUDED.city,
+  address = EXCLUDED.address,
+  price_range = EXCLUDED.price_range,
+  best_time = EXCLUDED.best_time,
+  things_to_do = EXCLUDED.things_to_do,
+  image_path = EXCLUDED.image_path,
+  latitude = EXCLUDED.latitude,
+  longitude = EXCLUDED.longitude,
+  status = EXCLUDED.status,
+  updated_at = EXCLUDED.updated_at;
+
+UPDATE public.spots entity
+SET current_revision_id = fixture.revision_id,
+    approved_revision_id = fixture.revision_id
+FROM (VALUES
+  ('00000000-0100-0000-0000-00000000002b'::uuid, '00000000-0110-0000-0000-00000000002b'::uuid),
+  ('00000000-0100-0000-0000-00000000002c'::uuid, '00000000-0110-0000-0000-00000000002c'::uuid),
+  ('00000000-0100-0000-0000-00000000002d'::uuid, '00000000-0110-0000-0000-00000000002d'::uuid),
+  ('00000000-0100-0000-0000-00000000002e'::uuid, '00000000-0110-0000-0000-00000000002e'::uuid),
+  ('00000000-0100-0000-0000-00000000002f'::uuid, '00000000-0110-0000-0000-00000000002f'::uuid)
+) fixture(spot_id, revision_id)
+WHERE entity.id = fixture.spot_id;
+
+INSERT INTO public.published_spots (
+  id, revision_id, name, category, description, state, city, address,
+  price_range, best_time, things_to_do, image_path, latitude, longitude,
+  rating_average, review_count, published_at, updated_at, upvote_count
+)
+SELECT
+  revision.spot_id, revision.id, revision.name, revision.category,
+  revision.description, revision.state, revision.city, revision.address,
+  revision.price_range, revision.best_time, revision.things_to_do,
+  revision.image_path, revision.latitude, revision.longitude,
+  0, 0, clock_timestamp() - interval '19 days',
+  clock_timestamp() - interval '19 days', 0
+FROM public.spot_revisions revision
+WHERE revision.id IN (
+  '00000000-0110-0000-0000-00000000002b',
+  '00000000-0110-0000-0000-00000000002c',
+  '00000000-0110-0000-0000-00000000002d',
+  '00000000-0110-0000-0000-00000000002e',
+  '00000000-0110-0000-0000-00000000002f'
+)
+ON CONFLICT (id) DO UPDATE SET
+  revision_id = EXCLUDED.revision_id,
+  name = EXCLUDED.name,
+  category = EXCLUDED.category,
+  description = EXCLUDED.description,
+  state = EXCLUDED.state,
+  city = EXCLUDED.city,
+  address = EXCLUDED.address,
+  price_range = EXCLUDED.price_range,
+  best_time = EXCLUDED.best_time,
+  things_to_do = EXCLUDED.things_to_do,
+  image_path = EXCLUDED.image_path,
+  latitude = EXCLUDED.latitude,
+  longitude = EXCLUDED.longitude,
+  updated_at = EXCLUDED.updated_at;
+
 COMMIT;

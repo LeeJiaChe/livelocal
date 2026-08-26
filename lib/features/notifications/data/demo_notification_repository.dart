@@ -12,12 +12,17 @@ class DemoNotificationRepository implements NotificationRepository {
   final List<NotificationModel> _notifications;
 
   @override
-  Future<List<NotificationModel>> fetchMine() async {
+  Future<List<NotificationModel>> fetchMine({
+    required int offset,
+    required int limit,
+  }) async {
     final userId = _requireUser();
-    return _notifications
+    final values = _notifications
         .where((notification) => notification.userId == userId)
         .toList()
       ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    if (offset >= values.length) return const [];
+    return values.sublist(offset, (offset + limit).clamp(0, values.length));
   }
 
   @override

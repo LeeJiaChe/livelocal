@@ -22,11 +22,13 @@ class MockReviewRepository implements ReviewRepository {
 
   @override
   Future<ReviewModel> upsertReview({
+    String? reviewId,
     String? spotId,
     String? restaurantId,
     required int rating,
     required String comment,
     int? expectedVersion,
+    List<ReviewPhotoInput> photos = const [],
   }) async {
     upsertCalls++;
     if (shouldThrowRulesError) {

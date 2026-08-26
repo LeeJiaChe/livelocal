@@ -33,6 +33,7 @@ export async function computeSha256(text: string): Promise<string> {
 export async function handleGenerateRequest(
   request: Request,
   deps?: {
+    authClient?: SupabaseClient<EdgeDatabase>;
     adminClient?: SupabaseClient<EdgeDatabase>;
     fetcher?: typeof fetch;
     env?: Record<string, string>;
@@ -57,11 +58,16 @@ export async function handleGenerateRequest(
 
   try {
     const projectUrl = getEnv("SUPABASE_URL");
+    const publishableKey = getEnv("SUPABASE_ANON_KEY") ??
+      getEnv("SUPABASE_PUBLISHABLE_KEY");
     const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
-    if (!deps?.adminClient && (!projectUrl || !serviceRoleKey)) {
+    if (
+      (!deps?.authClient && (!projectUrl || !publishableKey)) ||
+      (!deps?.adminClient && (!projectUrl || !serviceRoleKey))
+    ) {
       throw new GenerationError(
-        "SOCIAL_API_NOT_CONFIGURED",
-        "Server configuration missing",
+        "AUTHORIZATION_CHECK_FAILED",
+        "Creator access could not be checked",
         503,
       );
     }
@@ -75,23 +81,46 @@ export async function handleGenerateRequest(
       );
     }
     const jwt = authorization.slice(7).trim();
+    // Keep caller authentication and privileged database access in separate
+    // clients. The auth client has no service-role capability; the admin
+    // client is used only after the caller JWT has been verified.
+    const auth = deps?.authClient ??
+      createClient<EdgeDatabase>(projectUrl!, publishableKey!, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
     const admin = deps?.adminClient ??
       createClient<EdgeDatabase>(projectUrl!, serviceRoleKey!, {
         auth: { persistSession: false, autoRefreshToken: false },
       });
     adminClient = admin;
 
-    const { data: userData, error: userError } = await admin.auth.getUser(jwt);
+    const { data: userData, error: userError } = await auth.auth.getUser(jwt);
     if (userError || !userData.user) {
       throw new GenerationError("SESSION_EXPIRED", "Session expired", 401);
     }
 
-    const [{ data: role }, { data: access }] = await Promise.all([
+    const [roleResult, accessResult] = await Promise.all([
       admin.from("user_roles").select("role, revoked_at")
         .eq("user_id", userData.user.id).is("revoked_at", null).maybeSingle(),
       admin.from("account_access").select("status, ends_at")
         .eq("user_id", userData.user.id).maybeSingle(),
     ]);
+    if (roleResult.error || accessResult.error) {
+      throw new GenerationError(
+        "AUTHORIZATION_CHECK_FAILED",
+        "Creator access could not be checked",
+        503,
+      );
+    }
+    const role = roleResult.data;
+    const access = accessResult.data;
+    if (!role || !access) {
+      throw new GenerationError(
+        "AUTHORIZATION_CHECK_FAILED",
+        "Creator access could not be checked",
+        503,
+      );
+    }
     const accessExpired = access?.ends_at &&
       new Date(access.ends_at).getTime() <= Date.now();
     if (

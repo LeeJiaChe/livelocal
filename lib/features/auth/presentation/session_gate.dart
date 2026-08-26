@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../constants/app_colors.dart';
@@ -426,9 +427,9 @@ class _RestrictedAccountScreenState extends State<RestrictedAccountScreen> {
           controller: password,
           obscureText: true,
           autofillHints: const [AutofillHints.password],
-          decoration: const InputDecoration(
-            labelText: 'Current password',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: context.tr('Current password'),
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
@@ -471,9 +472,9 @@ class _RestrictedAccountScreenState extends State<RestrictedAccountScreen> {
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: reason,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Reason'),
+                    border: const OutlineInputBorder(),
                   ),
                   items: const [
                     DropdownMenuItem(
@@ -503,10 +504,10 @@ class _RestrictedAccountScreenState extends State<RestrictedAccountScreen> {
                   maxLength: 2000,
                   minLines: 3,
                   maxLines: 6,
-                  decoration: const InputDecoration(
-                    labelText: 'Optional explanation',
+                  decoration: InputDecoration(
+                    labelText: context.tr('Optional explanation'),
                     alignLabelWithHint: true,
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const Text(

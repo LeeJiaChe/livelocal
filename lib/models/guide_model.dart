@@ -1,3 +1,41 @@
+enum GuideStopKind { listing, custom }
+
+class GuideStopModel {
+  const GuideStopModel({
+    required this.kind,
+    required this.name,
+    required this.instruction,
+    this.listingType,
+    this.listingId,
+  });
+
+  final GuideStopKind kind;
+  final String name;
+  final String instruction;
+  final String? listingType;
+  final String? listingId;
+
+  bool get isCustom => kind == GuideStopKind.custom;
+
+  Map<String, dynamic> toMap() => {
+        'kind': kind.name,
+        'name': name,
+        'instruction': instruction,
+        if (listingType != null) 'listing_type': listingType,
+        if (listingId != null) 'listing_id': listingId,
+      };
+
+  factory GuideStopModel.fromMap(Map<String, dynamic> map) => GuideStopModel(
+        kind: map['kind'] == 'listing'
+            ? GuideStopKind.listing
+            : GuideStopKind.custom,
+        name: map['name'] as String? ?? '',
+        instruction: map['instruction'] as String? ?? '',
+        listingType: map['listing_type'] as String?,
+        listingId: map['listing_id'] as String?,
+      );
+}
+
 class GuideModel {
   final String id;
   final String title;
@@ -6,6 +44,7 @@ class GuideModel {
   final String routeOverview;
   final List<String> stops;
   final List<String> walkingSequence;
+  final List<GuideStopModel> stopDetails;
   final String estimatedDuration;
   final String status; // 'pending', 'approved', 'rejected'
   final String? rejectionReason;
@@ -23,6 +62,7 @@ class GuideModel {
     required this.routeOverview,
     required this.stops,
     required this.walkingSequence,
+    List<GuideStopModel>? stopDetails,
     required this.estimatedDuration,
     this.status = 'approved',
     this.rejectionReason,
@@ -31,7 +71,17 @@ class GuideModel {
     this.decisionReason,
     this.authorDisplayName,
     this.authorIsCreator = false,
-  });
+  }) : stopDetails = stopDetails ??
+            List.generate(
+              stops.length,
+              (index) => GuideStopModel(
+                kind: GuideStopKind.custom,
+                name: stops[index],
+                instruction: index < walkingSequence.length
+                    ? walkingSequence[index]
+                    : '',
+              ),
+            );
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -41,6 +91,7 @@ class GuideModel {
         'route_overview': routeOverview,
         'stops': stops,
         'walking_sequence': walkingSequence,
+        'stop_details': stopDetails.map((stop) => stop.toMap()).toList(),
         'estimated_duration': estimatedDuration,
         'status': status,
         'rejection_reason': rejectionReason,
@@ -51,21 +102,32 @@ class GuideModel {
         'author_is_creator': authorIsCreator,
       };
 
-  factory GuideModel.fromMap(Map<String, dynamic> map) => GuideModel(
-        id: map['id'] ?? '',
-        title: map['title'] ?? '',
-        locationName: map['location_name'] ?? '',
-        state: map['state'] ?? '',
-        routeOverview: map['route_overview'] ?? '',
-        stops: List<String>.from(map['stops'] ?? []),
-        walkingSequence: List<String>.from(map['walking_sequence'] ?? []),
-        estimatedDuration: map['estimated_duration'] ?? '',
-        status: map['status'] ?? 'approved',
-        rejectionReason: map['rejection_reason'],
-        revisionId: map['revision_id'],
-        version: (map['version'] as num?)?.toInt() ?? 1,
-        decisionReason: map['decision_reason'],
-        authorDisplayName: map['author_display_name'] as String?,
-        authorIsCreator: map['author_is_creator'] == true,
-      );
+  factory GuideModel.fromMap(Map<String, dynamic> map) {
+    final stops = List<String>.from(map['stops'] ?? []);
+    final walkingSequence = List<String>.from(map['walking_sequence'] ?? []);
+    final rawDetails = map['stop_details'];
+    return GuideModel(
+      id: map['id'] ?? '',
+      title: map['title'] ?? '',
+      locationName: map['location_name'] ?? '',
+      state: map['state'] ?? '',
+      routeOverview: map['route_overview'] ?? '',
+      stops: stops,
+      walkingSequence: walkingSequence,
+      stopDetails: rawDetails is List && rawDetails.isNotEmpty
+          ? rawDetails
+              .map((item) => GuideStopModel.fromMap(
+                  Map<String, dynamic>.from(item as Map)))
+              .toList()
+          : null,
+      estimatedDuration: map['estimated_duration'] ?? '',
+      status: map['status'] ?? 'approved',
+      rejectionReason: map['rejection_reason'],
+      revisionId: map['revision_id'],
+      version: (map['version'] as num?)?.toInt() ?? 1,
+      decisionReason: map['decision_reason'],
+      authorDisplayName: map['author_display_name'] as String?,
+      authorIsCreator: map['author_is_creator'] == true,
+    );
+  }
 }

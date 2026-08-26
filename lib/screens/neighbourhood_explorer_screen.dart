@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
@@ -80,12 +81,12 @@ class _NeighbourhoodExplorerScreenState
                     const SizedBox(height: AppSpacing.x2),
                     SearchBar(
                       controller: _searchCtrl,
-                      hintText: 'Search guides or neighbourhoods',
+                      hintText: context.tr('Search guides or neighbourhoods'),
                       leading: const Icon(Icons.search),
                       trailing: [
                         if (_searchCtrl.text.isNotEmpty)
                           IconButton(
-                            tooltip: 'Clear search',
+                            tooltip: context.tr('Clear search'),
                             icon: const Icon(Icons.close),
                             onPressed: () {
                               setState(_searchCtrl.clear);
@@ -105,9 +106,9 @@ class _NeighbourhoodExplorerScreenState
                               (s) => s.rawValue == controller.selectedState)
                           ? controller.selectedState
                           : 'All',
-                      decoration: const InputDecoration(
-                        labelText: 'State or territory',
-                        prefixIcon: Icon(Icons.location_on_outlined),
+                      decoration: InputDecoration(
+                        labelText: context.tr('State or territory'),
+                        prefixIcon: const Icon(Icons.location_on_outlined),
                       ),
                       items: availableStates
                           .map(
@@ -130,9 +131,9 @@ class _NeighbourhoodExplorerScreenState
                               .contains(controller.selectedNeighbourhood)
                           ? controller.selectedNeighbourhood
                           : 'All',
-                      decoration: const InputDecoration(
-                        labelText: 'Neighbourhood / area',
-                        prefixIcon: Icon(Icons.holiday_village_outlined),
+                      decoration: InputDecoration(
+                        labelText: context.tr('Neighbourhood / area'),
+                        prefixIcon: const Icon(Icons.holiday_village_outlined),
                       ),
                       items: neighbourhoods
                           .map(
@@ -187,7 +188,7 @@ class _NeighbourhoodExplorerScreenState
                   icon: Icons.wifi_off_outlined,
                   title: 'Guides could not be loaded',
                   message: controller.errorMessage!,
-                  actionLabel: 'Try again',
+                  actionLabel: context.tr('Try again'),
                   onAction: controller.loadGuides,
                 ),
               )
@@ -199,8 +200,9 @@ class _NeighbourhoodExplorerScreenState
                     icon: Icons.explore_off_outlined,
                     title: 'No matching guides',
                     message: 'Try another search, state, or neighbourhood.',
-                    actionLabel:
-                        hasActiveFilters ? 'Clear filters' : 'Submit guide',
+                    actionLabel: context.tr(
+                      hasActiveFilters ? 'Clear filters' : 'Submit guide',
+                    ),
                     onAction: hasActiveFilters
                         ? () => _clearFilters(controller)
                         : () => Navigator.push(

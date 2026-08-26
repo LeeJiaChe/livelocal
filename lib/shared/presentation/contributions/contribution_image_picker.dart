@@ -1,7 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/theme/app_spacing.dart';
@@ -133,13 +134,13 @@ class ContributionImagePicker extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton.filledTonal(
-                        tooltip: 'Replace photo',
+                        tooltip: context.tr('Replace photo'),
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         onPressed: () => _showPickerSheet(context),
                       ),
                       const SizedBox(width: 8),
                       IconButton.filledTonal(
-                        tooltip: 'Remove photo',
+                        tooltip: context.tr('Remove photo'),
                         icon: const Icon(Icons.delete_outline, size: 18),
                         onPressed: onImageCleared,
                       ),

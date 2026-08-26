@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,6 +15,9 @@ import '../core/validation/social_url_validator.dart';
 import '../models/discount_code_model.dart';
 import '../models/restaurant_model.dart';
 import '../models/review_model.dart';
+import '../features/reviews/domain/review_repository.dart';
+import '../features/reviews/presentation/widgets/review_photo_gallery.dart';
+import '../features/reviews/presentation/widgets/review_photo_picker.dart';
 import '../features/moderation/presentation/content_report_dialog.dart';
 import '../features/moderation/presentation/block_content_author_dialog.dart';
 import '../features/moderation/presentation/moderation_controller.dart';
@@ -129,14 +133,16 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         title: const Text('Restaurant'),
         actions: [
           IconButton(
-            tooltip: isSaved ? 'Remove from saved' : 'Save place',
+            tooltip: context.tr(
+              isSaved ? 'Remove from saved' : 'Save place',
+            ),
             onPressed: _requestSave,
             icon: Icon(
               isSaved ? Icons.bookmark : Icons.bookmark_border,
             ),
           ),
           PopupMenuButton<String>(
-            tooltip: 'Restaurant options',
+            tooltip: context.tr('Restaurant options'),
             onSelected: (value) {
               if (value == 'report') _requestContentReport();
               if (value == 'block') {
@@ -425,6 +431,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         .where((review) => review.isOwnedByCurrentUser);
     final existing = matches.isEmpty ? null : matches.single;
     var rating = existing?.rating ?? 5;
+    var photoInputs = existing?.photos
+            .map((photo) => ReviewPhotoInput.existing(photo.path))
+            .toList(growable: false) ??
+        <ReviewPhotoInput>[];
     final body = TextEditingController(text: existing?.comment);
     final save = await showModalBottomSheet<bool>(
       context: context,
@@ -438,52 +448,60 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             16,
             MediaQuery.viewInsetsOf(context).bottom + 24,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                existing == null ? 'Write a review' : 'Edit your review',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              Semantics(
-                label: 'Rating ${rating.round()} out of 5',
-                child: Row(
-                  children: List.generate(
-                    5,
-                    (index) => IconButton(
-                      tooltip: '${index + 1} stars',
-                      onPressed: () => setSheetState(() => rating = index + 1),
-                      icon: Icon(
-                        index < rating ? Icons.star : Icons.star_border,
-                        color: Colors.amber,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  existing == null ? 'Write a review' : 'Edit your review',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Semantics(
+                  label: 'Rating ${rating.round()} out of 5',
+                  child: Row(
+                    children: List.generate(
+                      5,
+                      (index) => IconButton(
+                        tooltip: context.tr('${index + 1} stars'),
+                        onPressed: () =>
+                            setSheetState(() => rating = index + 1),
+                        icon: Icon(
+                          index < rating ? Icons.star : Icons.star_border,
+                          color: Colors.amber,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: body,
-                minLines: 3,
-                maxLines: 6,
-                maxLength: 2000,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Your experience',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: body,
+                  minLines: 3,
+                  maxLines: 6,
+                  maxLength: 2000,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: context.tr('Your experience'),
+                    border: const OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () {
-                  if (body.text.trim().length < 3) return;
-                  Navigator.pop(sheetContext, true);
-                },
-                child: const Text('Save review'),
-              ),
-            ],
+                const SizedBox(height: 12),
+                ReviewPhotoPicker(
+                  existingPhotos: existing?.photos ?? const [],
+                  onChanged: (photos) => photoInputs = photos,
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () {
+                    if (body.text.trim().length < 3) return;
+                    Navigator.pop(sheetContext, true);
+                  },
+                  child: const Text('Save review'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -496,6 +514,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       restaurantId: widget.restaurant.id,
       rating: rating,
       comment: comment,
+      photos: photoInputs,
     );
     if (!mounted) return;
     _message(
@@ -532,9 +551,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: reason,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Reason'),
+                    border: const OutlineInputBorder(),
                   ),
                   items: const [
                     DropdownMenuItem(value: 'spam', child: Text('Spam')),
@@ -569,9 +588,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   maxLength: 2000,
                   minLines: 2,
                   maxLines: 5,
-                  decoration: const InputDecoration(
-                    labelText: 'Optional details',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Optional details'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 CheckboxListTile(
@@ -762,7 +781,7 @@ class _DiscountCard extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Copy ${discount.code}',
+                  tooltip: context.tr('Copy ${discount.code}'),
                   onPressed: onCopy,
                   icon: const Icon(Icons.copy_outlined),
                 ),
@@ -835,7 +854,7 @@ class _ReviewCard extends StatelessWidget {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: 'Review actions',
+                  tooltip: context.tr('Review actions'),
                   onSelected: (value) {
                     if (value == 'edit') onEdit?.call();
                     if (value == 'delete') onDelete?.call();
@@ -862,10 +881,14 @@ class _ReviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(review.comment),
+            if (review.photos.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ReviewPhotoGallery(photos: review.photos),
+            ],
             Row(
               children: [
                 IconButton(
-                  tooltip: 'Like review',
+                  tooltip: context.tr('Like review'),
                   onPressed: onLike,
                   icon: Icon(review.userVote == 1
                       ? Icons.thumb_up
@@ -873,7 +896,7 @@ class _ReviewCard extends StatelessWidget {
                 ),
                 Text('${review.likesCount}'),
                 IconButton(
-                  tooltip: 'Dislike review',
+                  tooltip: context.tr('Dislike review'),
                   onPressed: onDislike,
                   icon: Icon(review.userVote == -1
                       ? Icons.thumb_down

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
@@ -47,7 +48,7 @@ class _GuideDetailScreenState extends State<GuideDetailScreen> {
         title: const Text('Travel guide'),
         actions: [
           IconButton(
-            tooltip: 'Report this guide',
+            tooltip: context.tr('Report this guide'),
             onPressed: _requestReport,
             icon: const Icon(Icons.flag_outlined),
           ),
@@ -137,6 +138,8 @@ class _GuideDetailScreenState extends State<GuideDetailScreen> {
               child: _RouteStep(
                 number: index + 1,
                 stop: guide.stops[index],
+                isCustom: index < guide.stopDetails.length &&
+                    guide.stopDetails[index].isCustom,
                 instruction: index < guide.walkingSequence.length
                     ? guide.walkingSequence[index]
                     : 'Continue to this stop.',
@@ -259,11 +262,13 @@ class _RouteStep extends StatelessWidget {
     required this.number,
     required this.stop,
     required this.instruction,
+    required this.isCustom,
   });
 
   final int number;
   final String stop;
   final String instruction;
+  final bool isCustom;
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +288,29 @@ class _RouteStep extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(stop, style: Theme.of(context).textTheme.titleMedium),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          stop,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.x1),
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: Icon(
+                          isCustom
+                              ? Icons.add_location_alt_outlined
+                              : Icons.verified_outlined,
+                          size: 16,
+                        ),
+                        label: Text(
+                          isCustom ? 'Custom stop' : 'LiveLocal listing',
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: AppSpacing.x1),
                   Text(instruction),
                 ],

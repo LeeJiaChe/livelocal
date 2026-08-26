@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../controllers/admin_controller.dart';
@@ -7,8 +8,8 @@ import '../../../../controllers/guide_controller.dart';
 import '../../../../controllers/localeats_controller.dart';
 import '../../../../controllers/spot_controller.dart';
 import '../../../influencer_applications/presentation/influencer_application_controller.dart';
-import 'admin_audit_page.dart';
 import 'admin_guides_page.dart';
+import 'admin_more_page.dart';
 import 'admin_overview_page.dart';
 import 'admin_review_queue_page.dart';
 import 'admin_users_page.dart';
@@ -125,15 +126,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
       const AdminGuidesPage(),
       const AdminUsersPage(),
-      const AdminAuditPage(),
+      AdminMorePage(
+        onOpenQueue: (filter) => _navigateToTab(1, subFilter: filter),
+      ),
     ];
 
     const sectionTitles = [
       'Overview',
       'Review Queue',
-      'Guide Management',
+      'Content',
       'User Management',
-      'Audit History',
+      'More',
     ];
 
     return LayoutBuilder(
@@ -238,12 +241,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               else
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  tooltip: 'Refresh all',
+                  tooltip: context.tr('Refresh all'),
                   onPressed: _refreshAll,
                 ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.account_circle_outlined),
-                tooltip: 'Admin account',
+                tooltip: context.tr('Admin account'),
                 onSelected: (value) {
                   if (value == 'logout') auth.logout();
                 },
@@ -286,31 +289,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       onDestinationSelected: (index) =>
                           setState(() => _selectedIndex = index),
                       labelType: NavigationRailLabelType.all,
-                      destinations: const [
+                      destinations: [
                         NavigationRailDestination(
-                          icon: Icon(Icons.dashboard_outlined),
-                          selectedIcon: Icon(Icons.dashboard),
-                          label: Text('Overview'),
+                          icon: const Icon(Icons.dashboard_outlined),
+                          selectedIcon: const Icon(Icons.dashboard),
+                          label: Text(context.tr('Overview')),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.fact_check_outlined),
-                          selectedIcon: Icon(Icons.fact_check),
-                          label: Text('Review'),
+                          icon: const Icon(Icons.fact_check_outlined),
+                          selectedIcon: const Icon(Icons.fact_check),
+                          label: Text(context.tr('Review Queue')),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.map_outlined),
-                          selectedIcon: Icon(Icons.map),
-                          label: Text('Guides'),
+                          icon: const Icon(Icons.inventory_2_outlined),
+                          selectedIcon: const Icon(Icons.inventory_2),
+                          label: Text(context.tr('Content')),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.people_outline),
-                          selectedIcon: Icon(Icons.people),
-                          label: Text('Users'),
+                          icon: const Icon(Icons.people_outline),
+                          selectedIcon: const Icon(Icons.people),
+                          label: Text(context.tr('Users')),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.history_outlined),
-                          selectedIcon: Icon(Icons.history),
-                          label: Text('Audit'),
+                          icon: const Icon(Icons.more_horiz),
+                          selectedIcon: const Icon(Icons.more_horiz),
+                          label: Text(context.tr('More')),
                         ),
                       ],
                     ),
@@ -333,31 +336,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   selectedIndex: _selectedIndex,
                   onDestinationSelected: (index) =>
                       setState(() => _selectedIndex = index),
-                  destinations: const [
+                  destinations: [
                     NavigationDestination(
-                      icon: Icon(Icons.dashboard_outlined),
-                      selectedIcon: Icon(Icons.dashboard),
-                      label: 'Overview',
+                      icon: const Icon(Icons.dashboard_outlined),
+                      selectedIcon: const Icon(Icons.dashboard),
+                      label: context.tr('Overview'),
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.fact_check_outlined),
-                      selectedIcon: Icon(Icons.fact_check),
-                      label: 'Review',
+                      icon: const Icon(Icons.fact_check_outlined),
+                      selectedIcon: const Icon(Icons.fact_check),
+                      label: context.tr('Review Queue'),
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.map_outlined),
-                      selectedIcon: Icon(Icons.map),
-                      label: 'Guides',
+                      icon: const Icon(Icons.inventory_2_outlined),
+                      selectedIcon: const Icon(Icons.inventory_2),
+                      label: context.tr('Content'),
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.people_outline),
-                      selectedIcon: Icon(Icons.people),
-                      label: 'Users',
+                      icon: const Icon(Icons.people_outline),
+                      selectedIcon: const Icon(Icons.people),
+                      label: context.tr('Users'),
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.history_outlined),
-                      selectedIcon: Icon(Icons.history),
-                      label: 'Audit',
+                      icon: const Icon(Icons.more_horiz),
+                      selectedIcon: const Icon(Icons.more_horiz),
+                      label: context.tr('More'),
                     ),
                   ],
                 ),

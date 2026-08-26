@@ -64,13 +64,15 @@ class SupabaseGuideRepository implements GuideRepository {
   @override
   Future<GuideModel> submitGuide(GuideDraftInput input) async {
     try {
-      final response = await _client.rpc('submit_guide', params: {
+      final response = await _client.rpc('submit_guide_v2', params: {
         'p_title': input.title,
         'p_location_name': input.locationName,
         'p_state': input.state,
         'p_route_overview': input.routeOverview,
         'p_stops': input.stops,
         'p_walking_sequence': input.walkingSequence,
+        'p_stop_details':
+            input.stopDetails.map((stop) => stop.toMap()).toList(),
         'p_estimated_duration': input.estimatedDuration,
       });
       final result = Map<String, dynamic>.from(response as Map);
@@ -84,6 +86,7 @@ class SupabaseGuideRepository implements GuideRepository {
         routeOverview: input.routeOverview,
         stops: input.stops,
         walkingSequence: input.walkingSequence,
+        stopDetails: input.stopDetails,
         estimatedDuration: input.estimatedDuration,
         status: 'submitted',
       );
@@ -98,7 +101,7 @@ class SupabaseGuideRepository implements GuideRepository {
     GuideModel? guide,
   }) async {
     try {
-      final response = await _client.rpc('admin_save_guide_draft', params: {
+      final response = await _client.rpc('admin_save_guide_draft_v2', params: {
         'p_guide_id': guide?.id,
         'p_title': input.title,
         'p_location_name': input.locationName,
@@ -106,6 +109,8 @@ class SupabaseGuideRepository implements GuideRepository {
         'p_route_overview': input.routeOverview,
         'p_stops': input.stops,
         'p_walking_sequence': input.walkingSequence,
+        'p_stop_details':
+            input.stopDetails.map((stop) => stop.toMap()).toList(),
         'p_estimated_duration': input.estimatedDuration,
         'p_expected_version': guide?.version,
       });
@@ -120,6 +125,7 @@ class SupabaseGuideRepository implements GuideRepository {
         routeOverview: input.routeOverview,
         stops: input.stops,
         walkingSequence: input.walkingSequence,
+        stopDetails: input.stopDetails,
         estimatedDuration: input.estimatedDuration,
         status: 'draft',
       );
@@ -185,6 +191,13 @@ class SupabaseGuideRepository implements GuideRepository {
       routeOverview: row['route_overview'] as String,
       stops: List<String>.from(row['stops'] as List),
       walkingSequence: List<String>.from(row['walking_sequence'] as List),
+      stopDetails: row['stop_details'] is List &&
+              (row['stop_details'] as List).isNotEmpty
+          ? (row['stop_details'] as List)
+              .map((item) => GuideStopModel.fromMap(
+                  Map<String, dynamic>.from(item as Map)))
+              .toList()
+          : null,
       estimatedDuration: row['estimated_duration'] as String,
       status: status,
       decisionReason: row['decision_reason'] as String?,

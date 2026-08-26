@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
@@ -318,11 +319,13 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                           keyboardType: TextInputType.url,
                           autocorrect: false,
                           decoration: InputDecoration(
-                            labelText: 'TikTok or Instagram review link',
+                            labelText:
+                                context.tr('TikTok or Instagram review link'),
                             hintText:
                                 'https://www.tiktok.com/@creator/video/123...',
-                            helperText:
-                                'Paste a TikTok video or Instagram Reel/post link',
+                            helperText: context.tr(
+                              'Paste a TikTok video or Instagram Reel/post link',
+                            ),
                             prefixIcon: const Icon(Icons.link),
                             suffixIcon: _sourceUrl.text.isNotEmpty
                                 ? IconButton(
@@ -514,7 +517,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 _field(
                   _name,
                   'Restaurant name',
-                  hintText: 'e.g. Line Clear Nasi Kandar',
+                  hintText: context.tr('e.g. Line Clear Nasi Kandar'),
                   minLength: 2,
                   maxLength: 120,
                   focusNode: _nameFocusNode,
@@ -545,14 +548,17 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                     return TextFormField(
                       controller: textEditingController,
                       focusNode: focusNode,
-                      decoration: const InputDecoration(
-                        labelText: 'Cuisine type',
-                        hintText:
-                            'e.g. Hainanese, Peranakan / Nyonya, Kopitiam',
+                      decoration: InputDecoration(
+                        labelText: context.tr('Cuisine type'),
+                        hintText: context.tr(
+                          'e.g. Hainanese, Peranakan / Nyonya, Kopitiam',
+                        ),
                       ),
                       validator: (value) {
                         if ((value?.trim().length ?? 0) < 2) {
-                          return 'Enter a cuisine type (at least 2 characters).';
+                          return context.tr(
+                            'Enter a cuisine type (at least 2 characters).',
+                          );
                         }
                         return null;
                       },
@@ -658,11 +664,11 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 _dropdown(
                   label: 'State',
                   value: _displayState,
-                  hintText: 'Select state',
+                  hintText: context.tr('Select state'),
                   values: _states,
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) {
-                      return 'Select state.';
+                      return context.tr('Select state.');
                     }
                     return null;
                   },
@@ -672,7 +678,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 _field(
                   _city,
                   'City or district',
-                  hintText: 'e.g. George Town, Petaling Jaya',
+                  hintText: context.tr('e.g. George Town, Petaling Jaya'),
                   minLength: 2,
                   maxLength: 100,
                   key: const Key('restaurant_city_field'),
@@ -681,7 +687,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 _field(
                   _address,
                   'Full address',
-                  hintText: 'e.g. 161 & 163 Lebuh Campbell, 10100 George Town',
+                  hintText: context
+                      .tr('e.g. 161 & 163 Lebuh Campbell, 10100 George Town'),
                   minLength: 5,
                   maxLength: 300,
                   key: const Key('restaurant_address_field'),
@@ -698,8 +705,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 _field(
                   _dishes,
                   'Reviewed / recommended dishes',
-                  hintText:
-                      'e.g. Nasi Kandar with fried chicken and salted egg',
+                  hintText: context.tr(
+                    'e.g. Nasi Kandar with fried chicken and salted egg',
+                  ),
                   minLength: 3,
                   maxLength: 300,
                   maxLines: 2,
@@ -709,13 +717,16 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 _field(
                   _socialUrl,
                   'TikTok or Instagram video link',
-                  hintText: 'https://www.tiktok.com/@creator/video/123...',
+                  hintText: context
+                      .tr('https://www.tiktok.com/@creator/video/123...'),
                   minLength: 8,
                   maxLength: 500,
                   key: const Key('social_review_url_field'),
                   validator: (value) {
                     if (!SocialUrlValidator.isReviewPost(value ?? '')) {
-                      return 'Enter a supported TikTok or Instagram HTTPS URL.';
+                      return context.tr(
+                        'Enter a supported TikTok or Instagram HTTPS URL.',
+                      );
                     }
                     return null;
                   },
@@ -992,16 +1003,20 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       focusNode: focusNode,
       maxLines: maxLines,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: context.tr(label),
         hintText: hintText,
       ),
       validator: validator ??
           (value) {
             if (minLength > 0 && (value?.trim().length ?? 0) < minLength) {
-              return 'Enter $label (at least $minLength characters).';
+              return context.tr(
+                'Enter $label (at least $minLength characters).',
+              );
             }
             if (maxLength > 0 && (value?.trim().length ?? 0) > maxLength) {
-              return '$label cannot exceed $maxLength characters.';
+              return context.tr(
+                '$label cannot exceed $maxLength characters.',
+              );
             }
             return null;
           },
@@ -1145,9 +1160,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
               TextField(
                 controller: reasonCtrl,
                 maxLength: 500,
-                decoration: const InputDecoration(
-                  labelText: 'Why this is a different listing',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.tr('Why this is a different listing'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],

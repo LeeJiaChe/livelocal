@@ -240,9 +240,27 @@ class SupabaseAuthRepository implements AuthRepository {
         cause: error,
       );
     }
+    if (normalized.contains('email not confirmed')) {
+      return AppException(
+        code: AppErrorCode.emailNotVerified,
+        userMessage: 'Verify your email before signing in.',
+        technicalMessage: error.message,
+        cause: error,
+      );
+    }
+    if (normalized.contains('already registered') ||
+        normalized.contains('already exists')) {
+      return AppException(
+        code: AppErrorCode.conflict,
+        userMessage: 'This email is already registered. Try signing in.',
+        technicalMessage: error.message,
+        cause: error,
+      );
+    }
     return AppException(
       code: AppErrorCode.authentication,
-      userMessage: error.message,
+      userMessage:
+          'Authentication could not be completed. Check your details and try again.',
       technicalMessage: error.message,
       cause: error,
     );

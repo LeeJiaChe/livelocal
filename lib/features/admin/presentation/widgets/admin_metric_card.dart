@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 
 class AdminMetricCard extends StatelessWidget {
   const AdminMetricCard({
