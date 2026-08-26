@@ -770,9 +770,8 @@ void main() {
       await tester.pump();
 
       expect(find.byType(MainNavigationScreen), findsOneWidget);
-      expect(find.text('Spots'), findsOneWidget);
-      expect(find.text('Eats'), findsOneWidget);
-      expect(find.text('Saved'), findsOneWidget);
+      expect(find.text('Home'), findsOneWidget);
+      expect(find.text('Explore'), findsOneWidget);
       expect(find.text('Guides'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
     });

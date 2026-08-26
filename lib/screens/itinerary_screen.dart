@@ -356,12 +356,18 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                               ),
                           ],
                         ),
-                        trailing: Text(
-                          bestTime,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                        trailing: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 100),
+                          child: Text(
+                            bestTime,
+                            textAlign: TextAlign.end,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                          ),
                         ),
                       );
                     }).toList(),

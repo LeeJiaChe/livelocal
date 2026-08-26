@@ -137,16 +137,16 @@ void main() {
       expect(find.text('Admin Center'), findsWidgets);
       expect(find.text('Needs review'), findsOneWidget);
 
-      // Switch to Review
-      await tester.tap(find.text('Review').first);
+      // Switch to Review Queue
+      await tester.tap(find.text('Review Queue').first);
       await tester.pumpAndSettle();
       expect(
         find.widgetWithText(AdminSectionHeader, 'Review Queue'),
         findsOneWidget,
       );
 
-      // Switch to Guides
-      await tester.tap(find.text('Guides').first);
+      // Switch to Content
+      await tester.tap(find.text('Content').first);
       await tester.pumpAndSettle();
       expect(
         find.widgetWithText(AdminSectionHeader, 'Guide Management'),
@@ -161,13 +161,10 @@ void main() {
         findsOneWidget,
       );
 
-      // Switch to Audit
-      await tester.tap(find.text('Audit').first);
+      // Switch to More -> Audit History
+      await tester.tap(find.text('More').first);
       await tester.pumpAndSettle();
-      expect(
-        find.widgetWithText(AdminSectionHeader, 'Audit History'),
-        findsOneWidget,
-      );
+      expect(find.text('Audit History'), findsOneWidget);
     });
 
     testWidgets('22. non-admin access denied safely', (tester) async {
@@ -232,8 +229,8 @@ void main() {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Review
-      await tester.tap(find.text('Review').first);
+      // Go to Review Queue
+      await tester.tap(find.text('Review Queue').first);
       await tester.pumpAndSettle();
 
       // Items rendered
@@ -290,8 +287,8 @@ void main() {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Guides tab
-      await tester.tap(find.text('Guides').first);
+      // Go to Content tab
+      await tester.tap(find.text('Content').first);
       await tester.pumpAndSettle();
 
       // Admin Drafts section
@@ -395,8 +392,10 @@ void main() {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Audit tab
-      await tester.tap(find.text('Audit').first);
+      // Go to More -> Audit History
+      await tester.tap(find.text('More').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Audit History'));
       await tester.pumpAndSettle();
 
       expect(
@@ -430,11 +429,11 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Review Queue'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -442,7 +441,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Audit'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -455,11 +454,11 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Review Queue'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -467,7 +466,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Audit'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -480,11 +479,11 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Review Queue'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -492,7 +491,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Audit'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });

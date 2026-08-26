@@ -172,11 +172,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Ensure bottom navigation has exactly Spots, Eats, Saved, Guides, Profile
-      expect(find.text('Spots'), findsOneWidget);
-      expect(find.text('Eats'), findsOneWidget);
+      // Ensure bottom navigation has exactly Home, Explore, Saved, Trips, Profile
+      expect(find.text('Home'), findsOneWidget);
+      expect(find.text('Explore'), findsOneWidget);
       expect(find.text('Saved'), findsOneWidget);
-      expect(find.text('Guides'), findsOneWidget);
+      expect(find.text('Trips'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
       expect(find.text('Admin'), findsNothing);
     });

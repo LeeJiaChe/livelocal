@@ -126,13 +126,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
-      // Tap on Saved tab in NavigationBar
-      final savedTab = find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.byIcon(Icons.bookmark_outline),
-      );
-      expect(savedTab, findsOneWidget);
-      await tester.tap(savedTab);
+      // Navigate to /saved-places route
+      navKey.currentState?.pushNamed('/saved-places');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 

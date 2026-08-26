@@ -435,9 +435,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Fill in stop 1 & 2
+      // Fill in stop 1 & 2 as custom stops
+      final customSegments = find.text('Custom stop');
+      expect(customSegments, findsNWidgets(2));
+      await tester.tap(customSegments.first);
+      await tester.tap(customSegments.last);
+      await tester.pumpAndSettle();
+
       final stopNameFields =
-          find.widgetWithText(TextFormField, 'Stop name / place');
+          find.widgetWithText(TextFormField, 'Custom stop name');
       expect(stopNameFields, findsNWidgets(2));
       await tester.enterText(stopNameFields.first, 'Clan Jetties');
 

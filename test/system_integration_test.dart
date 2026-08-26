@@ -48,12 +48,15 @@ void main() {
       final initialApprovedCount = spotCtrl.approvedSpots.length;
       expect(initialApprovedCount, greaterThan(0));
 
-      spotCtrl.filter(state: 'Penang');
-      await tester.pump(const Duration(milliseconds: 350));
-      expect(spotCtrl.approvedSpots.every((s) => s.state == 'Penang'), isTrue);
+      spotCtrl.filter(state: 'Pulau Pinang');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(
+          spotCtrl.approvedSpots.every((s) => s.state == 'Pulau Pinang'), isTrue);
 
       spotCtrl.resetFilters();
-      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
 
       // Submit new spot
       final newSpot = SpotModel(

@@ -467,10 +467,15 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                             size: 16, color: Colors.white),
                                       ),
                                       const SizedBox(width: 8),
-                                      Text(r.userName,
+                                      Expanded(
+                                        child: Text(
+                                          r.userName,
+                                          overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
-                                              fontWeight: FontWeight.bold)),
-                                      const Spacer(),
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
                                       Row(
                                         children: List.generate(
                                           5,
