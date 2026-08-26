@@ -12,19 +12,35 @@ class InfluencerApplicationController with ChangeNotifier {
   InfluencerApplication? _mine;
   List<InfluencerApplication> _pending = [];
   bool _isLoading = false;
+  bool _isLoadingPending = false;
   String? _errorMessage;
+  String? _pendingErrorMessage;
 
   InfluencerApplication? get mine => _mine;
   List<InfluencerApplication> get pending => List.unmodifiable(_pending);
   bool get isLoading => _isLoading;
+  bool get isLoadingPending => _isLoadingPending;
   String? get errorMessage => _errorMessage;
+  String? get pendingErrorMessage => _pendingErrorMessage;
 
   Future<void> loadMine() async {
     await _run(() async => _mine = await _repository.fetchMine());
   }
 
   Future<void> loadPending() async {
-    await _run(() async => _pending = await _repository.fetchPendingForAdmin());
+    _isLoadingPending = true;
+    _pendingErrorMessage = null;
+    notifyListeners();
+    try {
+      _pending = await _repository.fetchPendingForAdmin();
+    } catch (error) {
+      _pendingErrorMessage = error is AppException
+          ? error.userMessage
+          : 'Creator applications could not be loaded.';
+    } finally {
+      _isLoadingPending = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> saveAndSubmit(InfluencerApplicationDraft draft) async {

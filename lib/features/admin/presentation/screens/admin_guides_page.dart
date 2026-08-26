@@ -95,14 +95,20 @@ class _AdminGuidesPageState extends State<AdminGuidesPage> {
           g.locationName.toLowerCase().contains(query) ||
           g.state.toLowerCase().contains(query);
     }).toList();
+    final sourceError = _selectedSection == 'Drafts'
+        ? guidesController.adminDraftsErrorMessage
+        : guidesController.errorMessage;
+    final sourceLoading = _selectedSection == 'Drafts'
+        ? guidesController.isLoadingAdminDrafts
+        : guidesController.isLoading;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       children: [
         AdminSectionHeader(
-          title: 'Guide Management',
-          subtitle: 'Curate, revise, and publish neighbourhood guides',
+          title: 'Guides',
+          subtitle: 'Manage LiveLocal neighbourhood guides',
           action: FilledButton.tonalIcon(
             onPressed: () => Navigator.push(
               context,
@@ -136,7 +142,7 @@ class _AdminGuidesPageState extends State<AdminGuidesPage> {
           child: Row(
             children: [
               FilterChip(
-                label: Text('Admin Drafts (${drafts.length})'),
+                label: Text('Drafts (${drafts.length})'),
                 selected: _selectedSection == 'Drafts',
                 onSelected: (selected) {
                   if (selected) setState(() => _selectedSection = 'Drafts');
@@ -153,9 +159,29 @@ class _AdminGuidesPageState extends State<AdminGuidesPage> {
             ],
           ),
         ),
+        const SizedBox(height: 12),
+        Text(
+          _selectedSection == 'Drafts'
+              ? 'Admin-created guides that are still being prepared.'
+              : 'Guides currently visible to LiveLocal users.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        if (sourceError != null) ...[
+          const SizedBox(height: 12),
+          _GuidesLoadError(
+            message: sourceError,
+            onRetry: _selectedSection == 'Drafts'
+                ? guidesController.loadAdminDrafts
+                : guidesController.loadGuides,
+          ),
+        ],
         const SizedBox(height: 16),
         if (_selectedSection == 'Drafts') ...[
-          if (filteredDrafts.isEmpty)
+          if (sourceLoading && filteredDrafts.isEmpty)
+            const Center(child: CircularProgressIndicator())
+          else if (filteredDrafts.isEmpty && sourceError == null)
             AdminStatePanel(
               icon: Icons.edit_note_outlined,
               title: 'No admin drafts',
@@ -246,7 +272,9 @@ class _AdminGuidesPageState extends State<AdminGuidesPage> {
                 ),
               ),
         ] else ...[
-          if (filteredPublished.isEmpty)
+          if (sourceLoading && filteredPublished.isEmpty)
+            const Center(child: CircularProgressIndicator())
+          else if (filteredPublished.isEmpty && sourceError == null)
             AdminStatePanel(
               icon: Icons.map_outlined,
               title: 'No published guides',
@@ -348,6 +376,38 @@ class _AdminGuidesPageState extends State<AdminGuidesPage> {
               ),
         ],
       ],
+    );
+  }
+}
+
+class _GuidesLoadError extends StatelessWidget {
+  const _GuidesLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.errorContainer.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: colors.onErrorContainer),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: colors.onErrorContainer),
+              ),
+            ),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
     );
   }
 }

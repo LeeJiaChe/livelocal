@@ -22,18 +22,22 @@ class SpotController with ChangeNotifier {
   SpotFilterOptions _filterOptions = SpotFilterOptions.fallback;
   bool _isLoading = false;
   bool _isLoadingMore = false;
+  bool _isLoadingPending = false;
   bool _hasMore = true;
   String _selectedState = 'All';
   String _selectedCategory = 'All';
   String _searchQuery = '';
   String? _errorMessage;
+  String? _pendingErrorMessage;
   Timer? _searchDebounce;
 
   List<SpotModel> get spots => List.unmodifiable(_spots);
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
+  bool get isLoadingPending => _isLoadingPending;
   bool get hasMore => _hasMore;
   String? get errorMessage => _errorMessage;
+  String? get pendingErrorMessage => _pendingErrorMessage;
   String get selectedState => _selectedState;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
@@ -122,13 +126,16 @@ class SpotController with ChangeNotifier {
   }
 
   Future<void> loadPendingSpots() async {
+    _isLoadingPending = true;
+    _pendingErrorMessage = null;
+    notifyListeners();
     try {
       _pendingSpots = await _repository.fetchPendingModeration();
-      _errorMessage = null;
     } catch (error) {
-      _errorMessage =
+      _pendingErrorMessage =
           _message(error, 'Pending submissions could not be loaded.');
     } finally {
+      _isLoadingPending = false;
       notifyListeners();
     }
   }

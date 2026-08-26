@@ -19,6 +19,21 @@ void main() {
         malay.translate('Review photos'),
         isNot(equals('Review photos')),
       );
+      expect(malay.translate('Overview'), 'Ringkasan');
+      expect(malay.translate('Queue'), 'Barisan');
+      expect(malay.translate('Trips'), 'Perjalanan');
+      expect(
+        malay.translate('Items that need an admin decision'),
+        'Perkara yang memerlukan keputusan admin',
+      );
+      expect(
+        malay.translate('Drafts (12)'),
+        'Draf (12)',
+      );
+      expect(
+        malay.translate('Manage LiveLocal neighbourhood guides'),
+        'Urus panduan kawasan kejiranan LiveLocal',
+      );
     });
 
     test('dynamic product copy is localized without altering values', () {

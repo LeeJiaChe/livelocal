@@ -23,7 +23,8 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
-  String _reviewSubFilter = 'All';
+  String _reviewSubFilter = 'Submissions';
+  String _reviewSubmissionFilter = 'Spots';
 
   @override
   void initState() {
@@ -46,11 +47,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ]);
   }
 
-  void _navigateToTab(int index, {String? subFilter}) {
+  void _navigateToTab(
+    int index, {
+    String? subFilter,
+    String? submissionFilter,
+  }) {
     setState(() {
       _selectedIndex = index;
       if (subFilter != null) {
         _reviewSubFilter = subFilter;
+      }
+      if (submissionFilter != null) {
+        _reviewSubmissionFilter = submissionFilter;
       }
     });
   }
@@ -106,35 +114,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final guides = context.watch<GuideController>();
     final applications = context.watch<InfluencerApplicationController>();
 
-    final errorMessage = admin.errorMessage ??
-        spots.errorMessage ??
-        localEats.errorMessage ??
-        guides.errorMessage ??
-        applications.errorMessage;
-
     final isAnyLoading = admin.isRefreshing ||
         spots.isLoading ||
+        spots.isLoadingPending ||
         localEats.isLoading ||
+        localEats.isLoadingPending ||
         guides.isLoading ||
-        applications.isLoading;
+        guides.isLoadingAdminDrafts ||
+        applications.isLoading ||
+        applications.isLoadingPending;
 
     final pages = [
       AdminOverviewPage(onNavigateToTab: _navigateToTab),
       AdminReviewQueuePage(
-        key: ValueKey('review_$_reviewSubFilter'),
+        key: ValueKey(
+          'review_${_reviewSubFilter}_$_reviewSubmissionFilter',
+        ),
         initialFilter: _reviewSubFilter,
+        initialSubmissionFilter: _reviewSubmissionFilter,
       ),
       const AdminGuidesPage(),
       const AdminUsersPage(),
       AdminMorePage(
-        onOpenQueue: (filter) => _navigateToTab(1, subFilter: filter),
+        onOpenQueue: (filter, {submissionFilter}) => _navigateToTab(
+          1,
+          subFilter: filter,
+          submissionFilter: submissionFilter,
+        ),
       ),
     ];
 
     const sectionTitles = [
       'Overview',
       'Review Queue',
-      'Content',
+      'Guides',
       'User Management',
       'More',
     ];
@@ -143,45 +156,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 720;
 
-        Widget content = Column(
-          children: [
-            if (errorMessage != null)
-              Container(
-                margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      color: theme.colorScheme.onErrorContainer,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        errorMessage,
-                        style: TextStyle(
-                          color: theme.colorScheme.onErrorContainer,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _refreshAll,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            Expanded(
-              child: IndexedStack(
-                index: _selectedIndex,
-                children: pages,
-              ),
-            ),
-          ],
+        final content = IndexedStack(
+          index: _selectedIndex,
+          children: pages,
         );
 
         return Scaffold(
@@ -298,12 +275,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         NavigationRailDestination(
                           icon: const Icon(Icons.fact_check_outlined),
                           selectedIcon: const Icon(Icons.fact_check),
-                          label: Text(context.tr('Review Queue')),
+                          label: Text(context.tr('Queue')),
                         ),
                         NavigationRailDestination(
-                          icon: const Icon(Icons.inventory_2_outlined),
-                          selectedIcon: const Icon(Icons.inventory_2),
-                          label: Text(context.tr('Content')),
+                          icon: const Icon(Icons.route_outlined),
+                          selectedIcon: const Icon(Icons.route),
+                          label: Text(context.tr('Guides')),
                         ),
                         NavigationRailDestination(
                           icon: const Icon(Icons.people_outline),
@@ -333,6 +310,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           bottomNavigationBar: isWide
               ? null
               : NavigationBar(
+                  height: 72,
                   selectedIndex: _selectedIndex,
                   onDestinationSelected: (index) =>
                       setState(() => _selectedIndex = index),
@@ -345,12 +323,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     NavigationDestination(
                       icon: const Icon(Icons.fact_check_outlined),
                       selectedIcon: const Icon(Icons.fact_check),
-                      label: context.tr('Review Queue'),
+                      label: context.tr('Queue'),
                     ),
                     NavigationDestination(
-                      icon: const Icon(Icons.inventory_2_outlined),
-                      selectedIcon: const Icon(Icons.inventory_2),
-                      label: context.tr('Content'),
+                      icon: const Icon(Icons.route_outlined),
+                      selectedIcon: const Icon(Icons.route),
+                      label: context.tr('Guides'),
                     ),
                     NavigationDestination(
                       icon: const Icon(Icons.people_outline),

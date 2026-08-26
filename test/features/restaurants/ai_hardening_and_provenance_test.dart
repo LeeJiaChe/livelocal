@@ -371,7 +371,11 @@ void main() {
             appController: appCtrl,
             spotController: spotCtrl,
             guideController: guideCtrl,
-            child: const Scaffold(body: AdminReviewQueuePage()),
+            child: const Scaffold(
+              body: AdminReviewQueuePage(
+                initialSubmissionFilter: 'Restaurants',
+              ),
+            ),
           ),
         );
         await tester.pumpAndSettle();

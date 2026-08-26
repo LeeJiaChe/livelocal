@@ -7,6 +7,9 @@ import '../domain/guide_repository.dart';
 class SupabaseGuideRepository implements GuideRepository {
   SupabaseGuideRepository(this._client);
 
+  static const adminDraftsSelect =
+      '*, parent:guides!guide_revisions_guide_id_fkey(id, version)';
+
   final SupabaseClient _client;
 
   @override
@@ -27,12 +30,12 @@ class SupabaseGuideRepository implements GuideRepository {
     try {
       final rows = await _client
           .from('guide_revisions')
-          .select('*, guides!inner(id, version)')
+          .select(adminDraftsSelect)
           .inFilter('status', ['draft', 'submitted', 'under_review']).order(
               'updated_at',
               ascending: false);
       return rows.map((row) {
-        final guide = Map<String, dynamic>.from(row['guides'] as Map);
+        final guide = Map<String, dynamic>.from(row['parent'] as Map);
         return _map(
           {
             ...row,

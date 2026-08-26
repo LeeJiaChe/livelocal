@@ -18,19 +18,23 @@ class GuideController with ChangeNotifier {
   List<GuideModel> _adminDrafts = [];
   List<GuideModel> _mySubmissions = [];
   bool _isLoading = false;
+  bool _isLoadingAdminDrafts = false;
   String _selectedState = 'All';
   String _selectedNeighbourhood = 'All';
   String _searchQuery = '';
   String? _errorMessage;
+  String? _adminDraftsErrorMessage;
 
   List<GuideModel> get guides => List.unmodifiable(_guides);
   List<GuideModel> get adminDrafts => List.unmodifiable(_adminDrafts);
   List<GuideModel> get mySubmissions => List.unmodifiable(_mySubmissions);
   bool get isLoading => _isLoading;
+  bool get isLoadingAdminDrafts => _isLoadingAdminDrafts;
   String get selectedState => _selectedState;
   String get selectedNeighbourhood => _selectedNeighbourhood;
   String get searchQuery => _searchQuery;
   String? get errorMessage => _errorMessage;
+  String? get adminDraftsErrorMessage => _adminDraftsErrorMessage;
 
   bool get hasActiveFilters =>
       _selectedState != 'All' ||
@@ -118,7 +122,19 @@ class GuideController with ChangeNotifier {
   }
 
   Future<void> loadAdminDrafts() async {
-    await _run(() async => _adminDrafts = await _repository.fetchAdminDrafts());
+    _isLoadingAdminDrafts = true;
+    _adminDraftsErrorMessage = null;
+    notifyListeners();
+    try {
+      _adminDrafts = await _repository.fetchAdminDrafts();
+    } catch (error) {
+      _adminDraftsErrorMessage = error is AppException
+          ? error.userMessage
+          : 'Guide submissions could not be loaded.';
+    } finally {
+      _isLoadingAdminDrafts = false;
+      notifyListeners();
+    }
   }
 
   Future<void> loadMySubmissions() async {

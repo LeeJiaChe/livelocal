@@ -17,6 +17,7 @@ import 'package:live_local/features/profile/data/demo_account_repository.dart';
 import 'package:live_local/features/profile/presentation/account_controller.dart';
 import 'package:live_local/features/restaurants/data/demo_local_eats_repository.dart';
 import 'package:live_local/features/spots/data/demo_spot_repository.dart';
+import 'package:live_local/models/spot_model.dart';
 import 'package:live_local/screens/guide_detail_screen.dart';
 import 'package:live_local/services/seed_data_service.dart';
 import 'package:provider/provider.dart';
@@ -138,18 +139,18 @@ void main() {
       expect(find.text('Needs review'), findsOneWidget);
 
       // Switch to Review Queue
-      await tester.tap(find.text('Review Queue').first);
+      await tester.tap(find.text('Queue').first);
       await tester.pumpAndSettle();
       expect(
         find.widgetWithText(AdminSectionHeader, 'Review Queue'),
         findsOneWidget,
       );
 
-      // Switch to Content
-      await tester.tap(find.text('Content').first);
+      // Switch to Guides
+      await tester.tap(find.text('Guides').first);
       await tester.pumpAndSettle();
       expect(
-        find.widgetWithText(AdminSectionHeader, 'Guide Management'),
+        find.widgetWithText(AdminSectionHeader, 'Guides'),
         findsOneWidget,
       );
 
@@ -224,23 +225,53 @@ void main() {
       );
     });
 
+    testWidgets(
+        'an isolated spot queue failure stays in Queue and keeps Overview usable',
+        (tester) async {
+      spotController = SpotController(
+        repository: _FailingPendingSpotRepository(authRepository),
+      );
+
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Needs review'), findsOneWidget);
+      expect(
+        find.text('Pending submissions could not be loaded.'),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('Queue').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Pending submissions could not be loaded.'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(TextButton, 'Retry'), findsOneWidget);
+    });
+
     testWidgets('29-38. Review queue items, filters, and moderation decisions',
         (tester) async {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
       // Go to Review Queue
-      await tester.tap(find.text('Review Queue').first);
+      await tester.tap(find.text('Queue').first);
       await tester.pumpAndSettle();
 
-      // Items rendered
+      // Submissions default to one category at a time: Spots.
       expect(find.text('Penang Botanic Gardens'), findsOneWidget);
+      expect(find.text('Guan Heong Biscuit Shop'), findsNothing);
+      expect(find.text('Jonker Street Evening Food Trail'), findsNothing);
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Restaurants'));
+      await tester.pumpAndSettle();
+      expect(find.text('Penang Botanic Gardens'), findsNothing);
       expect(find.text('Guan Heong Biscuit Shop'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('Jonker Street Evening Food Trail'),
-        150,
-        scrollable: find.byType(Scrollable).first,
-      );
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Guides'));
+      await tester.pumpAndSettle();
       expect(find.text('Jonker Street Evening Food Trail'), findsOneWidget);
 
       // Guide draft should NOT be in review queue
@@ -257,8 +288,10 @@ void main() {
       expect(find.text('Penang Botanic Gardens'), findsNothing);
       expect(find.textContaining('Unverified business hours'), findsOneWidget);
 
-      // Return to All
-      await tester.tap(find.text('All'));
+      // Return to spot submissions.
+      await tester.tap(find.widgetWithText(FilterChip, 'Submissions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilterChip, 'Spots'));
       await tester.pumpAndSettle();
 
       // Approve Spot
@@ -287,8 +320,8 @@ void main() {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Content tab
-      await tester.tap(find.text('Content').first);
+      // Go to Guides tab
+      await tester.tap(find.text('Guides').first);
       await tester.pumpAndSettle();
 
       // Admin Drafts section
@@ -430,12 +463,12 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await tester.tap(
-        find.widgetWithText(NavigationDestination, 'Review Queue'),
+        find.widgetWithText(NavigationDestination, 'Queue'),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -457,12 +490,12 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await tester.tap(
-        find.widgetWithText(NavigationDestination, 'Review Queue'),
+        find.widgetWithText(NavigationDestination, 'Queue'),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -484,12 +517,12 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await tester.tap(
-        find.widgetWithText(NavigationDestination, 'Review Queue'),
+        find.widgetWithText(NavigationDestination, 'Queue'),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -502,4 +535,13 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+}
+
+class _FailingPendingSpotRepository extends DemoSpotRepository {
+  _FailingPendingSpotRepository(super.authRepository);
+
+  @override
+  Future<List<SpotModel>> fetchPendingModeration() async {
+    throw Exception('Simulated isolated queue failure');
+  }
 }
