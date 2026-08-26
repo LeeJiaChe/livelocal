@@ -321,7 +321,7 @@ reset role;
 select is(
   (select prior_photo_paths from public.review_edit_history
    where review_id = 'e0000000-2000-0000-0000-000000000001'::uuid
-   order by edited_at desc limit 1),
+   order by created_at desc limit 1),
   array['e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/published_photo.jpg'],
   'review_edit_history recorded the prior photo path set'
 );
