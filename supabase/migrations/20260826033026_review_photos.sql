@@ -60,26 +60,27 @@ create policy review_image_insert_owner
     and private.can_use_protected_features()
   );
 
-create policy review_image_select_published_owner_admin
+create policy review_image_select_published
   on storage.objects for select to anon, authenticated
   using (
     bucket_id = 'review-images'
+    and exists (
+      select 1
+      from public.review_photos photo
+      join public.public_reviews public_review
+        on public_review.id = photo.review_id
+      where photo.storage_path = storage.objects.name
+        and not private.is_content_hidden('review', public_review.id)
+    )
+  );
+
+create policy review_image_select_owner_admin
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'review-images'
     and (
-      exists (
-        select 1
-        from public.review_photos photo
-        join public.public_reviews public_review
-          on public_review.id = photo.review_id
-        where photo.storage_path = storage.objects.name
-          and not private.is_content_hidden('review', public_review.id)
-      )
-      or (
-        (select auth.uid()) is not null
-        and (
-          (storage.foldername(storage.objects.name))[1] = (select auth.uid())::text
-          or private.is_admin()
-        )
-      )
+      (storage.foldername(storage.objects.name))[1] = (select auth.uid())::text
+      or private.is_admin()
     )
   );
 
