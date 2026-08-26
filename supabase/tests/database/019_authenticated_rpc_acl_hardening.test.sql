@@ -1,6 +1,6 @@
 begin;
 
-select plan(27);
+select plan(31);
 
 select ok(
   not has_function_privilege(
@@ -20,6 +20,8 @@ select ok(not has_function_privilege('anon', 'public.rename_saved_collection(uui
 select ok(not has_function_privilege('anon', 'public.set_place_collections(text,uuid,uuid[])', 'EXECUTE'), 'anon cannot update collection membership');
 select ok(not has_function_privilege('anon', 'public.set_review_vote(uuid,integer)', 'EXECUTE'), 'anon cannot react to reviews');
 select ok(not has_function_privilege('anon', 'public.submit_guide(text,text,text,text,jsonb,jsonb,text)', 'EXECUTE'), 'anon cannot submit Guides');
+select ok(not has_function_privilege('anon', 'public.submit_guide_v2(text,text,text,text,jsonb,jsonb,jsonb,text)', 'EXECUTE'), 'anon cannot submit Guides v2');
+select ok(not has_function_privilege('anon', 'public.admin_save_guide_draft_v2(uuid,text,text,text,text,jsonb,jsonb,jsonb,text,integer)', 'EXECUTE'), 'anon cannot save Guide drafts v2');
 select ok(not has_function_privilege('anon', 'public.toggle_spot_upvote(uuid)', 'EXECUTE'), 'anon cannot vote on Spots');
 select ok(not has_function_privilege('anon', 'public.check_saved_collection_item_ownership()', 'EXECUTE'), 'trigger implementation is not an anonymous RPC');
 
@@ -34,6 +36,8 @@ select ok(has_function_privilege('authenticated', 'public.rename_saved_collectio
 select ok(has_function_privilege('authenticated', 'public.set_place_collections(text,uuid,uuid[])', 'EXECUTE'), 'authenticated collection membership remains callable');
 select ok(has_function_privilege('authenticated', 'public.set_review_vote(uuid,integer)', 'EXECUTE'), 'authenticated review reactions remain callable');
 select ok(has_function_privilege('authenticated', 'public.submit_guide(text,text,text,text,jsonb,jsonb,text)', 'EXECUTE'), 'authenticated Guide submit remains callable');
+select ok(has_function_privilege('authenticated', 'public.submit_guide_v2(text,text,text,text,jsonb,jsonb,jsonb,text)', 'EXECUTE'), 'authenticated Guide submit v2 remains callable');
+select ok(has_function_privilege('authenticated', 'public.admin_save_guide_draft_v2(uuid,text,text,text,text,jsonb,jsonb,jsonb,text,integer)', 'EXECUTE'), 'authenticated Admin draft v2 remains callable');
 select ok(has_function_privilege('authenticated', 'public.toggle_spot_upvote(uuid)', 'EXECUTE'), 'authenticated Spot voting remains callable');
 
 select ok(has_function_privilege('anon', 'public.list_active_discounts(uuid)', 'EXECUTE'), 'public active discounts remain callable');
