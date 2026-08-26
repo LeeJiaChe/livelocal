@@ -630,6 +630,7 @@ class AppLocalizations {
     'Block contributor': 'Sekat penyumbang',
     'Block creator': 'Sekat Pencipta',
     'Block reviewer': 'Sekat pengulas',
+    'Block this reviewer': 'Sekat pengulas ini',
     'Hide this review for me': 'Sembunyikan ulasan ini untuk saya',
     'One report does not hide it from everyone.':
         'Satu laporan tidak menyembunyikannya daripada semua pengguna.',

@@ -9,23 +9,72 @@ import 'package:live_local/core/localization/app_localizations.dart';
 import 'package:live_local/core/routing/protected_navigation.dart';
 import 'package:live_local/features/auth/data/demo_auth_repository.dart';
 import 'package:live_local/features/itinerary/data/demo_saved_itinerary_repository.dart';
-import 'package:live_local/features/moderation/data/demo_moderation_repository.dart';
+import 'package:live_local/features/moderation/domain/moderation_repository.dart';
 import 'package:live_local/features/moderation/presentation/moderation_controller.dart';
 import 'package:live_local/features/restaurants/data/demo_local_eats_repository.dart';
 import 'package:live_local/features/restaurants/presentation/local_eats_controller.dart';
 import 'package:live_local/features/reviews/data/demo_review_repository.dart';
 import 'package:live_local/features/spots/data/demo_spot_repository.dart';
+import 'package:live_local/models/review_model.dart';
 import 'package:live_local/screens/restaurant_detail_screen.dart';
 import 'package:live_local/screens/spot_detail_screen.dart';
 import 'package:live_local/services/seed_data_service.dart';
 import 'package:provider/provider.dart';
+
+class SpyModerationRepository implements ModerationRepository {
+  final List<Map<String, String>> blockCalls = [];
+  final List<Map<String, dynamic>> reportCalls = [];
+
+  @override
+  bool get supportsUserBlocking => true;
+
+  @override
+  Future<ModerationReceipt> reportContent({
+    required String targetType,
+    required String targetId,
+    required String reason,
+    String? explanation,
+    required bool hideForReporter,
+  }) async {
+    reportCalls.add({
+      'targetType': targetType,
+      'targetId': targetId,
+      'reason': reason,
+      'explanation': explanation,
+      'hideForReporter': hideForReporter,
+    });
+    return const ModerationReceipt(
+      id: 'mock-report-id',
+      status: 'pending',
+      version: 1,
+    );
+  }
+
+  @override
+  Future<UserBlockReceipt> blockContentAuthor({
+    required String targetType,
+    required String targetId,
+  }) async {
+    blockCalls.add({'targetType': targetType, 'targetId': targetId});
+    return const UserBlockReceipt(
+      userId: 'server-resolved-user-id',
+      displayName: 'Anonymous',
+    );
+  }
+
+  @override
+  Future<List<BlockedUser>> listBlockedUsers() async => const [];
+
+  @override
+  Future<void> unblockUser(String userId) async {}
+}
 
 void main() {
   late DemoAuthRepository authRepository;
   late DemoSpotRepository spotRepository;
   late DemoReviewRepository reviewRepository;
   late DemoSavedItineraryRepository savedRepository;
-  late DemoModerationRepository moderationRepository;
+  late SpyModerationRepository moderationRepository;
   late DemoLocalEatsRepository localEatsRepository;
   late AuthController authController;
   late SpotController spotController;
@@ -46,7 +95,7 @@ void main() {
     spotRepository = DemoSpotRepository(authRepository);
     reviewRepository = DemoReviewRepository(authRepository);
     savedRepository = DemoSavedItineraryRepository(authRepository);
-    moderationRepository = DemoModerationRepository(authRepository);
+    moderationRepository = SpyModerationRepository();
     localEatsRepository = DemoLocalEatsRepository(authRepository);
 
     spotController = SpotController(repository: spotRepository);
@@ -245,5 +294,146 @@ void main() {
         .singleWhere((r) => r.isOwnedByCurrentUser);
     expect(savedReview.isAnonymous, isTrue);
     expect(savedReview.userName, 'Anonymous');
+  });
+
+  testWidgets(
+      'Anonymous review offers Block this reviewer and Report without exposing author user_id',
+      (tester) async {
+    final spot = SeedDataService.getInitialSpots().first;
+
+    // Seed an anonymous review from another user
+    final anonReview = ReviewModel(
+      id: 'anon-review-12345',
+      spotId: spot.id,
+      userId: 'secret-author-user-id',
+      userName: 'Anonymous',
+      rating: 4.5,
+      comment: 'An anonymous perspective on this place.',
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      isAnonymous: true,
+      isOwnedByCurrentUser: false,
+    );
+    reviewRepository.addReviewForTesting(anonReview);
+    await reviewController.loadReviews();
+
+    await tester.pumpWidget(
+      buildTestApp(
+        child: SpotDetailScreen(spot: spot),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Scroll to review
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Verify displayed author is "Anonymous" and secret-author-user-id is never present in widget tree
+    expect(find.text('Anonymous'), findsWidgets);
+    expect(find.text('secret-author-user-id'), findsNothing);
+
+    // Open review safety menu
+    final safetyMenuButton = find.byTooltip('Review safety options');
+    expect(safetyMenuButton, findsWidgets);
+    await tester.tap(safetyMenuButton.first);
+    await tester.pumpAndSettle();
+
+    // Verify Report review and Block this reviewer are available
+    expect(find.text('Report review'), findsOneWidget);
+    expect(find.text('Block this reviewer'), findsOneWidget);
+
+    // Tap Block this reviewer
+    await tester.tap(find.text('Block this reviewer'));
+    await tester.pumpAndSettle();
+
+    // Confirm block dialog
+    expect(find.text('Block this account?'), findsOneWidget);
+    await tester.tap(find.text('Block account'));
+    await tester.pumpAndSettle();
+
+    // Verify backend block was called using targetType: review and targetId: review.id, NOT user_id
+    expect(moderationRepository.blockCalls.length, 1);
+    expect(moderationRepository.blockCalls.first['targetType'], 'review');
+    expect(moderationRepository.blockCalls.first['targetId'], anonReview.id);
+  });
+
+  testWidgets(
+      'BM localization displays Sekat pengulas ini and Laporkan ulasan for anonymous reviews',
+      (tester) async {
+    final spot = SeedDataService.getInitialSpots().first;
+
+    final anonReview = ReviewModel(
+      id: 'anon-review-bm-99',
+      spotId: spot.id,
+      userId: 'hidden-bm-author',
+      userName: 'Anonymous',
+      rating: 5.0,
+      comment: 'Ulasan tanpa nama yang hebat.',
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      isAnonymous: true,
+      isOwnedByCurrentUser: false,
+    );
+    reviewRepository.addReviewForTesting(anonReview);
+    await reviewController.loadReviews();
+
+    await tester.pumpWidget(
+      buildTestApp(
+        locale: const Locale('ms'),
+        child: SpotDetailScreen(spot: spot),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Scroll to review
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Open Malay review safety menu
+    final safetyMenuButton = find.byTooltip('Pilihan keselamatan ulasan');
+    expect(safetyMenuButton, findsWidgets);
+    await tester.tap(safetyMenuButton.first);
+    await tester.pumpAndSettle();
+
+    // Verify Malay action names
+    expect(find.text('Laporkan ulasan'), findsOneWidget);
+    expect(find.text('Sekat pengulas ini'), findsOneWidget);
+  });
+
+  testWidgets('Own anonymous review does not show Block or Report options',
+      (tester) async {
+    final spot = SeedDataService.getInitialSpots().first;
+
+    // Current user's own anonymous review
+    final myAnonReview = ReviewModel(
+      id: 'my-own-anon-review-1',
+      spotId: spot.id,
+      userId: authRepository.currentAccountForDemo!.id,
+      userName: 'Anonymous',
+      rating: 5.0,
+      comment: 'My own anonymous review here.',
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      isAnonymous: true,
+      isOwnedByCurrentUser: true,
+    );
+    reviewRepository.addReviewForTesting(myAnonReview);
+    await reviewController.loadReviews();
+
+    await tester.pumpWidget(
+      buildTestApp(
+        child: SpotDetailScreen(spot: spot),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Scroll to reviews
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Should show "Your review" and edit icon, but no "Review safety options" tooltip for own review
+    expect(find.text('Your review'), findsOneWidget);
+    expect(find.byTooltip('Edit review'), findsWidgets);
+    expect(find.text('Block this reviewer'), findsNothing);
   });
 }

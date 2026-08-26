@@ -242,4 +242,8 @@ class DemoReviewRepository
           _votes['${_authRepository.currentAccountForDemo?.id}:${review.id}'],
     );
   }
+
+  void addReviewForTesting(ReviewModel review) {
+    _reviews.add(review);
+  }
 }

@@ -41,6 +41,7 @@ void main() {
       );
       expect(malay.translate('Anonymous'), 'Tanpa Nama');
       expect(malay.translate('Your review'), 'Ulasan anda');
+      expect(malay.translate('Block this reviewer'), 'Sekat pengulas ini');
     });
 
     test('dynamic product copy is localized without altering values', () {

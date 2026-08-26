@@ -534,15 +534,19 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                             }
                                           },
                                           itemBuilder: (_) => [
-                                            const PopupMenuItem(
+                                            PopupMenuItem(
                                               value: 'report',
-                                              child: Text('Report review'),
+                                              child: Text(
+                                                context.tr('Report review'),
+                                              ),
                                             ),
-                                            if (supportsUserBlocking &&
-                                                !r.isAnonymous)
-                                              const PopupMenuItem(
+                                            if (supportsUserBlocking)
+                                              PopupMenuItem(
                                                 value: 'block',
-                                                child: Text('Block reviewer'),
+                                                child: Text(
+                                                  context.tr(
+                                                      'Block this reviewer'),
+                                                ),
                                               ),
                                           ],
                                         ),

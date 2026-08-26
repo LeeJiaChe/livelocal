@@ -894,17 +894,24 @@ class _ReviewCard extends StatelessWidget {
                   },
                   itemBuilder: (_) => [
                     if (onEdit != null)
-                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text(context.tr('Edit')),
+                      ),
                     if (onDelete != null)
-                      const PopupMenuItem(
-                          value: 'delete', child: Text('Delete')),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text(context.tr('Delete')),
+                      ),
                     if (onReport != null)
-                      const PopupMenuItem(
-                          value: 'report', child: Text('Report')),
-                    if (onBlock != null && !review.isAnonymous)
-                      const PopupMenuItem(
+                      PopupMenuItem(
+                        value: 'report',
+                        child: Text(context.tr('Report')),
+                      ),
+                    if (onBlock != null)
+                      PopupMenuItem(
                         value: 'block',
-                        child: Text('Block reviewer'),
+                        child: Text(context.tr('Block this reviewer')),
                       ),
                   ],
                 ),
