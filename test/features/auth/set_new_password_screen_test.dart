@@ -9,6 +9,7 @@ import 'package:live_local/controllers/notification_controller.dart';
 import 'package:live_local/controllers/review_controller.dart';
 import 'package:live_local/controllers/spot_controller.dart';
 import 'package:live_local/core/config/app_environment.dart';
+import 'package:live_local/core/localization/app_localizations.dart';
 import 'package:live_local/core/routing/protected_navigation.dart';
 import 'package:live_local/features/auth/data/demo_auth_repository.dart';
 import 'package:live_local/features/auth/presentation/session_gate.dart';
@@ -68,6 +69,7 @@ void main() {
   Widget buildTestApp({required Widget child}) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AppLocaleController()),
         ChangeNotifierProvider.value(value: authController),
         ChangeNotifierProvider.value(value: accountController),
         ChangeNotifierProvider.value(value: spotController),

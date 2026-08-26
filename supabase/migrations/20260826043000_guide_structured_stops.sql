@@ -55,16 +55,15 @@ $$;
 
 revoke all on function private.assert_valid_guide_stop_details(jsonb) from public;
 
-update public.guide_revisions revision
-set stop_details = details.value
-from lateral (
+update public.guide_revisions
+set stop_details = (
   select coalesce(jsonb_agg(jsonb_build_object(
     'kind', 'custom',
     'name', stop.value #>> '{}',
-    'instruction', coalesce(revision.walking_sequence->(stop.ordinality - 1), '"Continue to the next stop"'::jsonb) #>> '{}'
-  ) order by stop.ordinality), '[]'::jsonb) as value
-  from jsonb_array_elements(revision.stops) with ordinality as stop(value, ordinality)
-) details;
+    'instruction', coalesce(guide_revisions.walking_sequence->(stop.ordinality::int - 1), '"Continue to the next stop"'::jsonb) #>> '{}'
+  ) order by stop.ordinality), '[]'::jsonb)
+  from jsonb_array_elements(guide_revisions.stops) with ordinality as stop(value, ordinality)
+);
 
 update public.published_guides publication
 set stop_details = revision.stop_details

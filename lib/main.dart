@@ -278,14 +278,16 @@ class LiveLocalApp extends StatelessWidget {
           create: (_) => ModerationController(repository: moderationRepository),
         ),
       ],
-      child: AuthNavigationCoordinator(
-        navigatorKey: navigatorKey,
-        child: MaterialApp(
-          navigatorKey: navigatorKey,
-          title: 'LiveLocal',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          locale: context.watch<AppLocaleController>().locale,
+      child: Builder(
+        builder: (context) {
+          return AuthNavigationCoordinator(
+            navigatorKey: navigatorKey,
+            child: MaterialApp(
+              navigatorKey: navigatorKey,
+              title: 'LiveLocal',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.light,
+              locale: context.watch<AppLocaleController>().locale,
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: const [
             AppLocalizationsDelegate(),
@@ -360,8 +362,10 @@ class LiveLocalApp extends StatelessWidget {
             '/home': (context) => const SessionGate(),
           },
         ),
-      ),
-    );
+      );
+    },
+  ),
+);
   }
 }
 

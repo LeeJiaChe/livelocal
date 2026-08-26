@@ -12,6 +12,7 @@ import 'package:live_local/controllers/notification_controller.dart';
 import 'package:live_local/controllers/review_controller.dart';
 import 'package:live_local/controllers/spot_controller.dart';
 import 'package:live_local/core/config/app_environment.dart';
+import 'package:live_local/core/localization/app_localizations.dart';
 import 'package:live_local/core/routing/protected_navigation.dart';
 import 'package:live_local/features/admin/data/demo_admin_repository.dart';
 import 'package:live_local/features/admin/presentation/screens/admin_dashboard_screen.dart';
@@ -137,6 +138,7 @@ Widget _buildTestApp({
       Provider<AppConfiguration>.value(
         value: AppConfiguration.demoForTesting(),
       ),
+      ChangeNotifierProvider(create: (_) => AppLocaleController()),
       Provider<ProtectedNavigation>.value(value: protectedNav),
       ChangeNotifierProvider<AuthController>.value(value: authController),
       ChangeNotifierProvider(

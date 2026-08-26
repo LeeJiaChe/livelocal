@@ -5,6 +5,7 @@ import 'package:live_local/controllers/auth_controller.dart';
 import 'package:live_local/controllers/guide_controller.dart';
 import 'package:live_local/controllers/localeats_controller.dart';
 import 'package:live_local/controllers/spot_controller.dart';
+import 'package:live_local/core/localization/app_localizations.dart';
 import 'package:live_local/features/admin/data/demo_admin_repository.dart';
 import 'package:live_local/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:live_local/features/admin/presentation/widgets/admin_section_header.dart';
@@ -77,6 +78,7 @@ void main() {
     Widget createWidgetUnderTest() {
       return MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AppLocaleController()),
           ChangeNotifierProvider.value(value: authController),
           ChangeNotifierProvider.value(value: accountController),
           ChangeNotifierProvider.value(value: adminController),
@@ -97,6 +99,7 @@ void main() {
     Widget createMobileWidgetUnderTest({required Size size}) {
       return MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AppLocaleController()),
           ChangeNotifierProvider.value(value: authController),
           ChangeNotifierProvider.value(value: accountController),
           ChangeNotifierProvider.value(value: adminController),

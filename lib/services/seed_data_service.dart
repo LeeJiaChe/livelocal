@@ -206,24 +206,24 @@ class SeedDataService {
   static List<GuideModel> getInitialGuides() => [
         GuideModel(
           id: 'guide-001',
-          title: 'Kuala Lumpur Historic Colonial Core & River Trail',
-          locationName: 'Merdeka Square',
+          title: 'Sunday Morning TTDI Local Neighborhood Trail',
+          locationName: 'Taman Tun Dr Ismail',
           state: 'Kuala Lumpur',
           routeOverview:
-              'Discover Kuala Lumpur’s founding river confluence and its surrounding civic, religious, and cultural landmarks.',
+              'Experience how KL locals spend a relaxing Sunday morning — from wet market rojak to quiet neighborhood park walks and indie artisanal coffee.',
           stops: [
-            'Dataran Merdeka (Independence Square)',
-            'Sultan Abdul Samad Building',
-            'Masjid Jamek River of Life',
-            'Central Market (Pasar Seni)'
+            'TTDI Market Rojak Stall',
+            'Lembah Kiara Recreation Park',
+            'Kopitiam Kok Yuen',
+            'Artisan Coffee Roasters TTDI'
           ],
           walkingSequence: [
-            'Begin at the Merdeka Square flagpole',
-            'Cross to the Sultan Abdul Samad heritage frontage',
-            'Continue to the Klang and Gombak river confluence',
-            'Finish at Central Market’s local art and craft stalls'
+            '1. Start at TTDI Market at 8:00 AM for fresh breakfast',
+            '2. Walk 5 mins to Lembah Kiara Park for a refreshing shaded stroll',
+            '3. Head to Kopitiam Kok Yuen at 10:30 AM for local coffee & toast',
+            '4. Wrap up at Artisan Coffee Roasters for neighborhood vibe'
           ],
-          estimatedDuration: '2.5 hours',
+          estimatedDuration: '3.5 Hours',
           status: 'approved',
         ),
         GuideModel(
