@@ -234,8 +234,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Items rendered
-      expect(find.text('Bukit Bintang Alley Roastery'), findsOneWidget);
-      expect(find.text('Kopitiam Heritage Noodle House'), findsOneWidget);
+      expect(find.text('Penang Botanic Gardens'), findsOneWidget);
+      expect(find.text('Guan Heong Biscuit Shop'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('Jonker Street Evening Food Trail'),
         150,
@@ -254,7 +254,7 @@ void main() {
       );
       await tester.tap(find.text('Reports'));
       await tester.pumpAndSettle();
-      expect(find.text('Bukit Bintang Alley Roastery'), findsNothing);
+      expect(find.text('Penang Botanic Gardens'), findsNothing);
       expect(find.textContaining('Unverified business hours'), findsOneWidget);
 
       // Return to All
@@ -278,7 +278,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Spot is now approved and removed from pending review queue
-      expect(find.text('Bukit Bintang Alley Roastery'), findsNothing);
+      expect(find.text('Penang Botanic Gardens'), findsNothing);
     });
 
     testWidgets(
