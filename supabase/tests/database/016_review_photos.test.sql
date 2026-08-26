@@ -94,17 +94,13 @@ select ok(
   'anonymous users cannot call the review photo RPC'
 );
 
-select ok(
-  has_trigger(
-    'public', 'review_photos', 'review_photo_cleanup_after_delete'
-  ),
+select has_trigger(
+  'public', 'review_photos', 'review_photo_cleanup_after_delete',
   'deleted relationships enqueue physical object cleanup'
 );
 
-select ok(
-  has_trigger(
-    'public', 'reviews', 'review_photos_remove_when_unpublished'
-  ),
+select has_trigger(
+  'public', 'reviews', 'review_photos_remove_when_unpublished',
   'removed or anonymized reviews detach their photos'
 );
 
