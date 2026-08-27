@@ -58,6 +58,20 @@ insert into public.spot_revisions (
   array['Walking'], clock_timestamp(), clock_timestamp()
 );
 
+update public.spots set
+  current_revision_id = '88200000-0000-0000-0000-000000000001',
+  approved_revision_id = '88200000-0000-0000-0000-000000000001'
+where id = '88100000-0000-0000-0000-000000000001';
+
+insert into public.published_spots (
+  id, revision_id, name, category, description, state, city, address,
+  price_range, best_time, things_to_do
+)
+select spot_id, id, name, category, description, state, city, address,
+  price_range, best_time, things_to_do
+from public.spot_revisions
+where id = '88200000-0000-0000-0000-000000000001';
+
 -- Mock storage objects
 insert into storage.objects (id, bucket_id, name, owner_id, created_at, updated_at)
 values

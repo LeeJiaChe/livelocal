@@ -123,6 +123,20 @@ values (
   clock_timestamp()
 );
 
+update public.spots set
+  current_revision_id = '97000000-0000-0000-0000-000000000001',
+  approved_revision_id = '97000000-0000-0000-0000-000000000001'
+where id = '96000000-0000-0000-0000-000000000001';
+
+insert into public.published_spots (
+  id, revision_id, name, category, description, state, city, address,
+  price_range, best_time, things_to_do
+)
+select spot_id, id, name, category, description, state, city, address,
+  price_range, best_time, things_to_do
+from public.spot_revisions
+where id = '97000000-0000-0000-0000-000000000001';
+
 -- Author creates anonymous review
 select set_config('request.jwt.claim.sub', '95000000-0000-0000-0000-000000000001', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);

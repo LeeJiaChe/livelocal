@@ -78,15 +78,34 @@ begin
   on conflict (user_id, rule_version) do nothing;
 
   -- Setup published spot
-  insert into public.spots (id, owner_id, approved_revision_id)
-  values (v_spot_id, v_tourist_id, null)
+  insert into public.spots (id, owner_id)
+  values (v_spot_id, v_tourist_id)
   on conflict (id) do nothing;
 
-  insert into public.published_spots (
-    id, name, category, description, state, city, address, price_range, best_time, things_to_do, version
+  insert into public.spot_revisions (
+    id, spot_id, revision_number, author_id, status, name, category,
+    description, state, city, address, price_range, best_time, things_to_do,
+    submitted_at, decided_at
   ) values (
-    v_spot_id, 'Test Anonymity Spot', 'Nature', 'Description', 'Penang', 'George Town', '123 Test St', '$', 'Morning', 'Walk', 1
+    '22222222-2222-4222-a222-222222222223', v_spot_id, 1, v_tourist_id, 'approved',
+    'Test Anonymity Spot', 'Attraction', 'Description', 'Penang', 'George Town', '123 Test St', '$', 'Morning',
+    array['Walk'], clock_timestamp(), clock_timestamp()
   ) on conflict (id) do nothing;
+
+  update public.spots set
+    current_revision_id = '22222222-2222-4222-a222-222222222223',
+    approved_revision_id = '22222222-2222-4222-a222-222222222223'
+  where id = v_spot_id;
+
+  insert into public.published_spots (
+    id, revision_id, name, category, description, state, city, address,
+    price_range, best_time, things_to_do
+  )
+  select spot_id, id, name, category, description, state, city, address,
+    price_range, best_time, things_to_do
+  from public.spot_revisions
+  where id = '22222222-2222-4222-a222-222222222223'
+  on conflict (id) do nothing;
 end;
 $$;
 
