@@ -57,7 +57,8 @@ values
 insert into public.account_access (user_id, status)
 values
   ('99000000-0000-0000-0000-000000000001', 'active'),
-  ('99000000-0000-0000-0000-000000000002', 'active');
+  ('99000000-0000-0000-0000-000000000002', 'active')
+on conflict (user_id) do update set status = 'active';
 
 insert into public.spots (id, owner_id)
 values ('99100000-0000-0000-0000-000000000001', '99000000-0000-0000-0000-000000000001');

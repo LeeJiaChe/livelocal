@@ -45,7 +45,8 @@ insert into public.account_access (user_id, status)
 values
   ('90000000-0000-0000-0000-000000000001', 'active'),
   ('90000000-0000-0000-0000-000000000002', 'active'),
-  ('90000000-0000-0000-0000-000000000003', 'active');
+  ('90000000-0000-0000-0000-000000000003', 'active')
+on conflict (user_id) do update set status = 'active';
 
 -- Create a spot
 insert into public.spots (id, owner_id)
