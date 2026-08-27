@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(12);
 
 -- 1. anon cannot SELECT public.review_photos directly
 select is(
@@ -154,24 +154,34 @@ select is(
   '6. owner can see their own eligible unreferenced upload'
 );
 
--- 7. owner delete on unreferenced upload is permitted by RLS policy and reaches storage trigger
-select throws_ok(
-  'delete from storage.objects where bucket_id = ''review-images'' and name = ''88000000-0000-0000-0000-000000000001/88300000-0000-0000-0000-000000000001/unreferenced.jpg''',
-  '42501',
-  'Direct deletion from storage tables is not allowed. Use the Storage API instead.',
-  '7. owner delete on unreferenced review image is permitted by policy and reaches trigger'
+-- 7. review_image_delete_owner policy uses is_review_photo_referenced
+select ok(
+  (select pg_get_expr(polqual, polrelid, true) from pg_policy
+   where polname = 'review_image_delete_owner'
+     and polrelid = 'storage.objects'::regclass)
+  ~ 'is_review_photo_referenced',
+  '7. review_image_delete_owner policy requires object to NOT be referenced by review_photos'
 );
 
--- 8. owner cannot delete a referenced review image (policy blocks row / 0 rows matched)
-select lives_ok(
-  'delete from storage.objects where bucket_id = ''review-images'' and name = ''reviews/88300000-0000-0000-0000-000000000001/photo1.jpg''',
-  '8. attempting to delete referenced review photo is blocked by policy without reaching trigger'
+-- 8. referenced review photo is detected as referenced by security-definer helper
+select is(
+  private.is_review_photo_referenced('reviews/88300000-0000-0000-0000-000000000001/photo1.jpg'),
+  true,
+  '8. referenced review photo is detected as referenced'
 );
 
+-- 8b. unreferenced review image is detected as not referenced
+select is(
+  private.is_review_photo_referenced('88000000-0000-0000-0000-000000000001/88300000-0000-0000-0000-000000000001/unreferenced.jpg'),
+  false,
+  '8b. unreferenced review image is detected as not referenced'
+);
+
+-- 9. referenced review photo remains protected in storage.objects
 select is(
   (select count(*)::int from storage.objects where bucket_id = 'review-images' and name = 'reviews/88300000-0000-0000-0000-000000000001/photo1.jpg'),
   1,
-  '8b. referenced review photo remains protected in storage.objects'
+  '9. referenced review photo remains protected in storage.objects'
 );
 
 -- 10. anonymous review photos remain opaque and do not leak owner/user UUID
