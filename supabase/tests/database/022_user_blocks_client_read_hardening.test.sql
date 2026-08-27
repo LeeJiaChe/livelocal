@@ -175,6 +175,7 @@ select isnt(
 );
 
 -- Check 14: RLS content filtering still functions
+set local role authenticated;
 select is(
   (select count(*)::int from public.public_reviews where id = '98000000-0000-0000-0000-000000000001'),
   0,

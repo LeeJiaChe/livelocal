@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(11);
 
 -- 1. anon cannot SELECT public.review_photos directly
 select is(
@@ -148,22 +148,18 @@ select is(
   '6. owner can see their own eligible unreferenced upload'
 );
 
--- 7. owner can delete an unreferenced review image
-select lives_ok(
-  $$delete from storage.objects where bucket_id = 'review-images' and name = '88000000-0000-0000-0000-000000000001/88300000-0000-0000-0000-000000000001/unreferenced.jpg$$,
-  '7. owner can delete an unreferenced review image'
+-- 7. owner delete on unreferenced upload is permitted by RLS policy and reaches storage trigger
+select throws_ok(
+  'delete from storage.objects where bucket_id = ''review-images'' and name = ''88000000-0000-0000-0000-000000000001/88300000-0000-0000-0000-000000000001/unreferenced.jpg''',
+  '42501',
+  'Direct deletion from storage tables is not allowed. Use the Storage API instead.',
+  '7. owner delete on unreferenced review image is permitted by policy and reaches trigger'
 );
 
-select is(
-  (select count(*)::int from storage.objects where bucket_id = 'review-images' and name = '88000000-0000-0000-0000-000000000001/88300000-0000-0000-0000-000000000001/unreferenced.jpg'),
-  0,
-  '7b. unreferenced review image is confirmed deleted'
-);
-
--- 8. owner cannot delete a referenced review image
+-- 8. owner cannot delete a referenced review image (policy blocks row / 0 rows matched)
 select lives_ok(
-  $$delete from storage.objects where bucket_id = 'review-images' and name = 'reviews/88300000-0000-0000-0000-000000000001/photo1.jpg'$$,
-  '8. attempting to delete referenced review photo does not throw uncaught error'
+  'delete from storage.objects where bucket_id = ''review-images'' and name = ''reviews/88300000-0000-0000-0000-000000000001/photo1.jpg''',
+  '8. attempting to delete referenced review photo is blocked by policy without reaching trigger'
 );
 
 select is(

@@ -64,6 +64,11 @@ values (
   'Beach St',
   '$',
   'Morning',
+  array['Walking'],
+  clock_timestamp(),
+  clock_timestamp()
+);
+
 update public.spots set
   current_revision_id = '92000000-0000-0000-0000-000000000001',
   approved_revision_id = '92000000-0000-0000-0000-000000000001'

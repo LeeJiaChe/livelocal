@@ -88,7 +88,7 @@ begin
     submitted_at, decided_at
   ) values (
     '22222222-2222-4222-a222-222222222223', v_spot_id, 1, v_tourist_id, 'approved',
-    'Test Anonymity Spot', 'Attraction', 'Description', 'Penang', 'George Town', '123 Test St', '$', 'Morning',
+    'Test Anonymity Spot', 'Attraction', 'This is a valid test spot description for anonymity tests', 'Penang', 'George Town', '123 Test St', '$', 'Morning',
     array['Walk'], clock_timestamp(), clock_timestamp()
   ) on conflict (id) do nothing;
 
