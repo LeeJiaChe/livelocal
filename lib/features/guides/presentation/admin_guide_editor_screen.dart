@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../controllers/auth_controller.dart';
@@ -136,11 +137,11 @@ class _AdminGuideEditorScreenState extends State<AdminGuideEditorScreen> {
       maxLines: maxLines,
       textCapitalization: TextCapitalization.sentences,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: context.tr(label),
         border: const OutlineInputBorder(),
       ),
       validator: (value) => (value?.trim().length ?? 0) < minLength
-          ? 'Enter at least $minLength characters.'
+          ? context.tr('Enter at least $minLength characters.')
           : null,
     );
   }
@@ -162,6 +163,14 @@ class _AdminGuideEditorScreenState extends State<AdminGuideEditorScreen> {
         routeOverview: _overview.text.trim(),
         stops: stops,
         walkingSequence: sequence,
+        stopDetails: List.generate(
+          stops.length,
+          (index) => GuideStopModel(
+            kind: GuideStopKind.custom,
+            name: stops[index],
+            instruction: sequence[index],
+          ),
+        ),
         estimatedDuration: _duration.text.trim(),
       ),
       guide: widget.guide,

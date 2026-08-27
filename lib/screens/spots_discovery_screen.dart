@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
@@ -133,12 +134,12 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
                     const SizedBox(height: AppSpacing.x2),
                     SearchBar(
                       controller: _search,
-                      hintText: 'Search places, heritage, or towns',
+                      hintText: context.tr('Search places, heritage, or towns'),
                       leading: const Icon(Icons.search),
                       trailing: [
                         if (_search.text.isNotEmpty)
                           IconButton(
-                            tooltip: 'Clear search',
+                            tooltip: context.tr('Clear search'),
                             onPressed: () {
                               setState(_search.clear);
                               controller.filter(query: '');
@@ -249,7 +250,7 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
                   icon: Icons.cloud_off_outlined,
                   title: 'Places could not be loaded',
                   message: controller.errorMessage!,
-                  actionLabel: 'Try again',
+                  actionLabel: context.tr('Try again'),
                   onAction: controller.loadSpots,
                 ),
               )
@@ -260,7 +261,7 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
                   icon: Icons.travel_explore_outlined,
                   title: 'No matching places',
                   message: 'Try another search, category, or state filter.',
-                  actionLabel: 'Clear filters',
+                  actionLabel: context.tr('Clear filters'),
                   onAction: () {
                     setState(_search.clear);
                     controller.resetFilters();
@@ -384,9 +385,9 @@ class _SpotCard extends StatelessWidget {
                             ? Theme.of(context).colorScheme.primary
                             : Theme.of(context).colorScheme.onSurface,
                       ),
-                      tooltip: isSaved
-                          ? 'Saved to collections'
-                          : 'Save to collection',
+                      tooltip: context.tr(
+                        isSaved ? 'Saved to collections' : 'Save to collection',
+                      ),
                       onPressed: () => SaveToCollectionSheet.show(
                         context,
                         targetType: 'spot',

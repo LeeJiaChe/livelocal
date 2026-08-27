@@ -1,4 +1,23 @@
+import 'dart:typed_data';
+
 import '../../../models/review_model.dart';
+
+class ReviewPhotoInput {
+  const ReviewPhotoInput.existing(this.existingPath)
+      : bytes = null,
+        mimeType = null;
+
+  const ReviewPhotoInput.upload({
+    required this.bytes,
+    required this.mimeType,
+  }) : existingPath = null;
+
+  final String? existingPath;
+  final Uint8List? bytes;
+  final String? mimeType;
+
+  bool get isExisting => existingPath != null;
+}
 
 class ModerationCaseReceipt {
   const ModerationCaseReceipt({
@@ -34,11 +53,14 @@ abstract interface class ReviewRepository {
   });
 
   Future<ReviewModel> upsertReview({
+    String? reviewId,
     String? spotId,
     String? restaurantId,
     required int rating,
     required String comment,
     int? expectedVersion,
+    bool isAnonymous = false,
+    List<ReviewPhotoInput> photos = const [],
   });
 
   Future<void> deleteReview({

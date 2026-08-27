@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import '../constants/app_colors.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -38,7 +39,7 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Find authentic kopitiams, pasar malams, hidden gems and local eats — recommended by real Malaysians and trusted influencers',
+                'Find authentic kopitiams, pasar malams, hidden gems and local eats — recommended by real Malaysians and trusted Creators',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,

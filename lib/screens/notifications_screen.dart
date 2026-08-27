@@ -1,10 +1,17 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/auth_controller.dart';
 import '../core/routing/protected_navigation.dart';
 import '../features/notifications/presentation/notification_controller.dart';
+import '../features/restaurants/presentation/local_eats_controller.dart';
+import '../features/spots/presentation/spot_controller.dart';
+import '../features/guides/presentation/guide_controller.dart';
 import '../models/notification_model.dart';
+import 'guide_detail_screen.dart';
+import 'restaurant_detail_screen.dart';
+import 'spot_detail_screen.dart';
 import '../shared/presentation/app_state_view.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -87,7 +94,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     icon: Icons.wifi_off_outlined,
                     title: 'Notifications could not be loaded',
                     message: controller.errorMessage!,
-                    actionLabel: 'Try again',
+                    actionLabel: context.tr('Try again'),
                     onAction: controller.load,
                     scrollable: true,
                   )
@@ -102,18 +109,104 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     : ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                        itemCount: controller.notifications.length,
+                        itemCount: controller.notifications.length +
+                            (controller.hasMore ? 1 : 0),
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
+                          if (index == controller.notifications.length) {
+                            return Center(
+                              child: OutlinedButton.icon(
+                                onPressed: controller.isLoadingMore
+                                    ? null
+                                    : controller.loadMore,
+                                icon: controller.isLoadingMore
+                                    ? const SizedBox.square(
+                                        dimension: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.expand_more),
+                                label: const Text('Load earlier notifications'),
+                              ),
+                            );
+                          }
                           final notification = controller.notifications[index];
                           return _NotificationCard(
                             notification: notification,
-                            onTap: notification.isRead
-                                ? null
-                                : () => controller.markRead(notification.id),
+                            onTap: () => _openNotification(notification),
                           );
                         },
                       ),
+      ),
+    );
+  }
+
+  Future<void> _openNotification(NotificationModel notification) async {
+    final controller = context.read<NotificationController>();
+    if (!notification.isRead) await controller.markRead(notification.id);
+    if (!mounted) return;
+
+    final targetId = notification.targetId;
+    switch (notification.targetType) {
+      case 'spot':
+        if (targetId == null) break;
+        final spot =
+            await context.read<SpotController>().fetchSpotById(targetId);
+        if (!mounted) return;
+        if (spot != null) {
+          await Navigator.pushNamed(
+            context,
+            '/spot-detail',
+            arguments: SpotDetailArguments(spot: spot),
+          );
+          return;
+        }
+        break;
+      case 'restaurant':
+        if (targetId == null) break;
+        final restaurant = await context
+            .read<LocalEatsController>()
+            .fetchRestaurantById(targetId);
+        if (!mounted) return;
+        if (restaurant != null) {
+          await Navigator.pushNamed(
+            context,
+            '/restaurant-detail',
+            arguments: RestaurantDetailArguments(restaurant: restaurant),
+          );
+          return;
+        }
+        break;
+      case 'guide':
+        if (targetId == null) break;
+        final guideController = context.read<GuideController>();
+        await guideController.loadGuides();
+        if (!mounted) return;
+        final matches =
+            guideController.guides.where((item) => item.id == targetId);
+        if (matches.isNotEmpty) {
+          await Navigator.pushNamed(
+            context,
+            '/guide-detail',
+            arguments: GuideDetailArguments(guide: matches.first),
+          );
+          return;
+        }
+        break;
+      case 'influencer_application':
+        await Navigator.pushNamed(context, '/creator-application');
+        return;
+      case 'account_access_decision':
+      case 'account_appeal':
+        await Navigator.pushNamed(context, '/account-deletion');
+        return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content:
+            Text('This notification’s destination is no longer available.'),
       ),
     );
   }
@@ -145,7 +238,7 @@ class _NotificationCard extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            '${notification.message}\n${_timeAgo(notification.createdAt)}',
+            '${context.tr(notification.message)}\n${context.tr(_timeAgo(notification.createdAt))}',
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
           ),
@@ -153,9 +246,9 @@ class _NotificationCard extends StatelessWidget {
         isThreeLine: true,
         trailing: notification.isRead
             ? null
-            : const Tooltip(
-                message: 'Unread',
-                child: Icon(Icons.circle, size: 10),
+            : Tooltip(
+                message: context.tr('Unread'),
+                child: const Icon(Icons.circle, size: 10),
               ),
         onTap: onTap,
       ),

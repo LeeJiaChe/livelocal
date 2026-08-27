@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../core/errors/supabase_error_mapper.dart';
@@ -42,7 +45,30 @@ class SupabaseReviewRepository
         for (final raw in voteRows)
           (raw as Map)['review_id'] as String: (raw['vote'] as num).toInt(),
       };
-      return (publicRows as List<dynamic>).map((raw) {
+      final publicList = publicRows as List<dynamic>;
+      final reviewIds = publicList
+          .map((raw) => (raw as Map)['id'] as String)
+          .toList(growable: false);
+      final photoRows = reviewIds.isEmpty
+          ? const <dynamic>[]
+          : await _client.rpc('list_public_review_photos', params: {
+              'p_review_ids': reviewIds,
+            }) as List<dynamic>;
+      final photosByReview = <String, List<ReviewPhotoModel>>{};
+      for (final raw in photoRows) {
+        final photo = Map<String, dynamic>.from(raw as Map);
+        final reviewId = photo['review_id'] as String;
+        final path = photo['storage_path'] as String;
+        final url = await _signedPhoto(path);
+        photosByReview.putIfAbsent(reviewId, () => []).add(
+              ReviewPhotoModel(
+                path: path,
+                url: url,
+                sortOrder: (photo['sort_order'] as num).toInt(),
+              ),
+            );
+      }
+      return publicList.map((raw) {
         final row = Map<String, dynamic>.from(raw as Map);
         final own = ownById[row['id']];
         final isSpot = row['target_type'] == 'spot';
@@ -57,10 +83,12 @@ class SupabaseReviewRepository
           createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
           updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
           version: (row['version'] as num).toInt(),
+          isAnonymous: row['is_anonymous'] == true,
           isOwnedByCurrentUser: own != null,
           likesCount: (row['likes_count'] as num?)?.toInt() ?? 0,
           dislikesCount: (row['dislikes_count'] as num?)?.toInt() ?? 0,
           userVote: votesByReview[row['id']],
+          photos: photosByReview[row['id']] ?? const [],
         );
       }).toList();
     } on PostgrestException catch (error) {
@@ -92,11 +120,14 @@ class SupabaseReviewRepository
 
   @override
   Future<ReviewModel> upsertReview({
+    String? reviewId,
     String? spotId,
     String? restaurantId,
     required int rating,
     required String comment,
     int? expectedVersion,
+    bool isAnonymous = false,
+    List<ReviewPhotoInput> photos = const [],
   }) async {
     final targetId = spotId ?? restaurantId;
     if (targetId == null || (spotId == null) == (restaurantId == null)) {
@@ -105,13 +136,55 @@ class SupabaseReviewRepository
         userMessage: 'Choose one place to review.',
       );
     }
+    if (photos.length > 3) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage: 'Add no more than 3 review photos.',
+      );
+    }
+    final selectedReviewId = reviewId ?? const Uuid().v4();
+    final uploadedPaths = <String>[];
     try {
-      final response = await _client.rpc('upsert_review', params: {
+      final photoPaths = <String>[];
+      for (final photo in photos) {
+        if (photo.existingPath case final path?) {
+          if (isAnonymous && !path.startsWith('reviews/')) {
+            final extension = path.split('.').last;
+            final newPath =
+                'reviews/$selectedReviewId/${const Uuid().v4()}.$extension';
+            await _client.storage.from('review-images').copy(path, newPath);
+            uploadedPaths.add(newPath);
+            photoPaths.add(newPath);
+          } else {
+            photoPaths.add(path);
+          }
+          continue;
+        }
+        final bytes = photo.bytes;
+        final mimeType = photo.mimeType;
+        if (bytes == null || mimeType == null) {
+          throw const AppException(
+            code: AppErrorCode.validation,
+            userMessage: 'Choose valid review photos and try again.',
+          );
+        }
+        final path = await _uploadPhoto(
+          reviewId: selectedReviewId,
+          bytes: bytes,
+          mimeType: mimeType,
+        );
+        uploadedPaths.add(path);
+        photoPaths.add(path);
+      }
+      final response = await _client.rpc('upsert_review_with_photos', params: {
         'p_target_type': spotId != null ? 'spot' : 'restaurant',
         'p_target_id': targetId,
         'p_rating': rating,
         'p_body': comment,
         'p_expected_version': expectedVersion,
+        'p_photo_paths': photoPaths,
+        'p_new_review_id': selectedReviewId,
+        'p_is_anonymous': isAnonymous,
       });
       final row = Map<String, dynamic>.from(response as Map);
       return ReviewModel(
@@ -125,15 +198,100 @@ class SupabaseReviewRepository
         createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
         updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
         version: (row['version'] as num).toInt(),
+        isAnonymous: row['is_anonymous'] as bool? ?? isAnonymous,
         isOwnedByCurrentUser: true,
+        photos: await _photosFromPaths(photoPaths),
+      );
+    } on AppException {
+      await _removeFailedUploads(uploadedPaths);
+      rethrow;
+    } on StorageException catch (_) {
+      await _removeFailedUploads(uploadedPaths);
+      throw const AppException(
+        code: AppErrorCode.network,
+        userMessage: 'Review photos could not be uploaded. Try again.',
       );
     } on PostgrestException catch (error) {
+      await _removeFailedUploads(uploadedPaths);
       throw SupabaseErrorMapper.parseError(
         error,
         error.code == '40001'
             ? 'Your review changed. Refresh and try again.'
             : 'Your review could not be saved.',
       );
+    }
+  }
+
+  Future<String> _uploadPhoto({
+    required String reviewId,
+    required Uint8List bytes,
+    required String mimeType,
+  }) async {
+    if (bytes.isEmpty || bytes.length > 6 * 1024 * 1024) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage: 'Each review photo must be smaller than 6 MB.',
+      );
+    }
+    final extension = switch (mimeType.toLowerCase()) {
+      'image/jpeg' => 'jpg',
+      'image/png' => 'png',
+      'image/webp' => 'webp',
+      _ => null,
+    };
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const AppException(
+        code: AppErrorCode.authentication,
+        userMessage: 'Sign in to add review photos.',
+      );
+    }
+    if (extension == null) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage: 'Use JPG, PNG, or WebP review photos.',
+      );
+    }
+    final path = 'reviews/$reviewId/${const Uuid().v4()}.$extension';
+    await _client.storage.from('review-images').uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(contentType: mimeType, upsert: false),
+        );
+    return path;
+  }
+
+  Future<List<ReviewPhotoModel>> _photosFromPaths(List<String> paths) async {
+    final photos = <ReviewPhotoModel>[];
+    for (var index = 0; index < paths.length; index += 1) {
+      photos.add(
+        ReviewPhotoModel(
+          path: paths[index],
+          url: await _signedPhoto(paths[index]),
+          sortOrder: index,
+        ),
+      );
+    }
+    return photos;
+  }
+
+  Future<String> _signedPhoto(String path) async {
+    try {
+      return await _client.storage
+          .from('review-images')
+          .createSignedUrl(path, 3600);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> _removeFailedUploads(List<String> paths) async {
+    if (paths.isEmpty) return;
+    try {
+      await _client.storage.from('review-images').remove(paths);
+    } catch (_) {
+      // The database cleanup lifecycle handles referenced objects. This path
+      // is best-effort only for uploads that never reached the review RPC.
     }
   }
 

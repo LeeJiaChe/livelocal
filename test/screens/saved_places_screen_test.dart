@@ -32,7 +32,7 @@ void main() {
     final spots = SeedDataService.getInitialSpots();
     final restaurants = SeedDataService.getInitialRestaurants();
 
-    final penangSpot = spots.firstWhere((s) => s.city == 'George Town');
+    final penangSpot = spots.firstWhere((s) => s.state == 'Pulau Pinang');
     final penangRestaurant =
         restaurants.firstWhere((r) => r.city == 'George Town');
 

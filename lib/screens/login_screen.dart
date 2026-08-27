@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../constants/app_colors.dart';
@@ -213,11 +214,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           onChanged: (_) => _clearError(),
                           decoration: _fieldDecoration(
                             prefixIcon: Icons.email_outlined,
-                            labelText: 'Email Address',
+                            labelText: context.tr('Email Address'),
                           ),
 
                           // LOGIN EMAIL VALIDATION
-                          validator: AuthFormValidator.validateEmail,
+                          validator: (value) => context.trNullable(
+                            AuthFormValidator.validateEmail(value),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -234,11 +237,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                           decoration: _fieldDecoration(
                             prefixIcon: Icons.lock_outline,
-                            labelText: 'Password',
+                            labelText: context.tr('Password'),
                             suffixIcon: IconButton(
-                              tooltip: _obscurePassword
-                                  ? 'Show password'
-                                  : 'Hide password',
+                              tooltip: context.tr(
+                                _obscurePassword
+                                    ? 'Show password'
+                                    : 'Hide password',
+                              ),
                               icon: Icon(
                                 _obscurePassword
                                     ? Icons.visibility_off
@@ -256,7 +261,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
 
                           // LOGIN PASSWORD VALIDATION
-                          validator: AuthFormValidator.validateLoginPassword,
+                          validator: (value) => context.trNullable(
+                            AuthFormValidator.validateLoginPassword(value),
+                          ),
                         ),
                       ],
                     ),

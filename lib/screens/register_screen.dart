@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../constants/app_colors.dart';
@@ -195,7 +196,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                   const Text(
                     'All new accounts start as tourists. '
-                    'Influencer applications are available from your '
+                    'Creator applications are available from your '
                     'profile after verification.',
                     style: TextStyle(
                       fontSize: 13,
@@ -223,9 +224,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ],
                           decoration: _fieldDecoration(
                             prefixIcon: Icons.person_outline,
-                            labelText: 'Full Name',
+                            labelText: context.tr('Full Name'),
                           ),
-                          validator: AuthFormValidator.validateFullName,
+                          validator: (value) => context.trNullable(
+                            AuthFormValidator.validateFullName(value),
+                          ),
                         ),
 
                         const SizedBox(height: 16),
@@ -245,9 +248,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ],
                           decoration: _fieldDecoration(
                             prefixIcon: Icons.email_outlined,
-                            labelText: 'Email Address',
+                            labelText: context.tr('Email Address'),
                           ),
-                          validator: AuthFormValidator.validateEmail,
+                          validator: (value) => context.trNullable(
+                            AuthFormValidator.validateEmail(value),
+                          ),
                         ),
 
                         const SizedBox(height: 16),
@@ -266,11 +271,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ],
                           decoration: _fieldDecoration(
                             prefixIcon: Icons.lock_outline,
-                            labelText: 'Password',
+                            labelText: context.tr('Password'),
                             suffixIcon: IconButton(
-                              tooltip: _obscurePassword
-                                  ? 'Show password'
-                                  : 'Hide password',
+                              tooltip: context.tr(
+                                _obscurePassword
+                                    ? 'Show password'
+                                    : 'Hide password',
+                              ),
                               icon: Icon(
                                 _obscurePassword
                                     ? Icons.visibility_off
@@ -286,7 +293,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     },
                             ),
                           ),
-                          validator: AuthFormValidator.validateRegisterPassword,
+                          validator: (value) => context.trNullable(
+                            AuthFormValidator.validateRegisterPassword(value),
+                          ),
                         ),
 
                         const SizedBox(height: 16),
@@ -310,11 +319,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                           decoration: _fieldDecoration(
                             prefixIcon: Icons.lock_outline,
-                            labelText: 'Confirm Password',
+                            labelText: context.tr('Confirm Password'),
                             suffixIcon: IconButton(
-                              tooltip: _obscureConfirm
-                                  ? 'Show password confirmation'
-                                  : 'Hide password confirmation',
+                              tooltip: context.tr(
+                                _obscureConfirm
+                                    ? 'Show password confirmation'
+                                    : 'Hide password confirmation',
+                              ),
                               icon: Icon(
                                 _obscureConfirm
                                     ? Icons.visibility_off
@@ -331,9 +342,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           validator: (value) {
-                            return AuthFormValidator.validateConfirmPassword(
-                              value,
-                              _passwordController.text,
+                            return context.trNullable(
+                              AuthFormValidator.validateConfirmPassword(
+                                value,
+                                _passwordController.text,
+                              ),
                             );
                           },
                         ),

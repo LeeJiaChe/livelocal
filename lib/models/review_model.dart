@@ -1,3 +1,19 @@
+import 'dart:typed_data';
+
+class ReviewPhotoModel {
+  const ReviewPhotoModel({
+    required this.path,
+    required this.url,
+    required this.sortOrder,
+    this.bytes,
+  });
+
+  final String path;
+  final String url;
+  final int sortOrder;
+  final Uint8List? bytes;
+}
+
 class ReviewModel {
   final String id;
   final String? spotId;
@@ -6,12 +22,13 @@ class ReviewModel {
   final String userName;
   final double rating;
   final String comment;
-  final String? photoUrl;
+  final List<ReviewPhotoModel> photos;
   final bool isFlagged;
   final String? flagReason;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final int version;
+  final bool isAnonymous;
   final bool isOwnedByCurrentUser;
   final int likesCount;
   final int dislikesCount;
@@ -25,12 +42,13 @@ class ReviewModel {
     required this.userName,
     required this.rating,
     required this.comment,
-    this.photoUrl,
+    this.photos = const [],
     this.isFlagged = false,
     this.flagReason,
     required this.createdAt,
     this.updatedAt,
     this.version = 1,
+    this.isAnonymous = false,
     this.isOwnedByCurrentUser = false,
     this.likesCount = 0,
     this.dislikesCount = 0,
@@ -45,39 +63,55 @@ class ReviewModel {
         'user_name': userName,
         'rating': rating,
         'comment': comment,
-        'photo_url': photoUrl,
+        'photo_paths': photos.map((photo) => photo.path).toList(),
         'is_flagged': isFlagged,
         'flag_reason': flagReason,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
         'version': version,
+        'is_anonymous': isAnonymous,
         'likes_count': likesCount,
         'dislikes_count': dislikesCount,
         'user_vote': userVote,
       };
 
-  factory ReviewModel.fromMap(Map<String, dynamic> map) => ReviewModel(
-        id: map['id'] ?? '',
-        spotId: map['spot_id'],
-        restaurantId: map['restaurant_id'],
-        userId: map['user_id'] ?? '',
-        userName: map['user_name'] ?? 'Anonymous',
-        rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
-        comment: map['comment'] ?? '',
-        photoUrl: map['photo_url'],
-        isFlagged: map['is_flagged'] ?? false,
-        flagReason: map['flag_reason'],
-        createdAt: DateTime.parse(
-            map['created_at'] ?? DateTime.now().toIso8601String()),
-        updatedAt: map['updated_at'] == null
-            ? null
-            : DateTime.parse(map['updated_at'] as String),
-        version: (map['version'] as num?)?.toInt() ?? 1,
-        isOwnedByCurrentUser: map['is_owned_by_current_user'] ?? false,
-        likesCount: (map['likes_count'] as num?)?.toInt() ?? 0,
-        dislikesCount: (map['dislikes_count'] as num?)?.toInt() ?? 0,
-        userVote: (map['user_vote'] as num?)?.toInt(),
-      );
+  factory ReviewModel.fromMap(Map<String, dynamic> map) {
+    final isAnon = map['is_anonymous'] == true;
+    final name = map['author_display_name'] ??
+        map['user_name'] ??
+        (isAnon ? 'Anonymous' : 'Anonymous');
+    return ReviewModel(
+      id: map['id'] ?? '',
+      spotId: map['spot_id'],
+      restaurantId: map['restaurant_id'],
+      userId: map['user_id'] ?? '',
+      userName: name,
+      rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
+      comment: map['comment'] ?? map['body'] ?? '',
+      photos: (map['photos'] as List<dynamic>? ?? const [])
+          .map(
+            (raw) => ReviewPhotoModel(
+              path: (raw as Map)['path'] as String,
+              url: raw['url'] as String? ?? '',
+              sortOrder: (raw['sort_order'] as num?)?.toInt() ?? 0,
+            ),
+          )
+          .toList(growable: false),
+      isFlagged: map['is_flagged'] ?? false,
+      flagReason: map['flag_reason'],
+      createdAt:
+          DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt: map['updated_at'] == null
+          ? null
+          : DateTime.parse(map['updated_at'] as String),
+      version: (map['version'] as num?)?.toInt() ?? 1,
+      isAnonymous: isAnon,
+      isOwnedByCurrentUser: map['is_owned_by_current_user'] ?? false,
+      likesCount: (map['likes_count'] as num?)?.toInt() ?? 0,
+      dislikesCount: (map['dislikes_count'] as num?)?.toInt() ?? 0,
+      userVote: (map['user_vote'] as num?)?.toInt(),
+    );
+  }
 
   ReviewModel copyWithReaction({
     required int likesCount,
@@ -92,12 +126,13 @@ class ReviewModel {
         userName: userName,
         rating: rating,
         comment: comment,
-        photoUrl: photoUrl,
+        photos: photos,
         isFlagged: isFlagged,
         flagReason: flagReason,
         createdAt: createdAt,
         updatedAt: updatedAt,
         version: version,
+        isAnonymous: isAnonymous,
         isOwnedByCurrentUser: isOwnedByCurrentUser,
         likesCount: likesCount,
         dislikesCount: dislikesCount,

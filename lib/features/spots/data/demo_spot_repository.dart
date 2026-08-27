@@ -16,20 +16,23 @@ class DemoSpotRepository implements SpotRepository {
             SpotModel(
               id: 'demo-spot-pending-1',
               revisionId: 'demo-spot-rev-1',
-              name: 'Bukit Bintang Alley Roastery',
-              category: 'Cafe',
+              name: 'Penang Botanic Gardens',
+              category: 'Nature',
               description:
-                  'Cozy hidden coffee spot tucked in a mural alley off Jalan Alor.',
-              state: 'Kuala Lumpur',
-              city: 'Kuala Lumpur',
-              address: '14 Jalan Alor',
-              priceRange: r'$$',
-              bestTime: 'Morning',
-              thingsToDo: 'Specialty pour-over coffee, artisan pastries',
+                  'Historic public gardens below Penang Hill with tropical plant collections and shaded walking paths.',
+              state: 'Pulau Pinang',
+              city: 'George Town',
+              address:
+                  'Jalan Kebun Bunga, Pulau Tikus, 10350 George Town, Pulau Pinang',
+              priceRange: r'$',
+              bestTime: 'Early morning',
+              thingsToDo: 'Walk the garden paths and view tropical flora',
               imageUrl:
                   'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=800&q=80',
               submittedBy: 'usr-tourist-1',
               status: 'submitted',
+              latitude: 5.4378,
+              longitude: 100.2908,
             ),
         ]) {
     for (final spot in _spots) {

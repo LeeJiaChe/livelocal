@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
@@ -143,12 +144,13 @@ class _LocalEatsScreenState extends State<LocalEatsScreen> {
                     const SizedBox(height: AppSpacing.x2),
                     SearchBar(
                       controller: _search,
-                      hintText: 'Search restaurants, cuisines, or dishes',
+                      hintText:
+                          context.tr('Search restaurants, cuisines, or dishes'),
                       leading: const Icon(Icons.search),
                       trailing: [
                         if (_search.text.isNotEmpty)
                           IconButton(
-                            tooltip: 'Clear search',
+                            tooltip: context.tr('Clear search'),
                             onPressed: () {
                               _search.clear();
                               controller.setSearchQuery('');
@@ -270,7 +272,7 @@ class _LocalEatsScreenState extends State<LocalEatsScreen> {
                   icon: Icons.wifi_off_outlined,
                   title: 'Restaurants could not be loaded',
                   message: controller.errorMessage!,
-                  actionLabel: 'Try again',
+                  actionLabel: context.tr('Try again'),
                   onAction: controller.loadData,
                 ),
               )
@@ -281,7 +283,7 @@ class _LocalEatsScreenState extends State<LocalEatsScreen> {
                   icon: Icons.search_off_outlined,
                   title: 'No restaurants found',
                   message: 'Try a broader search or reset the filters.',
-                  actionLabel: 'Reset filters',
+                  actionLabel: context.tr('Reset filters'),
                   onAction: () {
                     _search.clear();
                     controller.resetFilters();
@@ -598,9 +600,9 @@ class _RestaurantCard extends StatelessWidget {
                             ? Theme.of(context).colorScheme.primary
                             : Theme.of(context).colorScheme.onSurface,
                       ),
-                      tooltip: isSaved
-                          ? 'Saved to collections'
-                          : 'Save to collection',
+                      tooltip: context.tr(
+                        isSaved ? 'Saved to collections' : 'Save to collection',
+                      ),
                       onPressed: () => SaveToCollectionSheet.show(
                         context,
                         targetType: 'restaurant',

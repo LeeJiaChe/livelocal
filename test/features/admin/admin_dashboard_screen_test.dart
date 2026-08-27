@@ -5,6 +5,7 @@ import 'package:live_local/controllers/auth_controller.dart';
 import 'package:live_local/controllers/guide_controller.dart';
 import 'package:live_local/controllers/localeats_controller.dart';
 import 'package:live_local/controllers/spot_controller.dart';
+import 'package:live_local/core/localization/app_localizations.dart';
 import 'package:live_local/features/admin/data/demo_admin_repository.dart';
 import 'package:live_local/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:live_local/features/admin/presentation/widgets/admin_section_header.dart';
@@ -16,6 +17,7 @@ import 'package:live_local/features/profile/data/demo_account_repository.dart';
 import 'package:live_local/features/profile/presentation/account_controller.dart';
 import 'package:live_local/features/restaurants/data/demo_local_eats_repository.dart';
 import 'package:live_local/features/spots/data/demo_spot_repository.dart';
+import 'package:live_local/models/spot_model.dart';
 import 'package:live_local/screens/guide_detail_screen.dart';
 import 'package:live_local/services/seed_data_service.dart';
 import 'package:provider/provider.dart';
@@ -77,6 +79,7 @@ void main() {
     Widget createWidgetUnderTest() {
       return MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AppLocaleController()),
           ChangeNotifierProvider.value(value: authController),
           ChangeNotifierProvider.value(value: accountController),
           ChangeNotifierProvider.value(value: adminController),
@@ -97,6 +100,7 @@ void main() {
     Widget createMobileWidgetUnderTest({required Size size}) {
       return MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AppLocaleController()),
           ChangeNotifierProvider.value(value: authController),
           ChangeNotifierProvider.value(value: accountController),
           ChangeNotifierProvider.value(value: adminController),
@@ -134,8 +138,8 @@ void main() {
       expect(find.text('Admin Center'), findsWidgets);
       expect(find.text('Needs review'), findsOneWidget);
 
-      // Switch to Review
-      await tester.tap(find.text('Review').first);
+      // Switch to Review Queue
+      await tester.tap(find.text('Queue').first);
       await tester.pumpAndSettle();
       expect(
         find.widgetWithText(AdminSectionHeader, 'Review Queue'),
@@ -146,7 +150,7 @@ void main() {
       await tester.tap(find.text('Guides').first);
       await tester.pumpAndSettle();
       expect(
-        find.widgetWithText(AdminSectionHeader, 'Guide Management'),
+        find.widgetWithText(AdminSectionHeader, 'Guides'),
         findsOneWidget,
       );
 
@@ -158,13 +162,10 @@ void main() {
         findsOneWidget,
       );
 
-      // Switch to Audit
-      await tester.tap(find.text('Audit').first);
+      // Switch to More -> Audit History
+      await tester.tap(find.text('More').first);
       await tester.pumpAndSettle();
-      expect(
-        find.widgetWithText(AdminSectionHeader, 'Audit History'),
-        findsOneWidget,
-      );
+      expect(find.text('Audit History'), findsOneWidget);
     });
 
     testWidgets('22. non-admin access denied safely', (tester) async {
@@ -224,23 +225,53 @@ void main() {
       );
     });
 
+    testWidgets(
+        'an isolated spot queue failure stays in Queue and keeps Overview usable',
+        (tester) async {
+      spotController = SpotController(
+        repository: _FailingPendingSpotRepository(authRepository),
+      );
+
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Needs review'), findsOneWidget);
+      expect(
+        find.text('Pending submissions could not be loaded.'),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('Queue').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Pending submissions could not be loaded.'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(TextButton, 'Retry'), findsOneWidget);
+    });
+
     testWidgets('29-38. Review queue items, filters, and moderation decisions',
         (tester) async {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Review
-      await tester.tap(find.text('Review').first);
+      // Go to Review Queue
+      await tester.tap(find.text('Queue').first);
       await tester.pumpAndSettle();
 
-      // Items rendered
-      expect(find.text('Bukit Bintang Alley Roastery'), findsOneWidget);
-      expect(find.text('Kopitiam Heritage Noodle House'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('Jonker Street Evening Food Trail'),
-        150,
-        scrollable: find.byType(Scrollable).first,
-      );
+      // Submissions default to one category at a time: Spots.
+      expect(find.text('Penang Botanic Gardens'), findsOneWidget);
+      expect(find.text('Guan Heong Biscuit Shop'), findsNothing);
+      expect(find.text('Jonker Street Evening Food Trail'), findsNothing);
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Restaurants'));
+      await tester.pumpAndSettle();
+      expect(find.text('Penang Botanic Gardens'), findsNothing);
+      expect(find.text('Guan Heong Biscuit Shop'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Guides'));
+      await tester.pumpAndSettle();
       expect(find.text('Jonker Street Evening Food Trail'), findsOneWidget);
 
       // Guide draft should NOT be in review queue
@@ -254,11 +285,13 @@ void main() {
       );
       await tester.tap(find.text('Reports'));
       await tester.pumpAndSettle();
-      expect(find.text('Bukit Bintang Alley Roastery'), findsNothing);
+      expect(find.text('Penang Botanic Gardens'), findsNothing);
       expect(find.textContaining('Unverified business hours'), findsOneWidget);
 
-      // Return to All
-      await tester.tap(find.text('All'));
+      // Return to spot submissions.
+      await tester.tap(find.widgetWithText(FilterChip, 'Submissions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilterChip, 'Spots'));
       await tester.pumpAndSettle();
 
       // Approve Spot
@@ -278,7 +311,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Spot is now approved and removed from pending review queue
-      expect(find.text('Bukit Bintang Alley Roastery'), findsNothing);
+      expect(find.text('Penang Botanic Gardens'), findsNothing);
     });
 
     testWidgets(
@@ -392,8 +425,10 @@ void main() {
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Audit tab
-      await tester.tap(find.text('Audit').first);
+      // Go to More -> Audit History
+      await tester.tap(find.text('More').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Audit History'));
       await tester.pumpAndSettle();
 
       expect(
@@ -427,7 +462,9 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Queue'),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -439,7 +476,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Audit'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -452,7 +489,9 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Queue'),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -464,7 +503,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Audit'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -477,7 +516,9 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Review'));
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Queue'),
+      );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -489,9 +530,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Audit'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
   });
+}
+
+class _FailingPendingSpotRepository extends DemoSpotRepository {
+  _FailingPendingSpotRepository(super.authRepository);
+
+  @override
+  Future<List<SpotModel>> fetchPendingModeration() async {
+    throw Exception('Simulated isolated queue failure');
+  }
 }

@@ -33,6 +33,7 @@ class AdminModerationCase {
     required this.targetPreview,
     required this.createdAt,
     this.explanation,
+    this.reviewPhotoUrls = const [],
   });
 
   final String id;
@@ -44,6 +45,7 @@ class AdminModerationCase {
   final int version;
   final String targetPreview;
   final DateTime createdAt;
+  final List<String> reviewPhotoUrls;
 }
 
 class AdminStatistics {

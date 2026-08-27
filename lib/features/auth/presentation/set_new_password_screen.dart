@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../constants/app_colors.dart';
@@ -152,11 +153,13 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
                             autofillHints: const [AutofillHints.newPassword],
                             decoration: _fieldDecoration(
                               prefixIcon: Icons.lock_outline,
-                              labelText: 'New Password',
+                              labelText: context.tr('New Password'),
                               suffixIcon: IconButton(
-                                tooltip: _obscurePassword
-                                    ? 'Show password'
-                                    : 'Hide password',
+                                tooltip: context.tr(
+                                  _obscurePassword
+                                      ? 'Show password'
+                                      : 'Hide password',
+                                ),
                                 icon: Icon(
                                   _obscurePassword
                                       ? Icons.visibility_off
@@ -172,8 +175,9 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
                                       },
                               ),
                             ),
-                            validator:
-                                AuthFormValidator.validateRegisterPassword,
+                            validator: (value) => context.trNullable(
+                              AuthFormValidator.validateRegisterPassword(value),
+                            ),
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -189,11 +193,13 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
                             },
                             decoration: _fieldDecoration(
                               prefixIcon: Icons.lock_outline,
-                              labelText: 'Confirm New Password',
+                              labelText: context.tr('Confirm New Password'),
                               suffixIcon: IconButton(
-                                tooltip: _obscureConfirm
-                                    ? 'Show password confirmation'
-                                    : 'Hide password confirmation',
+                                tooltip: context.tr(
+                                  _obscureConfirm
+                                      ? 'Show password confirmation'
+                                      : 'Hide password confirmation',
+                                ),
                                 icon: Icon(
                                   _obscureConfirm
                                       ? Icons.visibility_off
@@ -210,9 +216,11 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
                               ),
                             ),
                             validator: (value) {
-                              return AuthFormValidator.validateConfirmPassword(
-                                value,
-                                _passwordController.text,
+                              return context.trNullable(
+                                AuthFormValidator.validateConfirmPassword(
+                                  value,
+                                  _passwordController.text,
+                                ),
                               );
                             },
                           ),

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 
 /// Displays a review's content with language-selection affordances (EN, ZH, MS).
 ///

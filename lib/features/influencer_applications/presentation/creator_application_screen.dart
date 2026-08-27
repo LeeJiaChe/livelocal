@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/app_spacing.dart';
@@ -171,15 +172,15 @@ class _CreatorApplicationScreenState extends State<CreatorApplicationScreen> {
                   _field(
                     _displayName,
                     'Creator display name',
-                    hintText: 'e.g. Penang Foodie Guide, Alex Eats',
+                    hintText: context.tr('e.g. Penang Foodie Guide, Alex Eats'),
                     minLength: 2,
                     maxLength: 80,
                   ),
                   const SizedBox(height: AppSpacing.x2),
                   DropdownButtonFormField<String>(
                     initialValue: _platform,
-                    decoration: const InputDecoration(
-                      labelText: 'Primary social platform',
+                    decoration: InputDecoration(
+                      labelText: context.tr('Primary social platform'),
                     ),
                     items: const [
                       DropdownMenuItem(
@@ -202,7 +203,7 @@ class _CreatorApplicationScreenState extends State<CreatorApplicationScreen> {
                     controller: _profileUrl,
                     keyboardType: TextInputType.url,
                     decoration: InputDecoration(
-                      labelText: 'HTTPS profile URL',
+                      labelText: context.tr('HTTPS profile URL'),
                       hintText: _platform == 'instagram'
                           ? 'https://www.instagram.com/yourhandle'
                           : 'https://www.tiktok.com/@yourhandle',
@@ -212,21 +213,23 @@ class _CreatorApplicationScreenState extends State<CreatorApplicationScreen> {
                       platform: _platform,
                     )
                         ? null
-                        : 'Use a matching ${_platform == "instagram" ? "instagram.com" : "tiktok.com"} HTTPS URL.',
+                        : context.tr(
+                            'Use a matching ${_platform == "instagram" ? "instagram.com" : "tiktok.com"} HTTPS URL.',
+                          ),
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: AppSpacing.x2),
                   TextFormField(
                     controller: _followerCount,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Approximate follower count',
-                      hintText: 'e.g. 5000',
+                    decoration: InputDecoration(
+                      labelText: context.tr('Approximate follower count'),
+                      hintText: context.tr('e.g. 5000'),
                     ),
                     validator: (value) {
                       final count = int.tryParse(value?.trim() ?? '');
                       return count == null || count < 0
-                          ? 'Enter a non-negative whole number.'
+                          ? context.tr('Enter a non-negative whole number.')
                           : null;
                     },
                     onChanged: (_) => setState(() {}),
@@ -235,8 +238,9 @@ class _CreatorApplicationScreenState extends State<CreatorApplicationScreen> {
                   _field(
                     _category,
                     'Content focus / category',
-                    hintText:
-                        'e.g. Street food, Heritage cafes, Local hidden gems',
+                    hintText: context.tr(
+                      'e.g. Street food, Heritage cafes, Local hidden gems',
+                    ),
                     minLength: 2,
                     maxLength: 80,
                   ),
@@ -252,8 +256,9 @@ class _CreatorApplicationScreenState extends State<CreatorApplicationScreen> {
                   _field(
                     _message,
                     'Why do you want to contribute to LiveLocal?',
-                    hintText:
-                        'Tell us about your local discoveries, culinary background, or passion for sharing Malaysian food...',
+                    hintText: context.tr(
+                      'Tell us about your local discoveries, culinary background, or passion for sharing Malaysian food...',
+                    ),
                     minLength: 20,
                     maxLength: 2000,
                     maxLines: 4,
@@ -352,12 +357,12 @@ class _CreatorApplicationScreenState extends State<CreatorApplicationScreen> {
       maxLength: maxLength,
       maxLines: maxLines,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: context.tr(label),
         hintText: hintText,
         alignLabelWithHint: maxLines > 1,
       ),
       validator: (value) => (value?.trim().length ?? 0) < minLength
-          ? 'Enter at least $minLength characters.'
+          ? context.tr('Enter at least $minLength characters.')
           : null,
       onChanged: (_) => setState(() {}),
     );

@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../../controllers/admin_controller.dart';
 import '../../../../controllers/guide_controller.dart';
@@ -21,10 +23,12 @@ import '../widgets/admin_state_panel.dart';
 class AdminReviewQueuePage extends StatefulWidget {
   const AdminReviewQueuePage({
     super.key,
-    this.initialFilter = 'All',
+    this.initialFilter = 'Submissions',
+    this.initialSubmissionFilter = 'Spots',
   });
 
   final String initialFilter;
+  final String initialSubmissionFilter;
 
   @override
   State<AdminReviewQueuePage> createState() => _AdminReviewQueuePageState();
@@ -32,11 +36,14 @@ class AdminReviewQueuePage extends StatefulWidget {
 
 class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
   late String _selectedFilter;
+  late String _selectedSubmissionFilter;
 
   @override
   void initState() {
     super.initState();
-    _selectedFilter = widget.initialFilter;
+    _selectedFilter =
+        widget.initialFilter == 'All' ? 'Submissions' : widget.initialFilter;
+    _selectedSubmissionFilter = widget.initialSubmissionFilter;
   }
 
   void _showMessage(String message) {
@@ -238,21 +245,56 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
         .where((g) => g.status == 'submitted' || g.status == 'under_review')
         .toList();
 
-    final showSubmissions =
-        _selectedFilter == 'All' || _selectedFilter == 'Submissions';
-    final showReports =
-        _selectedFilter == 'All' || _selectedFilter == 'Reports';
-    final showAppeals =
-        _selectedFilter == 'All' || _selectedFilter == 'Appeals';
+    final submissionCounts = <String, int>{
+      'Spots': spots.pendingSpots.length,
+      'Restaurants': localEats.pendingRestaurants.length,
+      'Guides': pendingGuideSubmissions.length,
+      'Creators': applications.pending.length,
+    };
+    final submissionsCount = submissionCounts.values.fold<int>(
+      0,
+      (total, count) => total + count,
+    );
+    final queueCounts = <String, int>{
+      'Submissions': submissionsCount,
+      'Reports': admin.moderationCases.length,
+      'Appeals': admin.appeals.length,
+    };
+    final totalItems = _selectedFilter == 'Submissions'
+        ? submissionCounts[_selectedSubmissionFilter] ?? 0
+        : queueCounts[_selectedFilter] ?? 0;
 
-    final totalItems = (showSubmissions
-            ? spots.pendingSpots.length +
-                localEats.pendingRestaurants.length +
-                pendingGuideSubmissions.length +
-                applications.pending.length
-            : 0) +
-        (showReports ? admin.moderationCases.length : 0) +
-        (showAppeals ? admin.appeals.length : 0);
+    String? sourceError;
+    var sourceLoading = false;
+    Future<void> Function()? retrySource;
+    if (_selectedFilter == 'Reports') {
+      sourceError = admin.moderationCasesErrorMessage;
+      sourceLoading = admin.isLoadingModerationCases;
+      retrySource = admin.loadModerationCases;
+    } else if (_selectedFilter == 'Appeals') {
+      sourceError = admin.appealsErrorMessage;
+      sourceLoading = admin.isLoadingAppeals;
+      retrySource = admin.loadAppeals;
+    } else {
+      switch (_selectedSubmissionFilter) {
+        case 'Restaurants':
+          sourceError = localEats.pendingErrorMessage;
+          sourceLoading = localEats.isLoadingPending;
+          retrySource = localEats.loadPendingRestaurants;
+        case 'Guides':
+          sourceError = guides.adminDraftsErrorMessage;
+          sourceLoading = guides.isLoadingAdminDrafts;
+          retrySource = guides.loadAdminDrafts;
+        case 'Creators':
+          sourceError = applications.pendingErrorMessage;
+          sourceLoading = applications.isLoadingPending;
+          retrySource = applications.loadPending;
+        default:
+          sourceError = spots.pendingErrorMessage;
+          sourceLoading = spots.isLoadingPending;
+          retrySource = spots.loadPendingSpots;
+      }
+    }
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -261,23 +303,19 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
         AdminSectionHeader(
           title: 'Review Queue',
           count: totalItems,
-          subtitle: 'Moderate submissions, reports, and appeals',
+          subtitle: 'Items that need an admin decision',
         ),
         const SizedBox(height: 8),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              for (final filter in [
-                'All',
-                'Submissions',
-                'Reports',
-                'Appeals'
-              ]) ...[
+              for (final filter in ['Submissions', 'Reports', 'Appeals']) ...[
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(filter),
+                  child: _CountFilterChip(
+                    label: filter,
+                    count: queueCounts[filter]!,
                     selected: _selectedFilter == filter,
                     onSelected: (selected) {
                       if (selected) setState(() => _selectedFilter = filter);
@@ -288,189 +326,297 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
             ],
           ),
         ),
+        if (_selectedFilter == 'Submissions') ...[
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final category in [
+                  'Spots',
+                  'Restaurants',
+                  'Guides',
+                  'Creators',
+                ]) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _CountFilterChip(
+                      label: category,
+                      count: submissionCounts[category]!,
+                      selected: _selectedSubmissionFilter == category,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(
+                            () => _selectedSubmissionFilter = category,
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
-        if (totalItems == 0)
+        _QueueContext(
+          title: _selectedFilter == 'Submissions'
+              ? _selectedSubmissionFilter
+              : _selectedFilter,
+          description: switch (_selectedFilter) {
+            'Reports' => 'Review content cases reported by LiveLocal users.',
+            'Appeals' => 'Review appeals against account restrictions.',
+            _ => switch (_selectedSubmissionFilter) {
+                'Restaurants' =>
+                  'Verify business details and creator source evidence.',
+                'Guides' =>
+                  'Review submitted routes and stops before publication.',
+                'Creators' => 'Review applications for Creator access.',
+                _ => 'Check new local-place submissions before publication.',
+              },
+          },
+        ),
+        if (sourceError != null) ...[
+          const SizedBox(height: 12),
+          _QueueSourceError(
+            message: sourceError,
+            onRetry: retrySource,
+          ),
+        ],
+        const SizedBox(height: 12),
+        if (sourceLoading && totalItems == 0)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (totalItems == 0 && sourceError == null)
           AdminStatePanel(
             icon: Icons.done_all_outlined,
             title: 'Queue is clear',
             description: switch (_selectedFilter) {
-              'Submissions' => 'No submissions currently awaiting moderation.',
+              'Submissions' => switch (_selectedSubmissionFilter) {
+                  'Restaurants' =>
+                    'No restaurant submissions currently need a decision.',
+                  'Guides' => 'No guide submissions currently need a decision.',
+                  'Creators' =>
+                    'No Creator applications currently need a decision.',
+                  _ => 'No spot submissions currently need a decision.',
+                },
               'Reports' => 'No content reports currently awaiting moderation.',
               'Appeals' => 'No account appeals currently awaiting review.',
-              _ => 'No review items found for this filter.',
+              _ => 'No review items found.',
             },
           )
         else ...[
-          if (showSubmissions) ...[
-            for (final spot in spots.pendingSpots)
-              AdminQueueCard(
-                typeLabel: 'SPOT SUBMISSION',
-                typeIcon: Icons.place_outlined,
-                title: spot.name,
-                subtitle: '${spot.category} · ${spot.city}, ${spot.state}',
-                details: spot.description,
-                status: spot.status,
-                actions: [
-                  OutlinedButton(
-                    onPressed: () => _moderateSpot(spot, 'rejected'),
-                    child: const Text('Reject'),
-                  ),
-                  FilledButton(
-                    onPressed: () => _moderateSpot(spot, 'approved'),
-                    child: const Text('Approve'),
-                  ),
-                ],
-              ),
-            for (final restaurant in localEats.pendingRestaurants)
-              AdminQueueCard(
-                typeLabel: 'RESTAURANT SUBMISSION',
-                typeIcon: Icons.restaurant_outlined,
-                badge: restaurant.aiAssisted
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              Theme.of(context).colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.auto_awesome,
-                              size: 12,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSecondaryContainer,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'AI-assisted',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSecondaryContainer,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : null,
-                title: restaurant.name,
-                subtitle:
-                    '${restaurant.cuisineType} · ${restaurant.city}, ${restaurant.state}',
-                details:
-                    'Address: ${restaurant.address}\nDishes: ${restaurant.reviewedDishes.isNotEmpty ? restaurant.reviewedDishes : 'None specified'}\nSource: ${restaurant.socialMediaUrl}',
-                status: restaurant.status,
-                actions: [
-                  OutlinedButton.icon(
-                    onPressed: () => _openReviewUrl(restaurant.socialMediaUrl),
-                    icon: const Icon(Icons.open_in_new, size: 16),
-                    label: const Text('Open original review'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () =>
-                        _moderateRestaurant(restaurant, 'rejected'),
-                    child: const Text('Reject'),
-                  ),
-                  FilledButton(
-                    onPressed: () =>
-                        _moderateRestaurant(restaurant, 'approved'),
-                    child: const Text('Approve'),
-                  ),
-                ],
-              ),
-            for (final guide in pendingGuideSubmissions)
-              AdminQueueCard(
-                typeLabel: 'GUIDE SUBMISSION',
-                typeIcon: Icons.route_outlined,
-                title: guide.title,
-                subtitle:
-                    '${guide.locationName}, ${guide.state} · ${guide.stops.length} stops',
-                details: guide.routeOverview,
-                status: guide.status,
-                actions: [
-                  OutlinedButton(
-                    onPressed: () => _moderateGuide(guide, 'rejected'),
-                    child: const Text('Reject'),
-                  ),
-                  FilledButton(
-                    onPressed: () => _moderateGuide(guide, 'approved'),
-                    child: const Text('Approve'),
-                  ),
-                ],
-              ),
-            for (final application in applications.pending)
-              AdminQueueCard(
-                typeLabel: 'CREATOR APPLICATION',
-                typeIcon: Icons.verified_user_outlined,
-                title: application.displayName ?? 'Unnamed applicant',
-                subtitle:
-                    '${application.socialPlatform ?? 'Platform'} · ${application.followerCount ?? 0} followers · ${application.contentCategory ?? 'General'}',
-                details:
-                    '${application.profileUrl ?? ''}\n${application.applicationMessage ?? ''}',
-                status: application.status,
-                actions: [
-                  OutlinedButton(
-                    onPressed: () => _moderateCreator(application, 'rejected'),
-                    child: const Text('Reject'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () =>
-                        _moderateCreator(application, 'needs_information'),
-                    child: const Text('Request info'),
-                  ),
-                  FilledButton(
-                    onPressed: () => _moderateCreator(application, 'approved'),
-                    child: const Text('Approve'),
-                  ),
-                ],
-              ),
+          if (_selectedFilter == 'Submissions') ...[
+            if (_selectedSubmissionFilter == 'Spots')
+              for (final spot in spots.pendingSpots)
+                AdminQueueCard(
+                  typeLabel: 'SPOT SUBMISSION',
+                  typeIcon: Icons.place_outlined,
+                  title: spot.name,
+                  subtitle: '${spot.category} · ${spot.city}, ${spot.state}',
+                  details: spot.description,
+                  status: spot.status,
+                  actions: [
+                    OutlinedButton(
+                      onPressed: () => _moderateSpot(spot, 'rejected'),
+                      child: const Text('Reject'),
+                    ),
+                    FilledButton(
+                      onPressed: () => _moderateSpot(spot, 'approved'),
+                      child: const Text('Approve'),
+                    ),
+                  ],
+                ),
+            if (_selectedSubmissionFilter == 'Restaurants')
+              for (final restaurant in localEats.pendingRestaurants)
+                AdminQueueCard(
+                  typeLabel: 'RESTAURANT SUBMISSION',
+                  typeIcon: Icons.restaurant_outlined,
+                  badge: restaurant.aiAssisted
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .secondaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome,
+                                size: 12,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSecondaryContainer,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'AI-assisted',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSecondaryContainer,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : null,
+                  title: restaurant.name,
+                  subtitle:
+                      '${restaurant.cuisineType} · ${restaurant.city}, ${restaurant.state}',
+                  details:
+                      'Address: ${restaurant.address}\nDishes: ${restaurant.reviewedDishes.isNotEmpty ? restaurant.reviewedDishes : 'None specified'}\nSource: ${restaurant.socialMediaUrl}',
+                  status: restaurant.status,
+                  actions: [
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _openReviewUrl(restaurant.socialMediaUrl),
+                      icon: const Icon(Icons.open_in_new, size: 16),
+                      label: const Text('Open original review'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () =>
+                          _moderateRestaurant(restaurant, 'rejected'),
+                      child: const Text('Reject'),
+                    ),
+                    FilledButton(
+                      onPressed: () =>
+                          _moderateRestaurant(restaurant, 'approved'),
+                      child: const Text('Approve'),
+                    ),
+                  ],
+                ),
+            if (_selectedSubmissionFilter == 'Guides')
+              for (final guide in pendingGuideSubmissions)
+                AdminQueueCard(
+                  typeLabel: 'GUIDE SUBMISSION',
+                  typeIcon: Icons.route_outlined,
+                  title: guide.title,
+                  subtitle:
+                      '${guide.locationName}, ${guide.state} · ${guide.stops.length} stops',
+                  details: guide.routeOverview,
+                  status: guide.status,
+                  actions: [
+                    OutlinedButton(
+                      onPressed: () => _moderateGuide(guide, 'rejected'),
+                      child: const Text('Reject'),
+                    ),
+                    FilledButton(
+                      onPressed: () => _moderateGuide(guide, 'approved'),
+                      child: const Text('Approve'),
+                    ),
+                  ],
+                ),
+            if (_selectedSubmissionFilter == 'Creators')
+              for (final application in applications.pending)
+                AdminQueueCard(
+                  typeLabel: 'CREATOR APPLICATION',
+                  typeIcon: Icons.verified_user_outlined,
+                  title: application.displayName ?? 'Unnamed applicant',
+                  subtitle:
+                      '${application.socialPlatform ?? 'Platform'} · ${application.followerCount ?? 0} followers · ${application.contentCategory ?? 'General'}',
+                  details:
+                      '${application.profileUrl ?? ''}\n${application.applicationMessage ?? ''}',
+                  status: application.status,
+                  actions: [
+                    OutlinedButton(
+                      onPressed: () =>
+                          _moderateCreator(application, 'rejected'),
+                      child: const Text('Reject'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () =>
+                          _moderateCreator(application, 'needs_information'),
+                      child: const Text('Request info'),
+                    ),
+                    FilledButton(
+                      onPressed: () =>
+                          _moderateCreator(application, 'approved'),
+                      child: const Text('Approve'),
+                    ),
+                  ],
+                ),
           ],
-          if (showReports) ...[
+          if (_selectedFilter == 'Reports') ...[
             for (final moderationCase in admin.moderationCases)
-              AdminQueueCard(
-                typeLabel: 'CONTENT REPORT',
-                typeIcon: Icons.flag_outlined,
-                title:
-                    '${moderationCase.targetType}: ${moderationCase.targetPreview}',
-                subtitle: 'Reason: ${moderationCase.reason}',
-                details: moderationCase.explanation,
-                status: moderationCase.status,
-                actions: [
-                  OutlinedButton(
-                    onPressed: () =>
-                        _moderateReport(moderationCase, 'dismissed'),
-                    child: const Text('Dismiss'),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AdminQueueCard(
+                    typeLabel: 'CONTENT REPORT',
+                    typeIcon: Icons.flag_outlined,
+                    title:
+                        '${moderationCase.targetType}: ${moderationCase.targetPreview}',
+                    subtitle: 'Reason: ${moderationCase.reason}',
+                    details: moderationCase.explanation,
+                    status: moderationCase.status,
+                    actions: [
+                      OutlinedButton(
+                        onPressed: () =>
+                            _moderateReport(moderationCase, 'dismissed'),
+                        child: const Text('Dismiss'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () =>
+                            _moderateReport(moderationCase, 'escalated'),
+                        child: const Text('Escalate'),
+                      ),
+                      FilledButton(
+                        onPressed: () =>
+                            _moderateReport(moderationCase, 'upheld'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.error,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onError,
+                        ),
+                        child: Text(
+                          moderationCase.reason == 'broken_link'
+                              ? 'Remove link'
+                              : 'Remove content',
+                        ),
+                      ),
+                    ],
                   ),
-                  OutlinedButton(
-                    onPressed: () =>
-                        _moderateReport(moderationCase, 'escalated'),
-                    child: const Text('Escalate'),
-                  ),
-                  FilledButton(
-                    onPressed: () => _moderateReport(moderationCase, 'upheld'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.error,
-                      foregroundColor: Theme.of(context).colorScheme.onError,
+                  if (moderationCase.reviewPhotoUrls.isNotEmpty)
+                    SizedBox(
+                      height: 96,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: moderationCase.reviewPhotoUrls.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, index) => ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: CachedNetworkImage(
+                            imageUrl: moderationCase.reviewPhotoUrls[index],
+                            width: 112,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => const SizedBox(
+                              width: 112,
+                              child: Icon(Icons.broken_image_outlined),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      moderationCase.reason == 'broken_link'
-                          ? 'Remove link'
-                          : 'Remove content',
-                    ),
-                  ),
                 ],
               ),
           ],
-          if (showAppeals) ...[
+          if (_selectedFilter == 'Appeals') ...[
             for (final appeal in admin.appeals)
               AdminQueueCard(
                 typeLabel: 'ACCOUNT APPEAL',
@@ -494,6 +640,88 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
           ],
         ],
       ],
+    );
+  }
+}
+
+class _CountFilterChip extends StatelessWidget {
+  const _CountFilterChip({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final int count;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) => FilterChip(
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label),
+            const SizedBox(width: 6),
+            Text('$count'),
+          ],
+        ),
+        selected: selected,
+        onSelected: onSelected,
+      );
+}
+
+class _QueueContext extends StatelessWidget {
+  const _QueueContext({required this.title, required this.description});
+
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 2),
+          Text(
+            description,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ],
+      );
+}
+
+class _QueueSourceError extends StatelessWidget {
+  const _QueueSourceError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.errorContainer.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: colors.onErrorContainer),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: colors.onErrorContainer),
+              ),
+            ),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
     );
   }
 }

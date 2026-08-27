@@ -68,6 +68,8 @@ class ReviewController with ChangeNotifier {
     String? restaurantId,
     required double rating,
     required String comment,
+    bool isAnonymous = false,
+    List<ReviewPhotoInput> photos = const [],
   }) async {
     return _doAddReview(
       context,
@@ -75,6 +77,8 @@ class ReviewController with ChangeNotifier {
       restaurantId: restaurantId,
       rating: rating,
       comment: comment,
+      isAnonymous: isAnonymous,
+      photos: photos,
       isRetry: false,
     );
   }
@@ -85,10 +89,17 @@ class ReviewController with ChangeNotifier {
     String? restaurantId,
     required double rating,
     required String comment,
+    required bool isAnonymous,
+    required List<ReviewPhotoInput> photos,
     required bool isRetry,
   }) async {
     if (rating < 1 || rating > 5 || comment.trim().length < 3) {
       _errorMessage = 'Choose a rating and write at least 3 characters.';
+      notifyListeners();
+      return false;
+    }
+    if (photos.length > 3) {
+      _errorMessage = 'Add no more than 3 review photos.';
       notifyListeners();
       return false;
     }
@@ -100,11 +111,14 @@ class ReviewController with ChangeNotifier {
     );
     try {
       await _repository.upsertReview(
+        reviewId: existing.isEmpty ? null : existing.single.id,
         spotId: spotId,
         restaurantId: restaurantId,
         rating: rating.round(),
         comment: comment.trim(),
         expectedVersion: existing.isEmpty ? null : existing.single.version,
+        isAnonymous: isAnonymous,
+        photos: photos,
       );
       await loadReviews(spotId: spotId, restaurantId: restaurantId);
       return true;
@@ -123,6 +137,8 @@ class ReviewController with ChangeNotifier {
             restaurantId: restaurantId,
             rating: rating,
             comment: comment,
+            isAnonymous: isAnonymous,
+            photos: photos,
             isRetry: true,
           );
         }

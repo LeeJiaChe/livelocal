@@ -69,13 +69,33 @@ class DemoReviewRepository
 
   @override
   Future<ReviewModel> upsertReview({
+    String? reviewId,
     String? spotId,
     String? restaurantId,
     required int rating,
     required String comment,
     int? expectedVersion,
+    bool isAnonymous = false,
+    List<ReviewPhotoInput> photos = const [],
   }) async {
+    if (photos.length > 3) {
+      throw const AppException(
+        code: AppErrorCode.validation,
+        userMessage: 'Add no more than 3 review photos.',
+      );
+    }
     final account = _requireAccount();
+    final savedPhotos = photos.indexed
+        .map(
+          (entry) => ReviewPhotoModel(
+            path: entry.$2.existingPath ??
+                'demo/${reviewId ?? 'review'}/photo-${entry.$1}',
+            url: '',
+            sortOrder: entry.$1,
+            bytes: entry.$2.bytes,
+          ),
+        )
+        .toList(growable: false);
     final index = _reviews.indexWhere(
       (review) =>
           review.userId == account.id &&
@@ -92,25 +112,30 @@ class DemoReviewRepository
       }
       final updated = _copy(
         existing,
+        userName: isAnonymous ? 'Anonymous' : account.fullName,
         rating: rating.toDouble(),
         comment: comment.trim(),
         version: existing.version + 1,
+        isAnonymous: isAnonymous,
         updatedAt: DateTime.now(),
         isOwnedByCurrentUser: true,
+        photos: savedPhotos,
       );
       _reviews[index] = updated;
       return updated;
     }
     final created = ReviewModel(
-      id: 'demo-review-${DateTime.now().microsecondsSinceEpoch}',
+      id: reviewId ?? 'demo-review-${DateTime.now().microsecondsSinceEpoch}',
       spotId: spotId,
       restaurantId: restaurantId,
       userId: account.id,
-      userName: account.fullName,
+      userName: isAnonymous ? 'Anonymous' : account.fullName,
       rating: rating.toDouble(),
       comment: comment.trim(),
       createdAt: DateTime.now(),
+      isAnonymous: isAnonymous,
       isOwnedByCurrentUser: true,
+      photos: savedPhotos,
     );
     _reviews.add(created);
     return created;
@@ -188,28 +213,37 @@ class DemoReviewRepository
 
   ReviewModel _copy(
     ReviewModel review, {
+    String? userName,
     double? rating,
     String? comment,
     int? version,
+    bool? isAnonymous,
     DateTime? updatedAt,
     bool? isOwnedByCurrentUser,
+    List<ReviewPhotoModel>? photos,
   }) {
     return ReviewModel(
       id: review.id,
       spotId: review.spotId,
       restaurantId: review.restaurantId,
       userId: review.userId,
-      userName: review.userName,
+      userName: userName ?? review.userName,
       rating: rating ?? review.rating,
       comment: comment ?? review.comment,
       createdAt: review.createdAt,
       updatedAt: updatedAt ?? review.updatedAt,
       version: version ?? review.version,
+      isAnonymous: isAnonymous ?? review.isAnonymous,
       isOwnedByCurrentUser: isOwnedByCurrentUser ?? review.isOwnedByCurrentUser,
+      photos: photos ?? review.photos,
       likesCount: review.likesCount,
       dislikesCount: review.dislikesCount,
       userVote:
           _votes['${_authRepository.currentAccountForDemo?.id}:${review.id}'],
     );
+  }
+
+  void addReviewForTesting(ReviewModel review) {
+    _reviews.add(review);
   }
 }

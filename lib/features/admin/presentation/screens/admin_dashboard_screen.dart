@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../controllers/admin_controller.dart';
@@ -7,8 +8,8 @@ import '../../../../controllers/guide_controller.dart';
 import '../../../../controllers/localeats_controller.dart';
 import '../../../../controllers/spot_controller.dart';
 import '../../../influencer_applications/presentation/influencer_application_controller.dart';
-import 'admin_audit_page.dart';
 import 'admin_guides_page.dart';
+import 'admin_more_page.dart';
 import 'admin_overview_page.dart';
 import 'admin_review_queue_page.dart';
 import 'admin_users_page.dart';
@@ -22,7 +23,8 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
-  String _reviewSubFilter = 'All';
+  String _reviewSubFilter = 'Submissions';
+  String _reviewSubmissionFilter = 'Spots';
 
   @override
   void initState() {
@@ -45,11 +47,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ]);
   }
 
-  void _navigateToTab(int index, {String? subFilter}) {
+  void _navigateToTab(
+    int index, {
+    String? subFilter,
+    String? submissionFilter,
+  }) {
     setState(() {
       _selectedIndex = index;
       if (subFilter != null) {
         _reviewSubFilter = subFilter;
+      }
+      if (submissionFilter != null) {
+        _reviewSubmissionFilter = submissionFilter;
       }
     });
   }
@@ -105,80 +114,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final guides = context.watch<GuideController>();
     final applications = context.watch<InfluencerApplicationController>();
 
-    final errorMessage = admin.errorMessage ??
-        spots.errorMessage ??
-        localEats.errorMessage ??
-        guides.errorMessage ??
-        applications.errorMessage;
-
     final isAnyLoading = admin.isRefreshing ||
         spots.isLoading ||
+        spots.isLoadingPending ||
         localEats.isLoading ||
+        localEats.isLoadingPending ||
         guides.isLoading ||
-        applications.isLoading;
+        guides.isLoadingAdminDrafts ||
+        applications.isLoading ||
+        applications.isLoadingPending;
 
     final pages = [
       AdminOverviewPage(onNavigateToTab: _navigateToTab),
       AdminReviewQueuePage(
-        key: ValueKey('review_$_reviewSubFilter'),
+        key: ValueKey(
+          'review_${_reviewSubFilter}_$_reviewSubmissionFilter',
+        ),
         initialFilter: _reviewSubFilter,
+        initialSubmissionFilter: _reviewSubmissionFilter,
       ),
       const AdminGuidesPage(),
       const AdminUsersPage(),
-      const AdminAuditPage(),
+      AdminMorePage(
+        onOpenQueue: (filter, {submissionFilter}) => _navigateToTab(
+          1,
+          subFilter: filter,
+          submissionFilter: submissionFilter,
+        ),
+      ),
     ];
 
     const sectionTitles = [
       'Overview',
       'Review Queue',
-      'Guide Management',
+      'Guides',
       'User Management',
-      'Audit History',
+      'More',
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 720;
 
-        Widget content = Column(
-          children: [
-            if (errorMessage != null)
-              Container(
-                margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      color: theme.colorScheme.onErrorContainer,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        errorMessage,
-                        style: TextStyle(
-                          color: theme.colorScheme.onErrorContainer,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _refreshAll,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            Expanded(
-              child: IndexedStack(
-                index: _selectedIndex,
-                children: pages,
-              ),
-            ),
-          ],
+        final content = IndexedStack(
+          index: _selectedIndex,
+          children: pages,
         );
 
         return Scaffold(
@@ -238,12 +218,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               else
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  tooltip: 'Refresh all',
+                  tooltip: context.tr('Refresh all'),
                   onPressed: _refreshAll,
                 ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.account_circle_outlined),
-                tooltip: 'Admin account',
+                tooltip: context.tr('Admin account'),
                 onSelected: (value) {
                   if (value == 'logout') auth.logout();
                 },
@@ -286,31 +266,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       onDestinationSelected: (index) =>
                           setState(() => _selectedIndex = index),
                       labelType: NavigationRailLabelType.all,
-                      destinations: const [
+                      destinations: [
                         NavigationRailDestination(
-                          icon: Icon(Icons.dashboard_outlined),
-                          selectedIcon: Icon(Icons.dashboard),
-                          label: Text('Overview'),
+                          icon: const Icon(Icons.dashboard_outlined),
+                          selectedIcon: const Icon(Icons.dashboard),
+                          label: Text(context.tr('Overview')),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.fact_check_outlined),
-                          selectedIcon: Icon(Icons.fact_check),
-                          label: Text('Review'),
+                          icon: const Icon(Icons.fact_check_outlined),
+                          selectedIcon: const Icon(Icons.fact_check),
+                          label: Text(context.tr('Queue')),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.map_outlined),
-                          selectedIcon: Icon(Icons.map),
-                          label: Text('Guides'),
+                          icon: const Icon(Icons.route_outlined),
+                          selectedIcon: const Icon(Icons.route),
+                          label: Text(context.tr('Guides')),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.people_outline),
-                          selectedIcon: Icon(Icons.people),
-                          label: Text('Users'),
+                          icon: const Icon(Icons.people_outline),
+                          selectedIcon: const Icon(Icons.people),
+                          label: Text(context.tr('Users')),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(Icons.history_outlined),
-                          selectedIcon: Icon(Icons.history),
-                          label: Text('Audit'),
+                          icon: const Icon(Icons.more_horiz),
+                          selectedIcon: const Icon(Icons.more_horiz),
+                          label: Text(context.tr('More')),
                         ),
                       ],
                     ),
@@ -330,34 +310,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           bottomNavigationBar: isWide
               ? null
               : NavigationBar(
+                  height: 72,
                   selectedIndex: _selectedIndex,
                   onDestinationSelected: (index) =>
                       setState(() => _selectedIndex = index),
-                  destinations: const [
+                  destinations: [
                     NavigationDestination(
-                      icon: Icon(Icons.dashboard_outlined),
-                      selectedIcon: Icon(Icons.dashboard),
-                      label: 'Overview',
+                      icon: const Icon(Icons.dashboard_outlined),
+                      selectedIcon: const Icon(Icons.dashboard),
+                      label: context.tr('Overview'),
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.fact_check_outlined),
-                      selectedIcon: Icon(Icons.fact_check),
-                      label: 'Review',
+                      icon: const Icon(Icons.fact_check_outlined),
+                      selectedIcon: const Icon(Icons.fact_check),
+                      label: context.tr('Queue'),
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.map_outlined),
-                      selectedIcon: Icon(Icons.map),
-                      label: 'Guides',
+                      icon: const Icon(Icons.route_outlined),
+                      selectedIcon: const Icon(Icons.route),
+                      label: context.tr('Guides'),
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.people_outline),
-                      selectedIcon: Icon(Icons.people),
-                      label: 'Users',
+                      icon: const Icon(Icons.people_outline),
+                      selectedIcon: const Icon(Icons.people),
+                      label: context.tr('Users'),
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.history_outlined),
-                      selectedIcon: Icon(Icons.history),
-                      label: 'Audit',
+                      icon: const Icon(Icons.more_horiz),
+                      selectedIcon: const Icon(Icons.more_horiz),
+                      label: context.tr('More'),
                     ),
                   ],
                 ),

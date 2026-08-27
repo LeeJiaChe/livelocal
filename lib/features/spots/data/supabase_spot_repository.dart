@@ -10,6 +10,10 @@ import '../domain/spot_repository.dart';
 class SupabaseSpotRepository implements SpotRepository {
   SupabaseSpotRepository(this._client);
 
+  static const pendingModerationSelect =
+      '*, parent:spots!spot_revisions_spot_id_fkey('
+      'id, moderation_version)';
+
   final SupabaseClient _client;
 
   @override
@@ -112,13 +116,13 @@ class SupabaseSpotRepository implements SpotRepository {
     try {
       final response = await _client
           .from('spot_revisions')
-          .select('*, spots!inner(id, moderation_version)')
+          .select(pendingModerationSelect)
           .inFilter(
               'status', ['submitted', 'under_review']).order('submitted_at');
       return await Future.wait(
         (response as List<dynamic>).map((raw) async {
           final row = Map<String, dynamic>.from(raw as Map);
-          final spot = Map<String, dynamic>.from(row['spots'] as Map);
+          final spot = Map<String, dynamic>.from(row['parent'] as Map);
           return SpotModel(
             id: spot['id'] as String,
             revisionId: row['id'] as String,

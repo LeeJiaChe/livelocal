@@ -12,6 +12,7 @@ import 'package:live_local/controllers/notification_controller.dart';
 import 'package:live_local/controllers/review_controller.dart';
 import 'package:live_local/controllers/spot_controller.dart';
 import 'package:live_local/core/config/app_environment.dart';
+import 'package:live_local/core/localization/app_localizations.dart';
 import 'package:live_local/core/routing/protected_navigation.dart';
 import 'package:live_local/features/admin/data/demo_admin_repository.dart';
 import 'package:live_local/features/admin/presentation/screens/admin_dashboard_screen.dart';
@@ -28,6 +29,7 @@ import 'package:live_local/features/influencer_applications/presentation/influen
 import 'package:live_local/features/itinerary/data/demo_saved_itinerary_repository.dart';
 import 'package:live_local/features/moderation/data/demo_moderation_repository.dart';
 import 'package:live_local/features/notifications/data/demo_notification_repository.dart';
+import 'package:live_local/features/navigation/presentation/explore_hub_screen.dart';
 import 'package:live_local/features/profile/data/demo_account_repository.dart';
 import 'package:live_local/features/profile/presentation/account_controller.dart';
 import 'package:live_local/features/restaurants/data/demo_local_eats_repository.dart';
@@ -36,6 +38,7 @@ import 'package:live_local/features/spots/data/demo_spot_repository.dart';
 import 'package:live_local/screens/login_screen.dart';
 import 'package:live_local/screens/main_navigation_screen.dart';
 import 'package:live_local/screens/register_screen.dart';
+import 'package:live_local/screens/itinerary_screen.dart';
 import 'package:provider/provider.dart';
 
 class _FakeAuthRepository extends DemoAuthRepository {
@@ -137,6 +140,7 @@ Widget _buildTestApp({
       Provider<AppConfiguration>.value(
         value: AppConfiguration.demoForTesting(),
       ),
+      ChangeNotifierProvider(create: (_) => AppLocaleController()),
       Provider<ProtectedNavigation>.value(value: protectedNav),
       ChangeNotifierProvider<AuthController>.value(value: authController),
       ChangeNotifierProvider(
@@ -189,6 +193,7 @@ Widget _buildTestApp({
           '/password-reset': (context) => const PasswordResetScreen(),
           '/submit-spot': (context) =>
               const Scaffold(body: Text('Submit Spot Target Screen')),
+          '/trips': (context) => const ItineraryScreen(),
           '/set-new-password': (context) => const SetNewPasswordScreen(),
         },
       ),
@@ -768,11 +773,151 @@ void main() {
       await tester.pump();
 
       expect(find.byType(MainNavigationScreen), findsOneWidget);
-      expect(find.text('Spots'), findsOneWidget);
-      expect(find.text('Eats'), findsOneWidget);
-      expect(find.text('Saved'), findsOneWidget);
-      expect(find.text('Guides'), findsOneWidget);
-      expect(find.text('Profile'), findsOneWidget);
+      expect(
+        find.widgetWithText(NavigationDestination, 'Home'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(NavigationDestination, 'Explore'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(NavigationDestination, 'Trips'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(NavigationDestination, 'Guides'),
+        findsNothing,
+      );
+      expect(
+        find.widgetWithText(NavigationDestination, 'Profile'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        '8. Guest Explore exposes Guides while Trips requires authentication',
+        (tester) async {
+      final repo = _FakeAuthRepository();
+      final authCtrl = AuthController(repository: repo);
+      final protectedNav = ProtectedNavigation();
+      await authCtrl.initialize();
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: authCtrl,
+          authRepository: repo,
+          protectedNavigation: protectedNav,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final itinerary = Provider.of<ItineraryController>(
+        tester.element(find.byType(MainNavigationScreen)),
+        listen: false,
+      );
+      expect(itinerary.errorMessage, isNull);
+      expect(itinerary.savedItineraries, isEmpty);
+
+      await tester.tap(
+        find.widgetWithText(NavigationDestination, 'Explore'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(ExploreHubScreen), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Guides'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Trips'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(ItineraryScreen), findsNothing);
+      expect(find.text('Sign up'), findsOneWidget);
+      expect(protectedNav.peekPending()?.routeName, '/trips');
+      expect(itinerary.errorMessage, isNull);
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.first, 'tourist@example.com');
+      await tester.enterText(fields.last, 'ValidPass123!');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Log In'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(authCtrl.canWrite, isTrue);
+      expect(find.byType(ItineraryScreen), findsOneWidget);
+      expect(protectedNav.hasPending, isFalse);
+    });
+
+    testWidgets(
+        '9. Tourist Trips works and Creator destinations stay unchanged',
+        (tester) async {
+      final touristRepo = _FakeAuthRepository(
+        initialAccount: const AccountIdentity(
+          id: 'tourist-1',
+          email: 'tourist@livelocal.com',
+          fullName: 'Tourist User',
+          role: AppRole.tourist,
+          accessStatus: AccountAccessStatus.active,
+          emailVerified: true,
+        ),
+      );
+      final touristAuth = AuthController(repository: touristRepo);
+      await touristAuth.initialize();
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: touristAuth,
+          authRepository: touristRepo,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Trips'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+          tester
+              .widget<NavigationBar>(find.byType(NavigationBar))
+              .selectedIndex,
+          3);
+
+      final creatorRepo = _FakeAuthRepository(
+        initialAccount: const AccountIdentity(
+          id: 'creator-1',
+          email: 'creator@livelocal.com',
+          fullName: 'Creator User',
+          role: AppRole.influencer,
+          accessStatus: AccountAccessStatus.active,
+          emailVerified: true,
+        ),
+      );
+      final creatorAuth = AuthController(repository: creatorRepo);
+      await creatorAuth.initialize();
+      await tester.pumpWidget(
+        _buildTestApp(
+          authController: creatorAuth,
+          authRepository: creatorRepo,
+          home: const SessionGate(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      for (final label in ['Home', 'Explore', 'Studio', 'Saved', 'Profile']) {
+        expect(
+          find.widgetWithText(NavigationDestination, label),
+          findsOneWidget,
+        );
+      }
+      expect(
+        find.widgetWithText(NavigationDestination, 'Trips'),
+        findsNothing,
+      );
     });
   });
 }

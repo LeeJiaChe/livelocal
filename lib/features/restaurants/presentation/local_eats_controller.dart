@@ -21,7 +21,9 @@ class LocalEatsController with ChangeNotifier {
   List<DiscountCodeModel> _discountCodes = [];
   List<DiscountCodeModel> _ownedDiscounts = [];
   bool _isLoading = false;
+  bool _isLoadingPending = false;
   String? _errorMessage;
+  String? _pendingErrorMessage;
   String _selectedState = 'All';
   String _selectedCuisine = 'All';
   String _selectedBudget = 'All';
@@ -42,7 +44,9 @@ class LocalEatsController with ChangeNotifier {
   List<DiscountCodeModel> get ownedDiscounts =>
       List.unmodifiable(_ownedDiscounts);
   bool get isLoading => _isLoading;
+  bool get isLoadingPending => _isLoadingPending;
   String? get errorMessage => _errorMessage;
+  String? get pendingErrorMessage => _pendingErrorMessage;
   String get selectedState => _selectedState;
   String get selectedCuisine => _selectedCuisine;
   String get selectedFoodType => 'All';
@@ -236,15 +240,18 @@ class LocalEatsController with ChangeNotifier {
   }
 
   Future<void> loadPendingRestaurants() async {
+    _isLoadingPending = true;
+    _pendingErrorMessage = null;
+    notifyListeners();
     try {
       _pendingRestaurants = await _repository.fetchPendingRestaurants();
-      _errorMessage = null;
     } catch (error) {
-      _errorMessage = _message(
+      _pendingErrorMessage = _message(
         error,
         'Restaurant submissions could not be loaded.',
       );
     } finally {
+      _isLoadingPending = false;
       notifyListeners();
     }
   }

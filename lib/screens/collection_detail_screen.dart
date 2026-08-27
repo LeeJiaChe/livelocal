@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../app/theme/app_spacing.dart';
@@ -60,16 +61,16 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
             TextField(
               controller: nameCtrl,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Collection name',
+              decoration: InputDecoration(
+                labelText: context.tr('Collection name'),
               ),
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: AppSpacing.x2),
             TextField(
               controller: descCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
+              decoration: InputDecoration(
+                labelText: context.tr('Description (optional)'),
               ),
               maxLines: 2,
             ),
@@ -260,12 +261,12 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
         title: Text(_currentCollection.name),
         actions: [
           IconButton(
-            tooltip: 'Rename',
+            tooltip: context.tr('Rename'),
             icon: const Icon(Icons.edit_outlined),
             onPressed: _showRenameDialog,
           ),
           IconButton(
-            tooltip: 'Delete',
+            tooltip: context.tr('Delete'),
             icon: const Icon(Icons.delete_outline),
             onPressed: _showDeleteConfirm,
           ),
@@ -338,7 +339,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                       title: 'No places in this collection',
                       message:
                           'Explore spots and restaurants and save them to "${_currentCollection.name}".',
-                      actionLabel: 'Discover places',
+                      actionLabel: context.tr('Discover places'),
                       onAction: () => Navigator.pop(context),
                     ),
                   )
@@ -517,7 +518,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.bookmark_remove_outlined, size: 20),
-                tooltip: 'Remove from collection',
+                tooltip: context.tr('Remove from collection'),
                 color: colorScheme.onSurfaceVariant,
                 onPressed: () => _removeFromCollection(place),
               ),

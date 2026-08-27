@@ -103,7 +103,7 @@ void main() {
       expect(col, isNotNull);
 
       final spots = SeedDataService.getInitialSpots();
-      final penangSpot = spots.firstWhere((s) => s.city == 'George Town');
+      final penangSpot = spots.firstWhere((s) => s.state == 'Pulau Pinang');
 
       await itineraryController.setPlaceCollections(
         targetType: 'spot',

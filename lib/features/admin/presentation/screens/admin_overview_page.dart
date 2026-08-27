@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../controllers/admin_controller.dart';
@@ -17,7 +18,11 @@ class AdminOverviewPage extends StatelessWidget {
     required this.onNavigateToTab,
   });
 
-  final void Function(int tabIndex, {String? subFilter}) onNavigateToTab;
+  final void Function(
+    int tabIndex, {
+    String? subFilter,
+    String? submissionFilter,
+  }) onNavigateToTab;
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +88,15 @@ class AdminOverviewPage extends StatelessWidget {
               ),
           ],
         ),
+        if ((admin.statisticsErrorMessage ?? admin.accountsErrorMessage) !=
+            null) ...[
+          const SizedBox(height: 12),
+          _OverviewLoadError(
+            message:
+                (admin.statisticsErrorMessage ?? admin.accountsErrorMessage)!,
+            onRetry: admin.loadDashboard,
+          ),
+        ],
         const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -166,7 +180,11 @@ class AdminOverviewPage extends StatelessWidget {
                       '${spots.pendingSpots.length} pending moderation',
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => onNavigateToTab(1, subFilter: 'Submissions'),
+                    onTap: () => onNavigateToTab(
+                      1,
+                      subFilter: 'Submissions',
+                      submissionFilter: 'Spots',
+                    ),
                   ),
                 if (localEats.pendingRestaurants.isNotEmpty)
                   ListTile(
@@ -176,7 +194,11 @@ class AdminOverviewPage extends StatelessWidget {
                       '${localEats.pendingRestaurants.length} pending moderation',
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => onNavigateToTab(1, subFilter: 'Submissions'),
+                    onTap: () => onNavigateToTab(
+                      1,
+                      subFilter: 'Submissions',
+                      submissionFilter: 'Restaurants',
+                    ),
                   ),
                 if (submittedGuidesCount > 0)
                   ListTile(
@@ -186,7 +208,11 @@ class AdminOverviewPage extends StatelessWidget {
                       '$submittedGuidesCount pending moderation',
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => onNavigateToTab(1, subFilter: 'Submissions'),
+                    onTap: () => onNavigateToTab(
+                      1,
+                      subFilter: 'Submissions',
+                      submissionFilter: 'Guides',
+                    ),
                   ),
                 if (applications.pending.isNotEmpty)
                   ListTile(
@@ -196,7 +222,11 @@ class AdminOverviewPage extends StatelessWidget {
                       '${applications.pending.length} pending review',
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => onNavigateToTab(1, subFilter: 'Submissions'),
+                    onTap: () => onNavigateToTab(
+                      1,
+                      subFilter: 'Submissions',
+                      submissionFilter: 'Creators',
+                    ),
                   ),
                 if (admin.moderationCases.isNotEmpty)
                   ListTile(
@@ -305,6 +335,33 @@ class AdminOverviewPage extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _OverviewLoadError extends StatelessWidget {
+  const _OverviewLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.errorContainer.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: colors.onErrorContainer),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message)),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
     );
   }
 }

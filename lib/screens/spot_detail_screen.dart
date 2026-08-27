@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/spot_model.dart';
@@ -12,6 +13,9 @@ import '../features/moderation/presentation/content_report_dialog.dart';
 import '../features/moderation/presentation/block_content_author_dialog.dart';
 import '../features/moderation/presentation/moderation_controller.dart';
 import '../features/reviews/presentation/widgets/review_text_widget.dart';
+import '../features/reviews/presentation/widgets/review_photo_gallery.dart';
+import '../features/reviews/presentation/widgets/review_photo_picker.dart';
+import '../features/reviews/domain/review_repository.dart';
 import '../shared/presentation/save_to_collection_sheet.dart';
 
 class SpotDetailArguments {
@@ -154,7 +158,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
       backgroundColor: AppColors.background,
       floatingActionButton: _showScrollToTop
           ? FloatingActionButton.small(
-              tooltip: 'Back to top',
+              tooltip: context.tr('Back to top'),
               backgroundColor: AppColors.primary,
               onPressed: _scrollToTop,
               child: const Icon(Icons.arrow_upward, color: Colors.white),
@@ -187,7 +191,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
             ),
             actions: [
               PopupMenuButton<String>(
-                tooltip: 'Spot safety options',
+                tooltip: context.tr('Spot safety options'),
                 iconColor: Colors.white,
                 onSelected: (value) {
                   if (value == 'report') _requestSpotReport();
@@ -210,7 +214,9 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: IconButton(
-                  tooltip: isSaved ? 'Remove from saved' : 'Save place',
+                  tooltip: context.tr(
+                    isSaved ? 'Remove from saved' : 'Save place',
+                  ),
                   onPressed: _requestSave,
                   icon: Container(
                     padding: const EdgeInsets.all(8),
@@ -415,7 +421,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                           onPressed: _requestWriteReview,
                           icon:
                               const Icon(Icons.rate_review_outlined, size: 16),
-                          label: const Text('Write Review'),
+                          label: Text(context.tr('Write Review')),
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(120, 36),
                             padding: const EdgeInsets.symmetric(
@@ -454,17 +460,48 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      const CircleAvatar(
+                                      CircleAvatar(
                                         radius: 14,
-                                        backgroundColor: AppColors.primary,
-                                        child: Icon(Icons.person,
-                                            size: 16, color: Colors.white),
+                                        backgroundColor: r.isAnonymous
+                                            ? Colors.grey.shade600
+                                            : AppColors.primary,
+                                        child: Icon(
+                                          r.isAnonymous
+                                              ? Icons.person_outline
+                                              : Icons.person,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
-                                      Text(r.userName,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold)),
-                                      const Spacer(),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              r.isAnonymous
+                                                  ? context.tr('Anonymous')
+                                                  : r.userName,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                            if (r.isOwnedByCurrentUser &&
+                                                r.isAnonymous)
+                                              Text(
+                                                context.tr('Your review'),
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade600,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
                                       Row(
                                         children: List.generate(
                                           5,
@@ -483,7 +520,8 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                             minWidth: 48,
                                             minHeight: 48,
                                           ),
-                                          tooltip: 'Review safety options',
+                                          tooltip: context
+                                              .tr('Review safety options'),
                                           onSelected: (value) {
                                             if (value == 'report') {
                                               _requestReport(r.id);
@@ -496,14 +534,19 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                             }
                                           },
                                           itemBuilder: (_) => [
-                                            const PopupMenuItem(
+                                            PopupMenuItem(
                                               value: 'report',
-                                              child: Text('Report review'),
+                                              child: Text(
+                                                context.tr('Report review'),
+                                              ),
                                             ),
                                             if (supportsUserBlocking)
-                                              const PopupMenuItem(
+                                              PopupMenuItem(
                                                 value: 'block',
-                                                child: Text('Block reviewer'),
+                                                child: Text(
+                                                  context.tr(
+                                                      'Block this reviewer'),
+                                                ),
                                               ),
                                           ],
                                         ),
@@ -511,7 +554,16 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                         IconButton(
                                           constraints: const BoxConstraints(
                                               minWidth: 48, minHeight: 48),
-                                          tooltip: 'Delete review',
+                                          tooltip: context.tr('Edit review'),
+                                          icon: const Icon(Icons.edit_outlined,
+                                              size: 18),
+                                          onPressed: _requestWriteReview,
+                                        ),
+                                      if (r.isOwnedByCurrentUser)
+                                        IconButton(
+                                          constraints: const BoxConstraints(
+                                              minWidth: 48, minHeight: 48),
+                                          tooltip: context.tr('Delete review'),
                                           icon: const Icon(Icons.delete_outline,
                                               size: 18, color: Colors.grey),
                                           onPressed: () => _confirmDeleteReview(
@@ -524,11 +576,15 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                   ),
                                   const SizedBox(height: 6),
                                   ReviewTextWidget(text: r.comment),
+                                  if (r.photos.isNotEmpty) ...[
+                                    const SizedBox(height: 10),
+                                    ReviewPhotoGallery(photos: r.photos),
+                                  ],
                                   const SizedBox(height: 6),
                                   Row(
                                     children: [
                                       IconButton(
-                                        tooltip: 'Like review',
+                                        tooltip: context.tr('Like review'),
                                         onPressed: () =>
                                             reviewCtrl.toggleReaction(r, 1),
                                         icon: Icon(r.userVote == 1
@@ -537,7 +593,7 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                                       ),
                                       Text('${r.likesCount}'),
                                       IconButton(
-                                        tooltip: 'Dislike review',
+                                        tooltip: context.tr('Dislike review'),
                                         onPressed: () =>
                                             reviewCtrl.toggleReaction(r, -1),
                                         icon: Icon(r.userVote == -1
@@ -686,6 +742,11 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
         .getReviewsForSpot(widget.spot.id)
         .where((review) => review.isOwnedByCurrentUser);
     final existing = ownReviews.isEmpty ? null : ownReviews.single;
+    var isAnonymous = existing?.isAnonymous ?? false;
+    var photoInputs = existing?.photos
+            .map((photo) => ReviewPhotoInput.existing(photo.path))
+            .toList(growable: false) ??
+        <ReviewPhotoInput>[];
     _commentCtrl.text = existing?.comment ?? '';
     _userRating = existing?.rating ?? 5;
     showModalBottomSheet(
@@ -704,93 +765,123 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                 right: 20,
                 top: 20,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(existing == null ? 'Write a review' : 'Edit your review',
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Text('Your Rating: ',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 12),
-                      Row(
-                        children: List.generate(5, (index) {
-                          final ratingVal = index + 1.0;
-                          return IconButton(
-                            onPressed: () {
-                              setModalState(() {
-                                _userRating = ratingVal;
-                              });
-                            },
-                            icon: Icon(
-                              index < _userRating
-                                  ? Icons.star
-                                  : Icons.star_border,
-                              color: Colors.amber,
-                              size: 28,
-                            ),
-                          );
-                        }),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _commentCtrl,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      hintText: 'Share your experience at this spot...',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        context.tr(existing == null
+                            ? 'Write a review'
+                            : 'Edit your review'),
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Text(context.tr('Your Rating: '),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 12),
+                        Row(
+                          children: List.generate(5, (index) {
+                            final ratingVal = index + 1.0;
+                            return IconButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  _userRating = ratingVal;
+                                });
+                              },
+                              icon: Icon(
+                                index < _userRating
+                                    ? Icons.star
+                                    : Icons.star_border,
+                                color: Colors.amber,
+                                size: 28,
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary),
-                      onPressed: () async {
-                        if (_commentCtrl.text.trim().isEmpty) return;
-                        try {
-                          final saved = await reviewCtrl.addReview(
-                            context,
-                            spotId: widget.spot.id,
-                            rating: _userRating,
-                            comment: _commentCtrl.text.trim(),
-                          );
-                          if (!saved) throw StateError('Review was not saved');
-                        } catch (_) {
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _commentCtrl,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText:
+                            context.tr('Share your experience at this spot...'),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ReviewPhotoPicker(
+                      existingPhotos: existing?.photos ?? const [],
+                      onChanged: (photos) => photoInputs = photos,
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.person_off_outlined),
+                      title: Text(context.tr('Post anonymously')),
+                      subtitle: Text(
+                        context.tr('Hide my name from other LiveLocal users.'),
+                      ),
+                      value: isAnonymous,
+                      onChanged: (val) =>
+                          setModalState(() => isAnonymous = val),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary),
+                        onPressed: () async {
+                          if (_commentCtrl.text.trim().isEmpty) return;
+                          try {
+                            final saved = await reviewCtrl.addReview(
+                              context,
+                              spotId: widget.spot.id,
+                              rating: _userRating,
+                              comment: _commentCtrl.text.trim(),
+                              isAnonymous: isAnonymous,
+                              photos: photoInputs,
+                            );
+                            if (!saved) {
+                              throw StateError('Review was not saved');
+                            }
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Failed to submit review. Please try again.')),
+                              );
+                            }
+                            return;
+                          }
+                          _commentCtrl.clear();
+                          _userRating = 5.0;
                           if (context.mounted) {
+                            Navigator.pop(ctx);
+                            setState(() {});
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                  content: Text(
-                                      'Failed to submit review. Please try again.')),
+                                  content:
+                                      Text('Review submitted! Thank you.')),
                             );
                           }
-                          return;
-                        }
-                        _commentCtrl.clear();
-                        _userRating = 5.0;
-                        if (context.mounted) {
-                          Navigator.pop(ctx);
-                          setState(() {});
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Review submitted! Thank you.')),
-                          );
-                        }
-                      },
-                      child: const Text('Submit Review',
-                          style: TextStyle(color: Colors.white, fontSize: 16)),
+                        },
+                        child: Text(context.tr('Submit Review'),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 16)),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -855,9 +946,9 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: reason,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Reason'),
+                    border: const OutlineInputBorder(),
                   ),
                   items: const [
                     DropdownMenuItem(value: 'spam', child: Text('Spam')),
@@ -883,9 +974,9 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
                   maxLength: 2000,
                   minLines: 2,
                   maxLines: 5,
-                  decoration: const InputDecoration(
-                    labelText: 'Explanation (optional)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Explanation (optional)'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],

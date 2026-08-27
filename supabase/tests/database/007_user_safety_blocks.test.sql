@@ -115,8 +115,8 @@ select lives_ok(
   )$$,
   'viewer blocks an author by public content ID'
 );
-select is((select count(*) from public.user_blocks), 1::bigint,
-  'viewer can inspect their private block relationship');
+select is(jsonb_array_length(public.list_my_blocked_users()), 1,
+  'viewer can inspect their private block relationship via RPC');
 select is((select count(*) from public.public_reviews), 0::bigint,
   'blocked author review is filtered for viewer');
 select is((select count(*) from public.published_spots), 0::bigint,
@@ -156,8 +156,12 @@ select set_config(
   true
 );
 set local role authenticated;
-select is((select count(*) from public.user_blocks), 0::bigint,
-  'another user cannot see private block relationships');
+select throws_ok(
+  'select count(*) from public.user_blocks',
+  '42501',
+  null,
+  'authenticated user cannot directly select public.user_blocks table'
+);
 
 reset role;
 select set_config(
