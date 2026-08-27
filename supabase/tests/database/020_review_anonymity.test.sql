@@ -65,8 +65,13 @@ declare
   v_res jsonb;
 begin
   -- Setup test tourist profile
-  insert into auth.users (id, email) values (v_tourist_id, 'tourist_test@example.com')
-  on conflict (id) do nothing;
+  insert into auth.users (id, email, email_confirmed_at)
+  values (v_tourist_id, 'tourist_test@example.com', clock_timestamp())
+  on conflict (id) do update set email_confirmed_at = clock_timestamp();
+
+  insert into public.account_access (user_id, status)
+  values (v_tourist_id, 'active')
+  on conflict (user_id) do update set status = 'active';
 
   insert into public.profiles (id, display_name)
   values (v_tourist_id, 'Real Tourist Name')

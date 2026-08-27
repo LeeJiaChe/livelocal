@@ -41,6 +41,11 @@ insert into auth.users (
     clock_timestamp(), clock_timestamp()
   );
 
+insert into public.account_access (user_id, status)
+values
+  ('88000000-0000-0000-0000-000000000001', 'active'),
+  ('88000000-0000-0000-0000-000000000002', 'active');
+
 insert into public.spots (id, owner_id)
 values ('88100000-0000-0000-0000-000000000001', '88000000-0000-0000-0000-000000000001');
 

@@ -41,6 +41,12 @@ values
     clock_timestamp(), clock_timestamp()
   );
 
+insert into public.account_access (user_id, status)
+values
+  ('90000000-0000-0000-0000-000000000001', 'active'),
+  ('90000000-0000-0000-0000-000000000002', 'active'),
+  ('90000000-0000-0000-0000-000000000003', 'active');
+
 -- Create a spot
 insert into public.spots (id, owner_id)
 values ('91000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001');
@@ -156,11 +162,13 @@ select is(
 );
 
 -- Check 9: Blocker cannot see author content due to RLS filter
+set local role authenticated;
 select is(
   (select count(*)::int from public.public_reviews where id = '93000000-0000-0000-0000-000000000001'),
   0,
   'Blocker cannot see blocked anonymous review'
 );
+reset role;
 
 -- Check 10: Third party cannot unblock Blocker's block
 select set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000003', true);
