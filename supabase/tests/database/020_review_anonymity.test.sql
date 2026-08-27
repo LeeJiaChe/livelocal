@@ -73,9 +73,9 @@ begin
   on conflict (id) do update set display_name = 'Real Tourist Name';
 
   -- Accept UGC rules
-  insert into public.user_consents (user_id, consent_type, version, consented_at)
-  values (v_tourist_id, 'ugc_rules', 1, clock_timestamp())
-  on conflict do nothing;
+  insert into public.user_ugc_rule_acceptances (user_id, rule_version)
+  values (v_tourist_id, '2026-08')
+  on conflict (user_id, rule_version) do nothing;
 
   -- Setup published spot
   insert into public.spots (id, owner_id, approved_revision_id)

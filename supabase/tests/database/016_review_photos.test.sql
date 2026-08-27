@@ -122,7 +122,7 @@ select ok(
   (select pg_get_expr(polqual, polrelid, true) from pg_policy
    where polname = 'review_image_delete_owner'
      and polrelid = 'storage.objects'::regclass)
-  ~ 'review_photos',
+  ~ 'review_photo',
   'review_image_delete_owner policy requires object to be UNREFERENCED by review_photos'
 );
 

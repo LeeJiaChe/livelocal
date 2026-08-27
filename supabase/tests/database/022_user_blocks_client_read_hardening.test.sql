@@ -126,6 +126,7 @@ values (
 -- Author creates anonymous review
 select set_config('request.jwt.claim.sub', '95000000-0000-0000-0000-000000000001', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);
+select public.accept_current_ugc_rules();
 
 select public.upsert_review_with_photos(
   'spot',
