@@ -430,6 +430,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         .getReviewsForRestaurant(widget.restaurant.id)
         .where((review) => review.isOwnedByCurrentUser);
     final existing = matches.isEmpty ? null : matches.single;
+    var isAnonymous = existing?.isAnonymous ?? false;
     var rating = existing?.rating ?? 5;
     var photoInputs = existing?.photos
             .map((photo) => ReviewPhotoInput.existing(photo.path))
@@ -441,12 +442,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
+        builder: (modalContext, setSheetState) => Padding(
           padding: EdgeInsets.fromLTRB(
             16,
             0,
             16,
-            MediaQuery.viewInsetsOf(context).bottom + 24,
+            MediaQuery.viewInsetsOf(modalContext).bottom + 24,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -454,8 +455,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  existing == null ? 'Write a review' : 'Edit your review',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  modalContext.tr(
+                    existing == null ? 'Write a review' : 'Edit your review',
+                  ),
+                  style: Theme.of(modalContext).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
                 Semantics(
@@ -464,7 +467,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                     children: List.generate(
                       5,
                       (index) => IconButton(
-                        tooltip: context.tr('${index + 1} stars'),
+                        tooltip: modalContext.tr('${index + 1} stars'),
                         onPressed: () =>
                             setSheetState(() => rating = index + 1),
                         icon: Icon(
@@ -483,7 +486,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   maxLength: 2000,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    labelText: context.tr('Your experience'),
+                    labelText: modalContext.tr('Your experience'),
                     border: const OutlineInputBorder(),
                   ),
                 ),
@@ -493,12 +496,23 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   onChanged: (photos) => photoInputs = photos,
                 ),
                 const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const Icon(Icons.person_off_outlined),
+                  title: Text(modalContext.tr('Post anonymously')),
+                  subtitle: Text(
+                    modalContext.tr('Hide my name from other LiveLocal users.'),
+                  ),
+                  value: isAnonymous,
+                  onChanged: (val) => setSheetState(() => isAnonymous = val),
+                ),
+                const SizedBox(height: 12),
                 FilledButton(
                   onPressed: () {
                     if (body.text.trim().length < 3) return;
                     Navigator.pop(sheetContext, true);
                   },
-                  child: const Text('Save review'),
+                  child: Text(modalContext.tr('Save review')),
                 ),
               ],
             ),
@@ -507,13 +521,13 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       ),
     );
     final comment = body.text.trim();
-    body.dispose();
     if (save != true || !mounted) return;
     final saved = await controller.addReview(
       context,
       restaurantId: widget.restaurant.id,
       rating: rating,
       comment: comment,
+      isAnonymous: isAnonymous,
       photos: photoInputs,
     );
     if (!mounted) return;
@@ -835,9 +849,26 @@ class _ReviewCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    review.userName,
-                    style: Theme.of(context).textTheme.titleSmall,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        review.isAnonymous
+                            ? context.tr('Anonymous')
+                            : review.userName,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      if (review.isOwnedByCurrentUser && review.isAnonymous)
+                        Text(
+                          context.tr('Your review'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 Semantics(
@@ -863,17 +894,24 @@ class _ReviewCard extends StatelessWidget {
                   },
                   itemBuilder: (_) => [
                     if (onEdit != null)
-                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text(context.tr('Edit')),
+                      ),
                     if (onDelete != null)
-                      const PopupMenuItem(
-                          value: 'delete', child: Text('Delete')),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text(context.tr('Delete')),
+                      ),
                     if (onReport != null)
-                      const PopupMenuItem(
-                          value: 'report', child: Text('Report')),
+                      PopupMenuItem(
+                        value: 'report',
+                        child: Text(context.tr('Report')),
+                      ),
                     if (onBlock != null)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'block',
-                        child: Text('Block reviewer'),
+                        child: Text(context.tr('Block this reviewer')),
                       ),
                   ],
                 ),

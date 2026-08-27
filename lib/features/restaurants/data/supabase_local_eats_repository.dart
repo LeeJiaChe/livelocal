@@ -14,6 +14,10 @@ import '../domain/local_eats_repository.dart';
 class SupabaseLocalEatsRepository implements LocalEatsRepository {
   SupabaseLocalEatsRepository(this._client);
 
+  static const pendingModerationSelect =
+      '*, parent:restaurants!restaurant_revisions_restaurant_id_fkey('
+      'id, moderation_version, owner_id)';
+
   final SupabaseClient _client;
 
   @override
@@ -151,11 +155,11 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     try {
       final rows = await _client
           .from('restaurant_revisions')
-          .select('*, restaurants!inner(id, moderation_version, owner_id)')
+          .select(pendingModerationSelect)
           .inFilter(
               'status', ['submitted', 'under_review']).order('submitted_at');
       return await Future.wait(rows.map((row) async {
-        final entity = Map<String, dynamic>.from(row['restaurants'] as Map);
+        final entity = Map<String, dynamic>.from(row['parent'] as Map);
         return RestaurantModel(
           id: entity['id'] as String,
           revisionId: row['id'] as String,

@@ -50,6 +50,10 @@ class AppLocalizations {
   String _translatePattern(String source) {
     final replacements = <(RegExp, String Function(Match))>[
       (
+        RegExp(r'^(.+) \((\d+)\)$'),
+        (match) => '${translate(match[1]!)} (${match[2]})',
+      ),
+      (
         RegExp(r'^(\d+) pending moderation$'),
         (match) => '${match[1]} menunggu penyederhanaan',
       ),
@@ -143,6 +147,11 @@ class AppLocalizations {
         RegExp(r'^Use a matching (.+) HTTPS URL\.$'),
         (match) => 'Gunakan URL HTTPS ${match[1]} yang sepadan.',
       ),
+      (
+        RegExp(r'^(.+) blocked\. Their public content is hidden for you\.$'),
+        (match) =>
+            '${match[1] == 'Anonymous reviewer' ? 'Pengulas tanpa nama' : (match[1] == 'Account' ? 'Akaun' : (match[1] == 'Reviewer' ? 'Pengulas' : match[1]))} telah disekat. Kandungan awam mereka disembunyikan untuk anda.',
+      ),
     ];
     for (final (pattern, replacement) in replacements) {
       final match = pattern.firstMatch(source);
@@ -161,7 +170,8 @@ class AppLocalizations {
     'Trips': 'Perjalanan',
     'Studio': 'Studio',
     'Profile': 'Profil',
-    'Overview': 'Gambaran keseluruhan',
+    'Overview': 'Ringkasan',
+    'Queue': 'Barisan',
     'Review Queue': 'Barisan semakan',
     'Content': 'Kandungan',
     'Users': 'Pengguna',
@@ -169,6 +179,15 @@ class AppLocalizations {
     'Notifications': 'Pemberitahuan',
     'No notifications': 'Tiada pemberitahuan',
     'Mark all as read': 'Tandakan semua sebagai dibaca',
+    'Post anonymously': 'Siarkan secara tanpa nama',
+    'Anonymous': 'Tanpa Nama',
+    'Hide my name from other LiveLocal users.':
+        'Sembunyikan nama saya daripada pengguna LiveLocal yang lain.',
+    'Your review': 'Ulasan anda',
+    'Anonymous · Your review': 'Tanpa Nama · Ulasan anda',
+    'Write a review': 'Tulis ulasan',
+    'Edit your review': 'Edit ulasan anda',
+    'Review safety options': 'Pilihan keselamatan ulasan',
     'LiveLocal': 'LiveLocal',
     'Discover Malaysia like a local': 'Terokai Malaysia seperti orang tempatan',
     'Explore authentic heritage, nature, and cultural places recommended by local communities.':
@@ -258,6 +277,24 @@ class AppLocalizations {
     'Total users': 'Jumlah pengguna',
     'Restricted': 'Disekat',
     'Action items': 'Tindakan diperlukan',
+    'Items that need an admin decision':
+        'Perkara yang memerlukan keputusan admin',
+    'Submissions': 'Sumbangan',
+    'Appeals': 'Rayuan',
+    'Creators': 'Pencipta',
+    'Drafts': 'Draf',
+    'Check new local-place submissions before publication.':
+        'Semak sumbangan tempat tempatan baharu sebelum diterbitkan.',
+    'Verify business details and creator source evidence.':
+        'Sahkan butiran perniagaan dan bukti sumber Pencipta.',
+    'Review submitted routes and stops before publication.':
+        'Semak laluan dan hentian yang dihantar sebelum diterbitkan.',
+    'Review applications for Creator access.':
+        'Semak permohonan untuk akses Pencipta.',
+    'Review content cases reported by LiveLocal users.':
+        'Semak kes kandungan yang dilaporkan oleh pengguna LiveLocal.',
+    'Review appeals against account restrictions.':
+        'Semak rayuan terhadap sekatan akaun.',
     'Submissions, reports, and appeals awaiting review':
         'Sumbangan, laporan dan rayuan yang menunggu semakan',
     'All caught up': 'Semua telah diselesaikan',
@@ -598,6 +635,13 @@ class AppLocalizations {
     'Block contributor': 'Sekat penyumbang',
     'Block creator': 'Sekat Pencipta',
     'Block reviewer': 'Sekat pengulas',
+    'Block this reviewer': 'Sekat pengulas ini',
+    'Anonymous reviewer': 'Pengulas tanpa nama',
+    'Reviewer blocked.': 'Pengulas telah disekat.',
+    'Reviewer blocked. Their public content is hidden for you.':
+        'Pengulas telah disekat. Kandungan awam mereka disembunyikan untuk anda.',
+    'Account blocked. Their public content is hidden for you.':
+        'Akaun telah disekat. Kandungan awam mereka disembunyikan untuk anda.',
     'Hide this review for me': 'Sembunyikan ulasan ini untuk saya',
     'One report does not hide it from everyone.':
         'Satu laporan tidak menyembunyikannya daripada semua pengguna.',
@@ -728,6 +772,19 @@ class AppLocalizations {
     'Moderate submissions, reports, and appeals':
         'Sederhanakan sumbangan, laporan dan rayuan',
     'Queue is clear': 'Barisan telah selesai',
+    'No spot submissions currently need a decision.':
+        'Tiada sumbangan tempat yang memerlukan keputusan buat masa ini.',
+    'No restaurant submissions currently need a decision.':
+        'Tiada sumbangan restoran yang memerlukan keputusan buat masa ini.',
+    'No guide submissions currently need a decision.':
+        'Tiada sumbangan panduan yang memerlukan keputusan buat masa ini.',
+    'No Creator applications currently need a decision.':
+        'Tiada permohonan Pencipta yang memerlukan keputusan buat masa ini.',
+    'No content reports currently awaiting moderation.':
+        'Tiada laporan kandungan yang menunggu penyederhanaan.',
+    'No account appeals currently awaiting review.':
+        'Tiada rayuan akaun yang menunggu semakan.',
+    'No review items found.': 'Tiada perkara semakan ditemui.',
     'Approve': 'Luluskan',
     'Reject': 'Tolak',
     'Request info': 'Minta maklumat',
@@ -749,6 +806,29 @@ class AppLocalizations {
     'No audit records': 'Tiada rekod audit',
     'Curate, revise, and publish neighbourhood guides':
         'Pilih, pinda dan terbitkan panduan kawasan kejiranan',
+    'Manage LiveLocal neighbourhood guides':
+        'Urus panduan kawasan kejiranan LiveLocal',
+    'Admin-created guides that are still being prepared.':
+        'Panduan ciptaan admin yang masih sedang disediakan.',
+    'Guides currently visible to LiveLocal users.':
+        'Panduan yang kini dapat dilihat oleh pengguna LiveLocal.',
+    'Pending submissions could not be loaded.':
+        'Sumbangan tempat tidak dapat dimuatkan.',
+    'Restaurant submissions could not be loaded.':
+        'Sumbangan restoran tidak dapat dimuatkan.',
+    'Guide submissions could not be loaded.':
+        'Sumbangan panduan tidak dapat dimuatkan.',
+    'Creator applications could not be loaded.':
+        'Permohonan Pencipta tidak dapat dimuatkan.',
+    'Users could not be loaded.': 'Pengguna tidak dapat dimuatkan.',
+    'Content reports could not be loaded.':
+        'Laporan kandungan tidak dapat dimuatkan.',
+    'Overview metrics could not be loaded.':
+        'Metrik ringkasan tidak dapat dimuatkan.',
+    'Audit history could not be loaded.':
+        'Sejarah audit tidak dapat dimuatkan.',
+    'Account appeals could not be loaded.':
+        'Rayuan akaun tidak dapat dimuatkan.',
     'No admin drafts': 'Tiada draf admin',
     'No published guides': 'Tiada panduan diterbitkan',
     'New draft': 'Draf baharu',

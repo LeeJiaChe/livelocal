@@ -4,11 +4,11 @@ import 'package:provider/provider.dart';
 
 import '../controllers/auth_controller.dart';
 import '../controllers/itinerary_controller.dart';
+import '../core/routing/protected_navigation.dart';
 import '../features/navigation/presentation/creator_studio_screen.dart';
 import '../features/navigation/presentation/explore_hub_screen.dart';
 import '../features/navigation/presentation/role_home_screen.dart';
 import '../features/notifications/presentation/notification_controller.dart';
-import 'neighbourhood_explorer_screen.dart';
 import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'saved_places_screen.dart';
@@ -47,7 +47,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       destinations = const [
         _RoleDestination('Home', Icons.home_outlined, Icons.home),
         _RoleDestination('Explore', Icons.explore_outlined, Icons.explore),
-        _RoleDestination('Guides', Icons.route_outlined, Icons.route),
+        _RoleDestination('Trips', Icons.luggage_outlined, Icons.luggage),
         _RoleDestination('Profile', Icons.person_outline, Icons.person),
       ];
     } else if (isCreator) {
@@ -79,18 +79,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (index >= 0) setState(() => _currentIndex = index);
     }
 
+    void openTrips() {
+      if (isGuest) {
+        context.read<ProtectedNavigation>().open(context, '/trips');
+        return;
+      }
+      if (!isCreator) {
+        selectLabel('Trips');
+        return;
+      }
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (_) => const ItineraryScreen()),
+      );
+    }
+
     final home = RoleHomeScreen(
       onOpenExplore: () => selectLabel('Explore'),
-      onOpenPlanning: () {
-        if (!isCreator) {
-          selectLabel('Trips');
-          return;
-        }
-        Navigator.push(
-          context,
-          MaterialPageRoute<void>(builder: (_) => const ItineraryScreen()),
-        );
-      },
+      onOpenPlanning: openTrips,
       onOpenStudio: () => selectLabel('Studio'),
     );
 
@@ -98,7 +104,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ? <Widget>[
             home,
             const ExploreHubScreen(),
-            const NeighbourhoodExplorerScreen(),
+            const SizedBox.shrink(),
             const ProfileScreen(),
           ]
         : isCreator
@@ -150,7 +156,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       body: IndexedStack(index: _currentIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        onDestinationSelected: (index) {
+          if (isGuest && destinations[index].label == 'Trips') {
+            openTrips();
+            return;
+          }
+          setState(() => _currentIndex = index);
+        },
         destinations: destinations
             .map(
               (destination) => NavigationDestination(

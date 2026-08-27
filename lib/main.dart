@@ -52,6 +52,7 @@ import 'features/restaurants/data/supabase_local_eats_repository.dart';
 import 'features/restaurants/domain/local_eats_repository.dart';
 import 'screens/restaurant_detail_screen.dart';
 import 'screens/saved_places_screen.dart';
+import 'screens/itinerary_screen.dart';
 import 'screens/spot_detail_screen.dart';
 import 'screens/guide_detail_screen.dart';
 import 'features/itinerary/data/demo_saved_itinerary_repository.dart';
@@ -336,6 +337,7 @@ class LiveLocalApp extends StatelessWidget {
                   );
                 },
                 '/saved-places': (context) => const SavedPlacesScreen(),
+                '/trips': (context) => const ItineraryScreen(),
                 '/spot-detail': (context) {
                   final arguments = ModalRoute.of(context)?.settings.arguments;
                   if (arguments is! SpotDetailArguments) {

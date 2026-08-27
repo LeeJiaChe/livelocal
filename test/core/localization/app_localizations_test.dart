@@ -19,6 +19,36 @@ void main() {
         malay.translate('Review photos'),
         isNot(equals('Review photos')),
       );
+      expect(malay.translate('Overview'), 'Ringkasan');
+      expect(malay.translate('Queue'), 'Barisan');
+      expect(malay.translate('Trips'), 'Perjalanan');
+      expect(
+        malay.translate('Items that need an admin decision'),
+        'Perkara yang memerlukan keputusan admin',
+      );
+      expect(
+        malay.translate('Drafts (12)'),
+        'Draf (12)',
+      );
+      expect(
+        malay.translate('Manage LiveLocal neighbourhood guides'),
+        'Urus panduan kawasan kejiranan LiveLocal',
+      );
+      expect(malay.translate('Post anonymously'), 'Siarkan secara tanpa nama');
+      expect(
+        malay.translate('Hide my name from other LiveLocal users.'),
+        'Sembunyikan nama saya daripada pengguna LiveLocal yang lain.',
+      );
+      expect(malay.translate('Anonymous'), 'Tanpa Nama');
+      expect(malay.translate('Your review'), 'Ulasan anda');
+      expect(malay.translate('Block this reviewer'), 'Sekat pengulas ini');
+      expect(malay.translate('Anonymous reviewer'), 'Pengulas tanpa nama');
+      expect(malay.translate('Reviewer blocked.'), 'Pengulas telah disekat.');
+      expect(
+        malay.translate(
+            'Reviewer blocked. Their public content is hidden for you.'),
+        'Pengulas telah disekat. Kandungan awam mereka disembunyikan untuk anda.',
+      );
     });
 
     test('dynamic product copy is localized without altering values', () {

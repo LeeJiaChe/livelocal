@@ -12,7 +12,7 @@ class AdminMorePage extends StatelessWidget {
     required this.onOpenQueue,
   });
 
-  final void Function(String filter) onOpenQueue;
+  final void Function(String filter, {String? submissionFilter}) onOpenQueue;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -31,7 +31,10 @@ class AdminMorePage extends StatelessWidget {
             icon: Icons.verified_user_outlined,
             title: 'Creator Applications',
             subtitle: 'Review eligibility and information requests',
-            onTap: () => onOpenQueue('Submissions'),
+            onTap: () => onOpenQueue(
+              'Submissions',
+              submissionFilter: 'Creators',
+            ),
           ),
           _MoreTile(
             icon: Icons.flag_outlined,

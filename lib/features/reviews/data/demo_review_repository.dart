@@ -75,6 +75,7 @@ class DemoReviewRepository
     required int rating,
     required String comment,
     int? expectedVersion,
+    bool isAnonymous = false,
     List<ReviewPhotoInput> photos = const [],
   }) async {
     if (photos.length > 3) {
@@ -111,9 +112,11 @@ class DemoReviewRepository
       }
       final updated = _copy(
         existing,
+        userName: isAnonymous ? 'Anonymous' : account.fullName,
         rating: rating.toDouble(),
         comment: comment.trim(),
         version: existing.version + 1,
+        isAnonymous: isAnonymous,
         updatedAt: DateTime.now(),
         isOwnedByCurrentUser: true,
         photos: savedPhotos,
@@ -126,10 +129,11 @@ class DemoReviewRepository
       spotId: spotId,
       restaurantId: restaurantId,
       userId: account.id,
-      userName: account.fullName,
+      userName: isAnonymous ? 'Anonymous' : account.fullName,
       rating: rating.toDouble(),
       comment: comment.trim(),
       createdAt: DateTime.now(),
+      isAnonymous: isAnonymous,
       isOwnedByCurrentUser: true,
       photos: savedPhotos,
     );
@@ -209,9 +213,11 @@ class DemoReviewRepository
 
   ReviewModel _copy(
     ReviewModel review, {
+    String? userName,
     double? rating,
     String? comment,
     int? version,
+    bool? isAnonymous,
     DateTime? updatedAt,
     bool? isOwnedByCurrentUser,
     List<ReviewPhotoModel>? photos,
@@ -221,12 +227,13 @@ class DemoReviewRepository
       spotId: review.spotId,
       restaurantId: review.restaurantId,
       userId: review.userId,
-      userName: review.userName,
+      userName: userName ?? review.userName,
       rating: rating ?? review.rating,
       comment: comment ?? review.comment,
       createdAt: review.createdAt,
       updatedAt: updatedAt ?? review.updatedAt,
       version: version ?? review.version,
+      isAnonymous: isAnonymous ?? review.isAnonymous,
       isOwnedByCurrentUser: isOwnedByCurrentUser ?? review.isOwnedByCurrentUser,
       photos: photos ?? review.photos,
       likesCount: review.likesCount,
@@ -234,5 +241,9 @@ class DemoReviewRepository
       userVote:
           _votes['${_authRepository.currentAccountForDemo?.id}:${review.id}'],
     );
+  }
+
+  void addReviewForTesting(ReviewModel review) {
+    _reviews.add(review);
   }
 }

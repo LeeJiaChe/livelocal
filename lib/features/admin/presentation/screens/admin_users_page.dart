@@ -136,7 +136,16 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           ),
         ),
         const SizedBox(height: 16),
-        if (filteredAccounts.isEmpty)
+        if (admin.accountsErrorMessage != null)
+          AdminStatePanel(
+            icon: Icons.cloud_off_outlined,
+            title: 'Users could not be loaded',
+            description: admin.accountsErrorMessage!,
+            actionLabel: 'Retry',
+            onAction: admin.loadAccounts,
+            isError: true,
+          )
+        else if (filteredAccounts.isEmpty)
           AdminStatePanel(
             icon: Icons.person_search_outlined,
             title: 'No accounts found',

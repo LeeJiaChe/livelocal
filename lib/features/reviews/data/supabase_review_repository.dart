@@ -51,11 +51,9 @@ class SupabaseReviewRepository
           .toList(growable: false);
       final photoRows = reviewIds.isEmpty
           ? const <dynamic>[]
-          : await _client
-              .from('review_photos')
-              .select('review_id, storage_path, sort_order')
-              .inFilter('review_id', reviewIds)
-              .order('sort_order');
+          : await _client.rpc('list_public_review_photos', params: {
+              'p_review_ids': reviewIds,
+            }) as List<dynamic>;
       final photosByReview = <String, List<ReviewPhotoModel>>{};
       for (final raw in photoRows) {
         final photo = Map<String, dynamic>.from(raw as Map);
@@ -85,6 +83,7 @@ class SupabaseReviewRepository
           createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
           updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
           version: (row['version'] as num).toInt(),
+          isAnonymous: row['is_anonymous'] == true,
           isOwnedByCurrentUser: own != null,
           likesCount: (row['likes_count'] as num?)?.toInt() ?? 0,
           dislikesCount: (row['dislikes_count'] as num?)?.toInt() ?? 0,
@@ -127,6 +126,7 @@ class SupabaseReviewRepository
     required int rating,
     required String comment,
     int? expectedVersion,
+    bool isAnonymous = false,
     List<ReviewPhotoInput> photos = const [],
   }) async {
     final targetId = spotId ?? restaurantId;
@@ -148,7 +148,16 @@ class SupabaseReviewRepository
       final photoPaths = <String>[];
       for (final photo in photos) {
         if (photo.existingPath case final path?) {
-          photoPaths.add(path);
+          if (isAnonymous && !path.startsWith('reviews/')) {
+            final extension = path.split('.').last;
+            final newPath =
+                'reviews/$selectedReviewId/${const Uuid().v4()}.$extension';
+            await _client.storage.from('review-images').copy(path, newPath);
+            uploadedPaths.add(newPath);
+            photoPaths.add(newPath);
+          } else {
+            photoPaths.add(path);
+          }
           continue;
         }
         final bytes = photo.bytes;
@@ -175,6 +184,7 @@ class SupabaseReviewRepository
         'p_expected_version': expectedVersion,
         'p_photo_paths': photoPaths,
         'p_new_review_id': selectedReviewId,
+        'p_is_anonymous': isAnonymous,
       });
       final row = Map<String, dynamic>.from(response as Map);
       return ReviewModel(
@@ -188,6 +198,7 @@ class SupabaseReviewRepository
         createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
         updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
         version: (row['version'] as num).toInt(),
+        isAnonymous: row['is_anonymous'] as bool? ?? isAnonymous,
         isOwnedByCurrentUser: true,
         photos: await _photosFromPaths(photoPaths),
       );
@@ -241,7 +252,7 @@ class SupabaseReviewRepository
         userMessage: 'Use JPG, PNG, or WebP review photos.',
       );
     }
-    final path = '$userId/$reviewId/${const Uuid().v4()}.$extension';
+    final path = 'reviews/$reviewId/${const Uuid().v4()}.$extension';
     await _client.storage.from('review-images').uploadBinary(
           path,
           bytes,

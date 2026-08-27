@@ -264,6 +264,7 @@ select lives_ok(
   'owner successfully submits review with photo'
 );
 
+reset role;
 select is(
   (select count(*) from public.review_photos
    where storage_path = 'e0000000-0000-0000-0000-000000000001/e0000000-2000-0000-0000-000000000001/published_photo.jpg'),
@@ -310,6 +311,7 @@ select lives_ok(
   'owner updates review removing the photo'
 );
 
+reset role;
 select is(
   (select count(*) from public.review_photos
    where review_id = 'e0000000-2000-0000-0000-000000000001'::uuid),

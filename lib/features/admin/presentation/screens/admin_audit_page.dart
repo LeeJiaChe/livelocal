@@ -99,7 +99,16 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
           ),
         ),
         const SizedBox(height: 16),
-        if (filteredEvents.isEmpty)
+        if (admin.auditErrorMessage != null)
+          AdminStatePanel(
+            icon: Icons.cloud_off_outlined,
+            title: 'Audit history could not be loaded',
+            description: admin.auditErrorMessage!,
+            actionLabel: 'Retry',
+            onAction: admin.loadAuditEvents,
+            isError: true,
+          )
+        else if (filteredEvents.isEmpty)
           AdminStatePanel(
             icon: Icons.history_outlined,
             title: 'No audit records',

@@ -144,4 +144,73 @@ void main() {
     expect(edited.photos, hasLength(1));
     expect(edited.photos.single.path, created.photos.first.path);
   });
+
+  testWidgets('anonymous review displays Anonymous and can toggle anonymity',
+      (tester) async {
+    late BuildContext context;
+    await tester.pumpWidget(Builder(builder: (value) {
+      context = value;
+      return const SizedBox();
+    }));
+    final authRepository = DemoAuthRepository();
+    await authRepository.signIn(
+      email: 'foodie@livelocal.com',
+      password: SeedDataService.demoPassword,
+    );
+    final controller = ReviewController(
+      repository: DemoReviewRepository(authRepository),
+    );
+    await controller.loadReviews();
+
+    // 1. Post anonymously
+    expect(
+      await controller.addReview(
+        context,
+        spotId: 'spot-003',
+        rating: 5,
+        comment: 'Hidden gem, highly recommended anonymously!',
+        isAnonymous: true,
+      ),
+      isTrue,
+    );
+    final createdAnon = controller
+        .getReviewsForSpot('spot-003')
+        .singleWhere((review) => review.isOwnedByCurrentUser);
+    expect(createdAnon.isAnonymous, isTrue);
+    expect(createdAnon.userName, 'Anonymous');
+
+    // 2. Edit to named
+    expect(
+      await controller.addReview(
+        context,
+        spotId: 'spot-003',
+        rating: 5,
+        comment: 'Updated review now with my real name.',
+        isAnonymous: false,
+      ),
+      isTrue,
+    );
+    final updatedNamed = controller
+        .getReviewsForSpot('spot-003')
+        .singleWhere((review) => review.isOwnedByCurrentUser);
+    expect(updatedNamed.isAnonymous, isFalse);
+    expect(updatedNamed.userName, isNot('Anonymous'));
+
+    // 3. Edit back to anonymous
+    expect(
+      await controller.addReview(
+        context,
+        spotId: 'spot-003',
+        rating: 4,
+        comment: 'Switched back to anonymous.',
+        isAnonymous: true,
+      ),
+      isTrue,
+    );
+    final revertedAnon = controller
+        .getReviewsForSpot('spot-003')
+        .singleWhere((review) => review.isOwnedByCurrentUser);
+    expect(revertedAnon.isAnonymous, isTrue);
+    expect(revertedAnon.userName, 'Anonymous');
+  });
 }

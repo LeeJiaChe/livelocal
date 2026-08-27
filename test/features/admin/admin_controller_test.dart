@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_local/features/admin/data/demo_admin_repository.dart';
 import 'package:live_local/features/admin/presentation/admin_controller.dart';
+import 'package:live_local/features/admin/domain/admin_repository.dart';
 import 'package:live_local/features/auth/data/demo_auth_repository.dart';
 import 'package:live_local/features/profile/data/demo_account_repository.dart';
 import 'package:live_local/services/seed_data_service.dart';
@@ -64,6 +65,25 @@ void main() {
       await failingController.loadDashboard();
       expect(failingController.errorMessage, isNotNull);
       expect(failingController.isLoading, isFalse);
+    });
+
+    test('one failing queue source preserves successful dashboard data',
+        () async {
+      final partialController = AdminController(
+        repository: _ReportsFailingAdminRepository(
+          authRepository,
+          accountRepository,
+        ),
+      );
+
+      await partialController.loadDashboard();
+
+      expect(partialController.statistics, isNotNull);
+      expect(partialController.accounts, isNotEmpty);
+      expect(partialController.moderationCases, isEmpty);
+      expect(partialController.moderationCasesErrorMessage, isNotNull);
+      expect(partialController.statisticsErrorMessage, isNull);
+      expect(partialController.accountsErrorMessage, isNull);
     });
 
     test('9. account mutation updates access and refreshes data', () async {
@@ -189,4 +209,16 @@ void main() {
           isTrue);
     });
   });
+}
+
+class _ReportsFailingAdminRepository extends DemoAdminRepository {
+  _ReportsFailingAdminRepository(
+    super.authRepository,
+    super.accountRepository,
+  );
+
+  @override
+  Future<List<AdminModerationCase>> fetchModerationCases() async {
+    throw Exception('Simulated reports failure');
+  }
 }

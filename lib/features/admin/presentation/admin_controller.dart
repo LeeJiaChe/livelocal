@@ -15,7 +15,14 @@ class AdminController with ChangeNotifier {
   AdminStatistics? _statistics;
   bool _isRefreshing = false;
   bool _isMutating = false;
-  String? _errorMessage;
+  bool _isLoadingModerationCases = false;
+  bool _isLoadingAppeals = false;
+  String? _mutationErrorMessage;
+  String? _accountsErrorMessage;
+  String? _moderationCasesErrorMessage;
+  String? _statisticsErrorMessage;
+  String? _auditErrorMessage;
+  String? _appealsErrorMessage;
   DateTime? _lastUpdatedAt;
 
   List<AdminAccountSummary> get accounts => List.unmodifiable(_accounts);
@@ -26,7 +33,20 @@ class AdminController with ChangeNotifier {
   bool get isRefreshing => _isRefreshing;
   bool get isMutating => _isMutating;
   bool get isLoading => _isRefreshing || _isMutating;
-  String? get errorMessage => _errorMessage;
+  bool get isLoadingModerationCases => _isLoadingModerationCases;
+  bool get isLoadingAppeals => _isLoadingAppeals;
+  String? get accountsErrorMessage => _accountsErrorMessage;
+  String? get moderationCasesErrorMessage => _moderationCasesErrorMessage;
+  String? get statisticsErrorMessage => _statisticsErrorMessage;
+  String? get auditErrorMessage => _auditErrorMessage;
+  String? get appealsErrorMessage => _appealsErrorMessage;
+  String? get errorMessage =>
+      _mutationErrorMessage ??
+      _accountsErrorMessage ??
+      _moderationCasesErrorMessage ??
+      _statisticsErrorMessage ??
+      _auditErrorMessage ??
+      _appealsErrorMessage;
   DateTime? get lastUpdatedAt => _lastUpdatedAt;
   int get totalUsers => _statistics?.accountsTotal ?? _accounts.length;
   int get suspendedUsersCount =>
@@ -35,26 +55,87 @@ class AdminController with ChangeNotifier {
 
   Future<void> loadDashboard() async {
     _isRefreshing = true;
-    _errorMessage = null;
+    _mutationErrorMessage = null;
     notifyListeners();
     try {
-      final results = await Future.wait([
-        _repository.fetchAccounts(),
-        _repository.fetchModerationCases(),
-        _repository.fetchStatistics(),
-        _repository.fetchAuditEvents(),
-        _repository.fetchAppeals(),
+      await Future.wait([
+        loadAccounts(),
+        loadModerationCases(),
+        loadStatistics(),
+        loadAuditEvents(),
+        loadAppeals(),
       ]);
-      _accounts = results[0] as List<AdminAccountSummary>;
-      _cases = results[1] as List<AdminModerationCase>;
-      _statistics = results[2] as AdminStatistics;
-      _auditEvents = results[3] as List<AdminAuditEvent>;
-      _appeals = results[4] as List<AdminAppealCase>;
       _lastUpdatedAt = DateTime.now();
-    } catch (error) {
-      _errorMessage = _message(error);
     } finally {
       _isRefreshing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadAccounts() async {
+    _accountsErrorMessage = null;
+    notifyListeners();
+    try {
+      _accounts = await _repository.fetchAccounts();
+    } catch (error) {
+      _accountsErrorMessage = _message(error, 'Users could not be loaded.');
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadModerationCases() async {
+    _isLoadingModerationCases = true;
+    _moderationCasesErrorMessage = null;
+    notifyListeners();
+    try {
+      _cases = await _repository.fetchModerationCases();
+    } catch (error) {
+      _moderationCasesErrorMessage =
+          _message(error, 'Content reports could not be loaded.');
+    } finally {
+      _isLoadingModerationCases = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadStatistics() async {
+    _statisticsErrorMessage = null;
+    notifyListeners();
+    try {
+      _statistics = await _repository.fetchStatistics();
+    } catch (error) {
+      _statisticsErrorMessage =
+          _message(error, 'Overview metrics could not be loaded.');
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadAuditEvents() async {
+    _auditErrorMessage = null;
+    notifyListeners();
+    try {
+      _auditEvents = await _repository.fetchAuditEvents();
+    } catch (error) {
+      _auditErrorMessage =
+          _message(error, 'Audit history could not be loaded.');
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadAppeals() async {
+    _isLoadingAppeals = true;
+    _appealsErrorMessage = null;
+    notifyListeners();
+    try {
+      _appeals = await _repository.fetchAppeals();
+    } catch (error) {
+      _appealsErrorMessage =
+          _message(error, 'Account appeals could not be loaded.');
+    } finally {
+      _isLoadingAppeals = false;
       notifyListeners();
     }
   }
@@ -101,14 +182,15 @@ class AdminController with ChangeNotifier {
 
   Future<bool> _runMutation(Future<void> Function() operation) async {
     _isMutating = true;
-    _errorMessage = null;
+    _mutationErrorMessage = null;
     notifyListeners();
     try {
       await operation();
       await loadDashboard();
       return true;
     } catch (error) {
-      _errorMessage = _message(error);
+      _mutationErrorMessage =
+          _message(error, 'The administrator action could not be completed.');
       return false;
     } finally {
       _isMutating = false;
@@ -116,9 +198,7 @@ class AdminController with ChangeNotifier {
     }
   }
 
-  String _message(Object error) {
-    return error is AppException
-        ? error.userMessage
-        : 'The administrator dashboard could not be loaded.';
+  String _message(Object error, String fallback) {
+    return error is AppException ? error.userMessage : fallback;
   }
 }
