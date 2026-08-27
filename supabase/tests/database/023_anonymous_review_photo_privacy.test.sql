@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(20);
 
 -- 1. Table privilege tests
 select is(
@@ -74,7 +74,7 @@ values (
   'Penang',
   'George Town',
   'Campbell St',
-  'Free',
+  '$',
   'Morning',
   array['Walking'],
   clock_timestamp(),
@@ -207,16 +207,60 @@ select is(
   'Anon can access published review photo in storage'
 );
 
-reset role;
-
 -- Check 13: Storage select policy denies access to unreferenced/private objects
-set local role anon;
 select is(
   (select count(*)::int from storage.objects where bucket_id = 'review-images' and name = '99000000-0000-0000-0000-000000000001/99300000-0000-0000-0000-000000000001/legacy_photo.jpg'),
   0,
   'Anon cannot access unreferenced photo in storage'
 );
 
+-- Check 14: Authenticated other user can access published review photo in storage
 reset role;
+select set_config('request.jwt.claim.sub', '99000000-0000-0000-0000-000000000002', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
 
+select is(
+  (select count(*)::int from storage.objects where bucket_id = 'review-images' and name = 'reviews/99300000-0000-0000-0000-000000000001/photo1.jpg'),
+  1,
+  'Authenticated viewer can access published review photo in storage'
+);
+
+-- Check 15: Owner can see their own unreferenced upload
+reset role;
+select set_config('request.jwt.claim.sub', '99000000-0000-0000-0000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+
+select is(
+  (select count(*)::int from storage.objects where bucket_id = 'review-images' and name = '99000000-0000-0000-0000-000000000001/99300000-0000-0000-0000-000000000001/legacy_photo.jpg'),
+  1,
+  'Owner can see their own eligible unreferenced upload'
+);
+
+-- Check 16-17: Owner can delete their unreferenced upload
+select lives_ok(
+  $$delete from storage.objects where bucket_id = 'review-images' and name = '99000000-0000-0000-0000-000000000001/99300000-0000-0000-0000-000000000001/legacy_photo.jpg$$,
+  'Owner can delete an unreferenced review image'
+);
+
+select is(
+  (select count(*)::int from storage.objects where bucket_id = 'review-images' and name = '99000000-0000-0000-0000-000000000001/99300000-0000-0000-0000-000000000001/legacy_photo.jpg'),
+  0,
+  'Unreferenced review image is deleted from storage.objects'
+);
+
+-- Check 18: Owner cannot delete a referenced review photo (policy rejects / 0 rows deleted)
+select lives_ok(
+  $$delete from storage.objects where bucket_id = 'review-images' and name = 'reviews/99300000-0000-0000-0000-000000000001/photo1.jpg'$$,
+  'Attempting to delete referenced review photo does not throw uncaught error'
+);
+
+select is(
+  (select count(*)::int from storage.objects where bucket_id = 'review-images' and name = 'reviews/99300000-0000-0000-0000-000000000001/photo1.jpg'),
+  1,
+  'Referenced review photo remains intact in storage.objects'
+);
+
+select * from finish();
 rollback;

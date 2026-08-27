@@ -116,7 +116,7 @@ values (
   'Penang',
   'George Town',
   'Chulia St',
-  'Free',
+  '$',
   'Morning',
   array['Walking'],
   clock_timestamp(),
@@ -184,4 +184,5 @@ select is(
   'Review is visible again after unblocking'
 );
 
+select * from finish();
 rollback;

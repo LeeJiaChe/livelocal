@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(25);
 
 -- 1. Schema checks
 select col_type_is(
@@ -24,7 +24,7 @@ select col_default_is(
   'public.public_reviews.is_anonymous defaults to false'
 );
 
-select col_is_null(
+select hasnt_column(
   'public', 'public_reviews', 'user_id',
   'public.public_reviews has no user_id column (Guest/anon cannot obtain user_id)'
 );
@@ -68,8 +68,8 @@ begin
   insert into auth.users (id, email) values (v_tourist_id, 'tourist_test@example.com')
   on conflict (id) do nothing;
 
-  insert into public.profiles (id, display_name, role)
-  values (v_tourist_id, 'Real Tourist Name', 'tourist')
+  insert into public.profiles (id, display_name)
+  values (v_tourist_id, 'Real Tourist Name')
   on conflict (id) do update set display_name = 'Real Tourist Name';
 
   -- Accept UGC rules
@@ -243,4 +243,5 @@ select is(
   'deleted review is removed from public_reviews'
 );
 
+select * from finish();
 rollback;

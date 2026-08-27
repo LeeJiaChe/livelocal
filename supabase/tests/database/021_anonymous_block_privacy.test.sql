@@ -62,7 +62,7 @@ values (
   'Penang',
   'George Town',
   'Beach St',
-  'Free',
+  '$',
   'Morning',
   array['Walking'],
   clock_timestamp(),
@@ -212,4 +212,5 @@ select is(
   'Named block RPC returns real display name'
 );
 
+select * from finish();
 rollback;

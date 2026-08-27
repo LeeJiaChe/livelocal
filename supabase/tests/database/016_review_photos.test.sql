@@ -41,8 +41,8 @@ select is(
 );
 
 select ok(
-  has_table_privilege('anon', 'public.review_photos', 'select'),
-  'anonymous discovery may select rows through the published-review RLS policy'
+  not has_table_privilege('anon', 'public.review_photos', 'select'),
+  'anonymous discovery cannot directly select review_photos table'
 );
 
 select ok(
