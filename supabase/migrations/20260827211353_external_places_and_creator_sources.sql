@@ -622,7 +622,7 @@ begin
   end if;
   if not private.is_supported_social_url(p_social_media_url, null) then
     raise exception using errcode = '22023',
-      message = 'Unsupported source URL';
+      message = 'Unsupported social URL';
   end if;
   if p_cover_image_path is not null
       and p_cover_image_path !~ (
@@ -712,7 +712,7 @@ begin
   end if;
   if not private.is_supported_social_url(p_social_media_url, null) then
     raise exception using errcode = '22023',
-      message = 'Unsupported source URL';
+      message = 'Unsupported social URL';
   end if;
 
   if coalesce(p_ai_assisted, false) = true then
