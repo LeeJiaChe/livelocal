@@ -159,7 +159,7 @@ select lives_ok(
     '92000000-0000-0000-0000-000000000001', 2,
     '91000000-0000-0000-0000-000000000001',
     'Website Restaurant', '12 Jalan Test', 'Perak', 'Ipoh', 'Malaysian', '$$',
-    'Creator to complete', 'https://restaurant.example/menu',
+    'Creator to complete', 'https://myrestaurant.com.my/menu',
     true, 'website'
   )$sql$,
   'public website may be retained as AI draft provenance'

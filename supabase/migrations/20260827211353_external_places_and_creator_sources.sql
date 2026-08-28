@@ -16,7 +16,10 @@ alter table public.saved_places
   ),
   add constraint saved_place_external_id check (
     external_place_id is null
-    or external_place_id ~ '^[A-Za-z0-9_-]{8,256}$'
+    or (
+      char_length(external_place_id) between 8 and 256
+      and external_place_id ~ '^[A-Za-z0-9_-]+$'
+    )
   ),
   add constraint saved_place_exactly_one_target check (
     (spot_id is not null)::integer
@@ -42,7 +45,10 @@ alter table public.itinerary_items
   ),
   add constraint itinerary_item_external_id check (
     external_place_id is null
-    or external_place_id ~ '^[A-Za-z0-9_-]{8,256}$'
+    or (
+      char_length(external_place_id) between 8 and 256
+      and external_place_id ~ '^[A-Za-z0-9_-]+$'
+    )
   ),
   add constraint itinerary_item_exactly_one_target check (
     (spot_id is not null)::integer
@@ -223,7 +229,8 @@ begin
     end if;
   elsif p_target_type = 'external' then
     if p_external_provider <> 'google'
-        or p_target_id !~ '^[A-Za-z0-9_-]{8,256}$' then
+        or char_length(p_target_id) not between 8 and 256
+        or p_target_id !~ '^[A-Za-z0-9_-]+$' then
       raise exception using errcode = '22023', message = 'Unsupported external place';
     end if;
   else
@@ -337,7 +344,8 @@ begin
     end;
   elsif p_target_type <> 'external'
       or p_external_provider <> 'google'
-      or p_target_id !~ '^[A-Za-z0-9_-]{8,256}$' then
+      or char_length(p_target_id) not between 8 and 256
+      or p_target_id !~ '^[A-Za-z0-9_-]+$' then
     raise exception using errcode = '22023', message = 'Unsupported saved-place target';
   end if;
 
@@ -478,7 +486,8 @@ begin
   ) or (
     item->>'type' = 'external'
     and item->>'provider' = 'google'
-    and (item->>'id') ~ '^[A-Za-z0-9_-]{8,256}$'
+    and char_length(item->>'id') between 8 and 256
+    and (item->>'id') ~ '^[A-Za-z0-9_-]+$'
     and exists (
       select 1 from public.saved_places saved
       where saved.user_id = p_user_id
@@ -544,6 +553,8 @@ as $$
       char_length(p_url) <= 2048
       and p_url ~* '^https://[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:[.][A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+(?:/|[?#]|$)'
       and p_url !~* '^https://[^/]*(instagram[.]com[.]|tiktok[.]com[.]|google[.]com[.])'
+      and p_url !~* '^https://(?:www[.])?example[.](com|net|org)(?:/|[?#]|$)'
+      and p_url !~* '^https://[^/]*[.](test|invalid|localhost)(?:/|[?#]|$)'
     else false
   end;
 $$;
