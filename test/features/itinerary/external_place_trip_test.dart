@@ -3,9 +3,25 @@ import 'package:live_local/features/auth/data/demo_auth_repository.dart';
 import 'package:live_local/features/itinerary/data/demo_saved_itinerary_repository.dart';
 import 'package:live_local/features/itinerary/presentation/itinerary_controller.dart';
 import 'package:live_local/models/saved_collection_model.dart';
+import 'package:live_local/models/saved_place_model.dart';
 import 'package:live_local/services/seed_data_service.dart';
 
 void main() {
+  test('saved external Google identity survives database map reload', () {
+    final saved = SavedPlaceModel.fromMap({
+      'id': 'saved-1',
+      'user_id': 'tourist-1',
+      'spot_id': null,
+      'restaurant_id': null,
+      'external_provider': 'google',
+      'external_place_id': 'ChIJExternalPlace123',
+      'saved_at': '2026-08-29T00:00:00Z',
+    });
+
+    expect(saved.externalProvider, 'google');
+    expect(saved.externalPlaceId, 'ChIJExternalPlace123');
+  });
+
   test('external Google identity is saved before opening Trip workflow',
       () async {
     final auth = DemoAuthRepository();

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(22);
 
 select has_column('public', 'saved_places', 'external_provider',
   'saved places persist external provider identity');
@@ -36,6 +36,22 @@ select ok(
   ),
   'existing internal saved-place RPC remains compatible'
 );
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.set_saved_place(text,text,boolean,text)',
+    'execute'
+  ),
+  'guest cannot directly save an external provider identity'
+);
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'public.set_saved_place(text,text,boolean,text)',
+    'execute'
+  ),
+  'authenticated user can use the external saved-place overload'
+);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -62,6 +78,21 @@ select set_config(
   true
 );
 set local role authenticated;
+
+select lives_ok(
+  $$select public.set_saved_place(
+    'external', 'ChIJExternalPlace123', true, 'google'
+  )$$,
+  'Flutter external save RPC persists the provider identity'
+);
+
+select is(
+  (select count(*) from public.saved_places
+    where external_provider = 'google'
+      and external_place_id = 'ChIJExternalPlace123'),
+  1::bigint,
+  'external save RPC stores one deterministic provider identity'
+);
 
 select lives_ok(
   $$select public.create_saved_collection('Malaysia places', null)$$,
