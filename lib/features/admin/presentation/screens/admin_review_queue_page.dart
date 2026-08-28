@@ -8,7 +8,7 @@ import '../../../../controllers/admin_controller.dart';
 import '../../../../controllers/guide_controller.dart';
 import '../../../../controllers/localeats_controller.dart';
 import '../../../../controllers/spot_controller.dart';
-import '../../../../core/validation/social_url_validator.dart';
+import '../../../../core/validation/restaurant_source_url_validator.dart';
 import '../../../../models/guide_model.dart';
 import '../../../../models/restaurant_model.dart';
 import '../../../../models/spot_model.dart';
@@ -86,7 +86,7 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
       title:
           decision == 'approved' ? 'Approve restaurant?' : 'Reject restaurant?',
       prompt: decision == 'approved'
-          ? 'Record why the business details and supporting post are suitable.'
+          ? 'Record why the business details and supporting source are suitable.'
           : 'Explain what must be corrected before resubmission.',
       destructive: decision == 'rejected',
     );
@@ -106,7 +106,7 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
   }
 
   Future<void> _openReviewUrl(String url) async {
-    if (!SocialUrlValidator.isReviewPost(url)) {
+    if (!RestaurantSourceUrlValidator.isSupported(url)) {
       _showMessage('This review source link is invalid or unavailable.');
       return;
     }

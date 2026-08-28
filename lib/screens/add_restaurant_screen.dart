@@ -9,6 +9,7 @@ import '../constants/malaysia_states.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/localeats_controller.dart';
 import '../core/routing/protected_navigation.dart';
+import '../core/validation/restaurant_source_url_validator.dart';
 import '../core/validation/social_url_validator.dart';
 import '../features/restaurants/domain/generated_restaurant_listing.dart';
 import '../features/restaurants/domain/local_eats_repository.dart';
@@ -284,9 +285,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             // AI IMPORT SECTION (for new recommendations)
             if (!_isRevision) ...[
               ContributionSection(
-                title: 'Import from a review (Optional)',
+                title: 'Import from a link (Optional)',
                 subtitle:
-                    'Auto-fill details from an Instagram or TikTok review post',
+                    'Auto-fill from Google Maps, a public website, Instagram or TikTok',
                 children: [
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.x2),
@@ -304,7 +305,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'AI uses the review to suggest details. You\'ll review everything before submitting.',
+                          'AI uses the public source to suggest details. You\'ll review everything before submitting.',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context)
@@ -319,12 +320,10 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                           keyboardType: TextInputType.url,
                           autocorrect: false,
                           decoration: InputDecoration(
-                            labelText:
-                                context.tr('TikTok or Instagram review link'),
-                            hintText:
-                                'https://www.tiktok.com/@creator/video/123...',
+                            labelText: context.tr('Restaurant or review link'),
+                            hintText: 'https://maps.app.goo.gl/...',
                             helperText: context.tr(
-                              'Paste a TikTok video or Instagram Reel/post link',
+                              'Paste a public Google Maps, website, TikTok, or Instagram link',
                             ),
                             prefixIcon: const Icon(Icons.link),
                             suffixIcon: _sourceUrl.text.isNotEmpty
@@ -355,7 +354,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                               : const Icon(Icons.auto_awesome_outlined),
                           label: Text(
                             controller.isGeneratingListing
-                                ? 'Analyzing review link…'
+                                ? 'Reading source and preparing draft…'
                                 : 'Generate details with AI',
                           ),
                         ),
@@ -699,8 +698,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
 
             // WHAT TO TRY SECTION
             ContributionSection(
-              title: 'Recommended dishes & social source',
-              subtitle: 'Highlight your top recommendations and video link',
+              title: 'Recommended dishes & source',
+              subtitle:
+                  'Highlight your recommendations and keep the original public link',
               children: [
                 _field(
                   _dishes,
@@ -716,16 +716,17 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 const SizedBox(height: AppSpacing.x2),
                 _field(
                   _socialUrl,
-                  'TikTok or Instagram video link',
-                  hintText: context
-                      .tr('https://www.tiktok.com/@creator/video/123...'),
+                  'Source / reference link',
+                  hintText: context.tr('https://maps.app.goo.gl/...'),
                   minLength: 8,
                   maxLength: 500,
                   key: const Key('social_review_url_field'),
                   validator: (value) {
-                    if (!SocialUrlValidator.isReviewPost(value ?? '')) {
+                    if (!RestaurantSourceUrlValidator.isSupported(
+                      value ?? '',
+                    )) {
                       return context.tr(
-                        'Enter a supported TikTok or Instagram HTTPS URL.',
+                        'Enter a public Google Maps, website, TikTok, or Instagram HTTPS URL.',
                       );
                     }
                     return null;
@@ -830,10 +831,10 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       );
       return;
     }
-    if (!SocialUrlValidator.isReviewPost(source)) {
+    if (!RestaurantSourceUrlValidator.isSupported(source)) {
       controller.clearGeneratedResult();
       _message(
-        'Paste a valid TikTok or Instagram review video or post link.',
+        'Paste a public Google Maps, website, Instagram post/Reel, or TikTok video link.',
       );
       return;
     }
@@ -867,7 +868,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
               Text(candidate.reviewedDishes ?? 'Dishes not identified'),
               const SizedBox(height: 4),
               Text(
-                '${SocialUrlValidator.platformLabel(candidate.sourcePostUrl)} · ${(candidate.confidence * 100).round()}% confidence',
+                '${RestaurantSourceUrlValidator.platformLabel(candidate.sourcePostUrl)} · ${(candidate.confidence * 100).round()}% confidence',
               ),
               const SizedBox(height: 4),
               Text(
@@ -892,8 +893,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   Future<void> _promptAndApplyCandidate(
     GeneratedRestaurantListing candidate,
   ) async {
-    if (!SocialUrlValidator.isReviewPost(candidate.sourcePostUrl)) {
-      _message('The generated candidate did not contain a valid review post.');
+    if (!RestaurantSourceUrlValidator.isSupported(candidate.sourcePostUrl)) {
+      _message(
+          'The generated candidate did not contain a valid public source.');
       return;
     }
     if (_hasMeaningfulFormEntries) {
@@ -923,18 +925,23 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   }
 
   void _applyCandidate(GeneratedRestaurantListing candidate) {
-    if (!SocialUrlValidator.isReviewPost(candidate.sourcePostUrl)) {
-      _message('The generated candidate did not contain a valid review post.');
+    if (!RestaurantSourceUrlValidator.isSupported(candidate.sourcePostUrl)) {
+      _message(
+          'The generated candidate did not contain a valid public source.');
       return;
     }
     context.read<LocalEatsController>().selectGeneratedCandidate(candidate);
     setState(() {
       _aiAssisted = true;
       _aiSourcePlatform = candidate.sourcePlatform;
-      _name.text = candidate.restaurantName ?? '';
-      _address.text = candidate.address ?? '';
-      _city.text = candidate.city ?? '';
-      _dishes.text = candidate.reviewedDishes ?? '';
+      if (candidate.restaurantName != null) {
+        _name.text = candidate.restaurantName!;
+      }
+      if (candidate.address != null) _address.text = candidate.address!;
+      if (candidate.city != null) _city.text = candidate.city!;
+      if (candidate.reviewedDishes != null) {
+        _dishes.text = candidate.reviewedDishes!;
+      }
       _socialUrl.text = candidate.sourcePostUrl;
       if (candidate.cuisineType?.isNotEmpty == true) {
         _cuisine.text = candidate.cuisineType!;

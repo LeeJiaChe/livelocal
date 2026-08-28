@@ -1,5 +1,9 @@
-export type SocialPlatform = "tiktok" | "instagram";
-export type SocialSourceType = "post" | "profile";
+export type SocialPlatform =
+  | "tiktok"
+  | "instagram"
+  | "google_maps"
+  | "website";
+export type SocialSourceType = "post" | "profile" | "place" | "website";
 
 export type DetectedSource = {
   platform: SocialPlatform;
@@ -18,6 +22,8 @@ export type SocialPost = {
 export type SocialSourceContent = {
   detection: DetectedSource;
   posts: SocialPost[];
+  authoritativeCandidate?: GeneratedRestaurantListing;
+  fallbackCandidate?: GeneratedRestaurantListing;
 };
 
 export type SocialConnection = {

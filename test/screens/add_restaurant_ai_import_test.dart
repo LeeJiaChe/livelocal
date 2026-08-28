@@ -64,6 +64,50 @@ void main() {
     expect(socialField.controller?.text, 'https://instagram.com/reel/ABC/');
   });
 
+  testWidgets('Google Maps link populates an editable AI-assisted draft',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final authRepository = DemoAuthRepository();
+    final authController = AuthController(repository: authRepository);
+    await authController.login(
+      'foodie@livelocal.com',
+      SeedDataService.demoPassword,
+    );
+    final localEats = LocalEatsController(
+      repository: _WidgetGenerationRepository(authRepository),
+    );
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthController>.value(value: authController),
+          ChangeNotifierProvider<LocalEatsController>.value(value: localEats),
+        ],
+        child: const MaterialApp(home: AddRestaurantScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('ai_source_field')),
+      'https://maps.app.goo.gl/AbCdEf123456',
+    );
+    await tester.tap(find.byKey(const Key('ai_generate_button')));
+    await tester.pumpAndSettle();
+
+    final name = tester.widget<TextFormField>(
+      find.byKey(const Key('restaurant_name_field')),
+    );
+    expect(name.controller?.text, 'Line Clear Nasi Kandar');
+    await tester.enterText(
+      find.byKey(const Key('restaurant_name_field')),
+      'Line Clear Nasi Kandar (verified)',
+    );
+    expect(name.controller?.text, 'Line Clear Nasi Kandar (verified)');
+    expect(find.byKey(const Key('ai_draft_notice')), findsOneWidget);
+  });
+
   testWidgets(
     'manual revision submission still uses the existing workflow',
     (tester) async {
@@ -196,6 +240,26 @@ class _WidgetGenerationRepository extends DemoLocalEatsRepository {
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
     String sourceUrl,
   ) async {
+    if (sourceUrl.contains('maps.app.goo.gl')) {
+      return SocialSourceAnalysisResult(
+        sourceType: 'place',
+        platform: 'google_maps',
+        candidates: [
+          GeneratedRestaurantListing(
+            restaurantName: 'Line Clear Nasi Kandar',
+            address: '177 Jalan Penang',
+            state: 'Pulau Pinang',
+            city: 'George Town',
+            cuisineType: 'Indian Muslim',
+            priceRange: r'$$',
+            sourcePlatform: 'google_maps',
+            sourcePostUrl: sourceUrl,
+            confidence: 1,
+            missingFields: const ['reviewedDishes'],
+          ),
+        ],
+      );
+    }
     if (sourceUrl.contains('MULTI_REVIEW')) {
       return const SocialSourceAnalysisResult(
         sourceType: 'post',

@@ -49,12 +49,36 @@ class ItineraryController with ChangeNotifier {
   String? get itineraryError => _errorMessage;
 
   void setActiveCollection(SavedCollectionModel? collection) {
+    final changedCollection = _activeCollection?.id != collection?.id;
     _activeCollection = collection;
-    if (collection == null) {
+    if (collection == null || changedCollection) {
       _activeCollectionItems = [];
       _activeCollectionPlaces = [];
     }
     notifyListeners();
+  }
+
+  Future<bool> loadActiveCollection(String collectionId) async {
+    _isLoadingCollectionPlaces = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final values = await Future.wait([
+        _repository.fetchCollectionPlaces(collectionId),
+        _repository.fetchCollectionItems(collectionId),
+      ]);
+      _activeCollectionPlaces = values[0] as List<SavedCollectionPlace>;
+      _activeCollectionItems = values[1] as List<SavedCollectionItemModel>;
+      return true;
+    } catch (error) {
+      _activeCollectionPlaces = [];
+      _activeCollectionItems = [];
+      _errorMessage = _message(error, 'Collection places could not be loaded.');
+      return false;
+    } finally {
+      _isLoadingCollectionPlaces = false;
+      notifyListeners();
+    }
   }
 
   Future<void> loadCollections() async {
@@ -168,10 +192,12 @@ class ItineraryController with ChangeNotifier {
   Future<List<String>> fetchPlaceCollectionIds({
     required String targetType,
     required String targetId,
+    String? externalProvider,
   }) async {
     return await _repository.fetchPlaceCollectionIds(
       targetType: targetType,
       targetId: targetId,
+      externalProvider: externalProvider,
     );
   }
 
@@ -179,6 +205,7 @@ class ItineraryController with ChangeNotifier {
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
+    String? externalProvider,
   }) async {
     _errorMessage = null;
     notifyListeners();
@@ -187,16 +214,14 @@ class ItineraryController with ChangeNotifier {
         targetType: targetType,
         targetId: targetId,
         collectionIds: collectionIds,
+        externalProvider: externalProvider,
       );
       await Future.wait([
         loadSavedPlaces(),
         loadCollections(),
       ]);
       if (_activeCollection != null) {
-        await Future.wait([
-          loadActiveCollectionItems(_activeCollection!.id),
-          loadActiveCollectionPlaces(_activeCollection!.id),
-        ]);
+        await loadActiveCollection(_activeCollection!.id);
       }
       return result;
     } catch (error) {
@@ -309,6 +334,47 @@ class ItineraryController with ChangeNotifier {
     }
   }
 
+  Future<bool> saveExternalToDefaultCollection({
+    required String provider,
+    required String placeId,
+  }) async {
+    try {
+      if (_collections.isEmpty) await loadCollections();
+      var defaultCollection = _collections.firstWhere(
+        (collection) => collection.name.toLowerCase() == 'saved places',
+        orElse: () => _collections.isNotEmpty
+            ? _collections.first
+            : SavedCollectionModel(
+                id: '',
+                userId: '',
+                name: 'Saved places',
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              ),
+      );
+      if (defaultCollection.id.isEmpty) {
+        defaultCollection = await _repository.createCollection(
+          name: 'Saved places',
+          description: 'Default collection for your saved places',
+        );
+      }
+      await setPlaceCollections(
+        targetType: 'external',
+        targetId: placeId,
+        externalProvider: provider,
+        collectionIds: [defaultCollection.id],
+      );
+      return true;
+    } catch (error) {
+      _errorMessage = _message(
+        error,
+        'The external place could not be added to your trip.',
+      );
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<RouteOrigin?> requestDeviceOrigin() async {
     _errorMessage = null;
     final position = await _locationService.getCurrentLocation();
@@ -371,6 +437,7 @@ class ItineraryController with ChangeNotifier {
         return ItineraryTarget(
           type: candidate.targetType,
           id: candidate.targetId,
+          provider: candidate.externalProvider,
         );
       }).toList();
 
@@ -409,6 +476,20 @@ class ItineraryController with ChangeNotifier {
           'best_time': stop.bestTime ?? 'Anytime',
           'activity': stop.thingsToDo ?? 'Explore spot',
           'type': 'Spot (${stop.categoryOrCuisine})',
+          'step': 'Stop ${index + 1}',
+          'lat': stop.latitude,
+          'lng': stop.longitude,
+          'area': stop.city,
+          if (index == 0) 'day_label': 'Route overview',
+        };
+      }
+      if (stop.isExternal) {
+        return {
+          'title': stop.name,
+          'location': stop.city,
+          'best_time': 'Check current opening hours',
+          'activity': 'Explore this place',
+          'type': 'Google Place (${stop.categoryOrCuisine})',
           'step': 'Stop ${index + 1}',
           'lat': stop.latitude,
           'lng': stop.longitude,

@@ -21,6 +21,7 @@ class SaveToCollectionSheet extends StatefulWidget {
     required this.placeName,
     this.spot,
     this.restaurant,
+    this.externalProvider,
   });
 
   final String targetType;
@@ -28,6 +29,7 @@ class SaveToCollectionSheet extends StatefulWidget {
   final String placeName;
   final SpotModel? spot;
   final RestaurantModel? restaurant;
+  final String? externalProvider;
 
   static Future<void> show(
     BuildContext context, {
@@ -36,6 +38,7 @@ class SaveToCollectionSheet extends StatefulWidget {
     required String placeName,
     SpotModel? spot,
     RestaurantModel? restaurant,
+    String? externalProvider,
   }) async {
     final auth = context.read<AuthController>();
     if (!auth.canWrite) {
@@ -76,6 +79,7 @@ class SaveToCollectionSheet extends StatefulWidget {
         placeName: placeName,
         spot: spot,
         restaurant: restaurant,
+        externalProvider: externalProvider,
       ),
     );
   }
@@ -123,6 +127,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
       final memberships = await controller.fetchPlaceCollectionIds(
         targetType: widget.targetType,
         targetId: widget.targetId,
+        externalProvider: widget.externalProvider,
       );
 
       if (!mounted) return;
@@ -174,6 +179,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
         targetType: widget.targetType,
         targetId: widget.targetId,
         collectionIds: targetCollectionIds,
+        externalProvider: widget.externalProvider,
       );
 
       if (!mounted) return;

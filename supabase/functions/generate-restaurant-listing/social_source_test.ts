@@ -56,6 +56,15 @@ Deno.test("detects supported post and profile URLs", () => {
     detectPlatformAndSourceType("https://instagram.com/creator/").sourceType,
     "profile",
   );
+  equal(
+    detectPlatformAndSourceType("https://maps.app.goo.gl/AbCdEf123456")
+      .sourceType,
+    "place",
+  );
+  equal(
+    detectPlatformAndSourceType("https://restaurant.example/menu").sourceType,
+    "website",
+  );
 });
 
 Deno.test("rejects unsupported and deceptive source URLs", async () => {
@@ -64,7 +73,6 @@ Deno.test("rejects unsupported and deceptive source URLs", async () => {
       "not a URL",
       "http://instagram.com/reel/ABC",
       "https://instagram.com.evil.test/reel/ABC",
-      "https://example.com/@creator/video/123",
       "https://instagram.com/reel/ABC/extra",
       "https://www.tiktok.com/@creator/video/123/extra",
     ]

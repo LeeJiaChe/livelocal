@@ -10,6 +10,12 @@ import {
   fetchInstagramSource,
   fetchTikTokSource,
 } from "./social_source.ts";
+import {
+  fetchGoogleMapsSource,
+  fetchSocialMetadataFallback,
+  fetchWebsiteSource,
+} from "./source_import.ts";
+import type { SocialSourceContent } from "./types.ts";
 import { GenerationError } from "./types.ts";
 
 const corsHeaders = {
@@ -144,8 +150,10 @@ export async function handleGenerateRequest(
 
     const detection = detectPlatformAndSourceType(sourceUrl);
 
-    // Enforce post-only contract immediately after detection (BEFORE quota, connection lookup, API or AI work)
-    if (detection.sourceType !== "post") {
+    // Social profiles require account-level API access and are intentionally
+    // excluded from the paste-one-link workflow. Public posts, Maps places and
+    // public websites remain supported.
+    if (detection.sourceType === "profile") {
       throw new GenerationError(
         "PROFILE_IMPORT_NOT_SUPPORTED",
         "Profile import is not available",
@@ -192,14 +200,32 @@ export async function handleGenerateRequest(
       usageId = quota.usage_id;
     }
 
-    // Public post fetching without OAuth dependency
+    // Public source fetching without a creator-account OAuth dependency.
     const fetcher = deps?.fetcher ?? fetch;
-    const source = detection.platform === "tiktok"
-      ? await fetchTikTokSource(detection, null, fetcher)
-      : await fetchInstagramSource(detection, null, {
-        graphApiVersion: getEnv("META_GRAPH_API_VERSION"),
-        oEmbedAccessToken: getEnv("INSTAGRAM_OEMBED_ACCESS_TOKEN"),
+    let source: SocialSourceContent;
+    if (detection.platform === "google_maps") {
+      source = await fetchGoogleMapsSource(detection, {
+        apiKey: getEnv("GOOGLE_PLACES_API_KEY"),
       }, fetcher);
+    } else if (detection.platform === "website") {
+      source = await fetchWebsiteSource(detection, fetcher);
+    } else {
+      try {
+        source = detection.platform === "tiktok"
+          ? await fetchTikTokSource(detection, null, fetcher)
+          : await fetchInstagramSource(detection, null, {
+            graphApiVersion: getEnv("META_GRAPH_API_VERSION"),
+            oEmbedAccessToken: getEnv("INSTAGRAM_OEMBED_ACCESS_TOKEN"),
+          }, fetcher);
+      } catch {
+        // A valid public-post URL remains useful provenance even when the
+        // platform API, oEmbed endpoint, or page fetch is unavailable. Keep
+        // the Creator in the form with a partial editable draft.
+        source = await fetchSocialMetadataFallback(detection, fetcher, {
+          apiKey: getEnv("GOOGLE_PLACES_API_KEY"),
+        });
+      }
+    }
 
     const provider = getEnv("AI_PROVIDER")?.trim();
     const apiKey = getEnv("AI_API_KEY")?.trim() ||
@@ -212,17 +238,30 @@ export async function handleGenerateRequest(
     const model = getEnv("AI_MODEL")?.trim();
     const baseUrl = getEnv("AI_API_BASE_URL")?.trim();
 
-    const candidates = await generateStructuredRestaurantCandidates(source, {
-      provider,
-      apiKey,
-      model,
-      baseUrl,
-    }, fetcher);
+    let candidates = source.authoritativeCandidate
+      ? [source.authoritativeCandidate]
+      : [];
+    if (candidates.length === 0) {
+      try {
+        candidates = await generateStructuredRestaurantCandidates(source, {
+          provider,
+          apiKey,
+          model,
+          baseUrl,
+        }, fetcher);
+      } catch (error) {
+        if (source.fallbackCandidate) {
+          candidates = [source.fallbackCandidate];
+        } else {
+          throw error;
+        }
+      }
+    }
 
     if (candidates.length !== 1) {
       throw new GenerationError(
         "MALFORMED_AI_RESPONSE",
-        "Single-post extraction did not return one candidate",
+        "Source extraction did not return one candidate",
         502,
       );
     }
@@ -258,7 +297,7 @@ export async function handleGenerateRequest(
     const typed = error instanceof GenerationError
       ? error
       : new GenerationError(
-        "SOCIAL_API_UNAVAILABLE",
+        "SOURCE_UNAVAILABLE",
         "Source analysis failed",
         503,
       );

@@ -59,7 +59,7 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
       throw const AppException(
         code: AppErrorCode.validation,
         userMessage:
-            'Paste a valid TikTok review video or Instagram post/Reel link.',
+            'Paste a valid Google Maps, public website, Instagram post/Reel, or TikTok video link.',
       );
     }
     final detection = SocialUrlValidator.detectSource(sourceUrl);
@@ -165,7 +165,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
     if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
-        userMessage: 'Use a valid TikTok video or Instagram post/reel URL.',
+        userMessage:
+            'Use a valid Google Maps, public website, Instagram post/reel, or TikTok video URL.',
       );
     }
     final id = 'demo-restaurant-${DateTime.now().microsecondsSinceEpoch}';
@@ -224,7 +225,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
     if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
-        userMessage: 'Use a valid TikTok video or Instagram post/reel URL.',
+        userMessage:
+            'Use a valid Google Maps, public website, Instagram post/reel, or TikTok video URL.',
       );
     }
     if (imageBytes != null) {

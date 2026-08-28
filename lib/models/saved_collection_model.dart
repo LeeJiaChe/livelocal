@@ -7,6 +7,7 @@ class SavedCollectionModel {
     this.itemCount = 0,
     this.spotCount = 0,
     this.restaurantCount = 0,
+    this.externalCount = 0,
     this.coverTargetType,
     this.coverImageUrl,
     this.coverImagePath,
@@ -21,6 +22,7 @@ class SavedCollectionModel {
   final int itemCount;
   final int spotCount;
   final int restaurantCount;
+  final int externalCount;
   final String? coverTargetType;
   final String? coverImageUrl;
   final String? coverImagePath;
@@ -36,6 +38,7 @@ class SavedCollectionModel {
       itemCount: (map['item_count'] as num?)?.toInt() ?? 0,
       spotCount: (map['spot_count'] as num?)?.toInt() ?? 0,
       restaurantCount: (map['restaurant_count'] as num?)?.toInt() ?? 0,
+      externalCount: (map['external_count'] as num?)?.toInt() ?? 0,
       coverTargetType: map['cover_target_type'] as String?,
       coverImageUrl: map['cover_image_url'] as String?,
       coverImagePath: map['cover_image_path'] as String? ??
@@ -57,6 +60,7 @@ class SavedCollectionModel {
         'item_count': itemCount,
         'spot_count': spotCount,
         'restaurant_count': restaurantCount,
+        'external_count': externalCount,
         'cover_target_type': coverTargetType,
         'cover_image_url': coverImageUrl,
         'cover_image_path': coverImagePath,
@@ -73,6 +77,7 @@ class SavedCollectionModel {
     int? itemCount,
     int? spotCount,
     int? restaurantCount,
+    int? externalCount,
     String? coverTargetType,
     String? coverImageUrl,
     String? coverImagePath,
@@ -87,6 +92,7 @@ class SavedCollectionModel {
       itemCount: itemCount ?? this.itemCount,
       spotCount: spotCount ?? this.spotCount,
       restaurantCount: restaurantCount ?? this.restaurantCount,
+      externalCount: externalCount ?? this.externalCount,
       coverTargetType: coverTargetType ?? this.coverTargetType,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       coverImagePath: coverImagePath ?? this.coverImagePath,
@@ -104,6 +110,8 @@ class SavedCollectionItemModel {
     required this.addedAt,
     this.spotId,
     this.restaurantId,
+    this.externalProvider,
+    this.externalPlaceId,
   });
 
   final String id;
@@ -112,6 +120,8 @@ class SavedCollectionItemModel {
   final DateTime addedAt;
   final String? spotId;
   final String? restaurantId;
+  final String? externalProvider;
+  final String? externalPlaceId;
 
   factory SavedCollectionItemModel.fromMap(Map<String, dynamic> map) {
     return SavedCollectionItemModel(
@@ -123,6 +133,8 @@ class SavedCollectionItemModel {
           : DateTime.now(),
       spotId: map['spot_id'] as String?,
       restaurantId: map['restaurant_id'] as String?,
+      externalProvider: map['external_provider'] as String?,
+      externalPlaceId: map['external_place_id'] as String?,
     );
   }
 }
@@ -137,6 +149,7 @@ class SavedCollectionPlace {
     required this.state,
     required this.city,
     required this.categoryOrCuisine,
+    this.externalProvider,
     this.priceRange,
     this.imageUrl,
     this.rating = 0.0,
@@ -151,6 +164,7 @@ class SavedCollectionPlace {
   final String state;
   final String city;
   final String categoryOrCuisine;
+  final String? externalProvider;
   final String? priceRange;
   final String? imageUrl;
   final double rating;
@@ -159,6 +173,7 @@ class SavedCollectionPlace {
 
   bool get isSpot => targetType == 'spot';
   bool get isRestaurant => targetType == 'restaurant';
+  bool get isExternal => targetType == 'external';
 
   factory SavedCollectionPlace.fromMap(Map<String, dynamic> map) {
     return SavedCollectionPlace(
@@ -169,6 +184,7 @@ class SavedCollectionPlace {
       state: map['state'] as String? ?? '',
       city: map['city'] as String? ?? '',
       categoryOrCuisine: map['category_or_cuisine'] as String? ?? '',
+      externalProvider: map['external_provider'] as String?,
       priceRange: map['price_range'] as String?,
       imageUrl: map['image_url'] as String?,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
@@ -187,6 +203,7 @@ class SavedCollectionPlace {
         'state': state,
         'city': city,
         'category_or_cuisine': categoryOrCuisine,
+        'external_provider': externalProvider,
         'price_range': priceRange,
         'image_url': imageUrl,
         'rating': rating,
@@ -235,6 +252,7 @@ class SavedRouteCandidate {
     required this.latitude,
     required this.longitude,
     required this.categoryOrCuisine,
+    this.externalProvider,
     this.bestTime,
     this.thingsToDo,
     this.reviewedDishes,
@@ -253,6 +271,7 @@ class SavedRouteCandidate {
   final double latitude;
   final double longitude;
   final String categoryOrCuisine;
+  final String? externalProvider;
   final String? bestTime;
   final String? thingsToDo;
   final String? reviewedDishes;
@@ -263,6 +282,7 @@ class SavedRouteCandidate {
 
   bool get isSpot => targetType == 'spot';
   bool get isRestaurant => targetType == 'restaurant';
+  bool get isExternal => targetType == 'external';
 
   factory SavedRouteCandidate.fromMap(Map<String, dynamic> map) {
     return SavedRouteCandidate(
@@ -275,6 +295,7 @@ class SavedRouteCandidate {
       latitude: (map['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (map['longitude'] as num?)?.toDouble() ?? 0.0,
       categoryOrCuisine: map['category_or_cuisine'] as String? ?? '',
+      externalProvider: map['external_provider'] as String?,
       bestTime: map['best_time'] as String?,
       thingsToDo: map['things_to_do'] as String?,
       reviewedDishes: map['reviewed_dishes'] as String?,

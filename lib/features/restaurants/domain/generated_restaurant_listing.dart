@@ -1,4 +1,4 @@
-import '../../../core/validation/social_url_validator.dart';
+import '../../../core/validation/restaurant_source_url_validator.dart';
 
 class GeneratedRestaurantListing {
   const GeneratedRestaurantListing({
@@ -57,15 +57,17 @@ class GeneratedRestaurantListing {
       json['sourcePlatform'],
       'sourcePlatform',
     );
-    if (!SocialUrlValidator.supportedPlatforms.contains(sourcePlatform)) {
+    if (!RestaurantSourceUrlValidator.supportedPlatforms
+        .contains(sourcePlatform)) {
       throw const FormatException('Invalid sourcePlatform');
     }
     final sourcePostUrl = _requiredString(
       json['sourcePostUrl'],
       'sourcePostUrl',
     );
-    if (!SocialUrlValidator.isReviewPost(sourcePostUrl) ||
-        SocialUrlValidator.detectPlatform(sourcePostUrl) != sourcePlatform) {
+    if (!RestaurantSourceUrlValidator.isSupported(sourcePostUrl) ||
+        RestaurantSourceUrlValidator.detectPlatform(sourcePostUrl) !=
+            sourcePlatform) {
       throw const FormatException('Invalid sourcePostUrl');
     }
     final rawConfidence = json['confidence'];
@@ -142,11 +144,11 @@ class SocialSourceAnalysisResult {
 
   factory SocialSourceAnalysisResult.fromJson(Map<String, dynamic> json) {
     final sourceType = _requiredString(json['sourceType'], 'sourceType');
-    if (sourceType != 'post' && sourceType != 'profile') {
+    if (!const {'post', 'place', 'website'}.contains(sourceType)) {
       throw const FormatException('Invalid sourceType');
     }
     final platform = _requiredString(json['platform'], 'platform');
-    if (!SocialUrlValidator.supportedPlatforms.contains(platform)) {
+    if (!RestaurantSourceUrlValidator.supportedPlatforms.contains(platform)) {
       throw const FormatException('Invalid platform');
     }
     final rawCandidates = json['candidates'];
@@ -163,7 +165,7 @@ class SocialSourceAnalysisResult {
       }
       return candidate;
     }).toList(growable: false);
-    if (sourceType == 'post' && candidates.length != 1) {
+    if (candidates.length != 1) {
       throw const FormatException('A post must return one candidate');
     }
     return SocialSourceAnalysisResult(

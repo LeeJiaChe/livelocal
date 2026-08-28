@@ -135,7 +135,7 @@ class LocalEatsController with ChangeNotifier {
       if (requestId != _generationRequestId) return false;
       _generationError = _message(
         error,
-        'The social source could not be analysed. Please try again.',
+        'We could not read enough from this link. Retry or continue manually.',
       );
       return false;
     } finally {

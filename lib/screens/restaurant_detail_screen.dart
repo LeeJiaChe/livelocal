@@ -11,7 +11,7 @@ import '../controllers/localeats_controller.dart';
 import '../controllers/review_controller.dart';
 import '../controllers/itinerary_controller.dart';
 import '../core/routing/protected_navigation.dart';
-import '../core/validation/social_url_validator.dart';
+import '../core/validation/restaurant_source_url_validator.dart';
 import '../models/discount_code_model.dart';
 import '../models/restaurant_model.dart';
 import '../models/review_model.dart';
@@ -124,9 +124,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     final creatorName = widget.restaurant.influencerName.trim().isEmpty
         ? 'LiveLocal'
         : widget.restaurant.influencerName.trim();
-    final socialPlatform = SocialUrlValidator.platformLabel(
+    final socialPlatform = RestaurantSourceUrlValidator.platformLabel(
       widget.restaurant.socialMediaUrl,
     );
+    final isSocialSource =
+        const {'TikTok', 'Instagram'}.contains(socialPlatform);
 
     return Scaffold(
       appBar: AppBar(
@@ -230,21 +232,27 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                         : 'Recommended by $creatorName',
                     body: widget.restaurant.ownershipStatus == 'unclaimed'
                         ? 'LiveLocal maintains the public business information without creator ownership.'
-                        : 'The linked creator post supports this recommendation.',
+                        : 'The linked public source supports this recommendation.',
                   ),
                   const SizedBox(height: 12),
                   if (widget.restaurant.socialLinkStatus == 'active') ...[
                     _InfoCard(
                       icon: Icons.video_library_outlined,
-                      title: '$socialPlatform review',
-                      body:
-                          'Open the original $socialPlatform restaurant review shared by $creatorName.',
+                      title:
+                          '$socialPlatform ${isSocialSource ? 'review' : 'source'}',
+                      body: isSocialSource
+                          ? 'Open the original $socialPlatform restaurant review shared by $creatorName.'
+                          : 'Open the original $socialPlatform source used for this recommendation.',
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: _openSocialPost,
-                      icon: const Icon(Icons.play_circle_outline),
-                      label: Text('Open $socialPlatform review'),
+                      icon: Icon(isSocialSource
+                          ? Icons.play_circle_outline
+                          : Icons.open_in_new),
+                      label: Text(
+                        'Open $socialPlatform ${isSocialSource ? 'review' : 'source'}',
+                      ),
                     ),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -357,14 +365,19 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   Future<void> _openSocialPost() async {
     final value = widget.restaurant.socialMediaUrl;
-    if (!SocialUrlValidator.isReviewPost(value)) {
-      _message('This creator review link is invalid and cannot be opened.');
+    if (!RestaurantSourceUrlValidator.isSupported(value)) {
+      _message('This creator source link is invalid and cannot be opened.');
       return;
     }
-    final opened = await launchUrl(
-      Uri.parse(value),
-      mode: LaunchMode.externalApplication,
-    );
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        Uri.parse(value),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      opened = false;
+    }
     if (!mounted || opened) return;
     _message('The creator link could not be opened on this device.');
   }

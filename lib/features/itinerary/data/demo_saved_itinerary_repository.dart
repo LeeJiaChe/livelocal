@@ -295,6 +295,7 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
   Future<List<String>> fetchPlaceCollectionIds({
     required String targetType,
     required String targetId,
+    String? externalProvider,
   }) async {
     final userId = _requireUser();
     final savedPlace = _savedPlaces.firstWhere(
@@ -320,6 +321,7 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
+    String? externalProvider,
   }) async {
     final userId = _requireUser();
     _validateTarget(targetType, targetId);
@@ -477,6 +479,7 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
     required String targetType,
     required String targetId,
     required bool saved,
+    String? externalProvider,
   }) async {
     final userId = _requireUser();
     _validateTarget(targetType, targetId);

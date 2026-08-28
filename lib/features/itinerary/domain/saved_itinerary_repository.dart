@@ -20,12 +20,17 @@ class RouteOrigin {
 }
 
 class ItineraryTarget {
-  const ItineraryTarget({required this.type, required this.id});
+  const ItineraryTarget({required this.type, required this.id, this.provider});
 
   final String type;
   final String id;
+  final String? provider;
 
-  Map<String, String> toMap() => {'type': type, 'id': id};
+  Map<String, String> toMap() => {
+        'type': type,
+        'id': id,
+        if (provider != null) 'provider': provider!,
+      };
 }
 
 class SavedItinerary {
@@ -68,11 +73,13 @@ abstract interface class SavedItineraryRepository {
   Future<List<String>> fetchPlaceCollectionIds({
     required String targetType,
     required String targetId,
+    String? externalProvider,
   });
   Future<SetPlaceCollectionsResult> setPlaceCollections({
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
+    String? externalProvider,
   });
 
   Future<List<SavedRouteCandidate>> fetchSavedRouteCandidates({
@@ -85,6 +92,7 @@ abstract interface class SavedItineraryRepository {
     required String targetType,
     required String targetId,
     required bool saved,
+    String? externalProvider,
   });
 
   // Itineraries
