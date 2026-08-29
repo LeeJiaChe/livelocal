@@ -9,6 +9,10 @@ class GeneratedRestaurantListing {
     this.cuisineType,
     this.priceRange,
     this.reviewedDishes,
+    this.placeProvider,
+    this.googlePlaceId,
+    this.latitude,
+    this.longitude,
     required this.sourcePlatform,
     required this.sourcePostUrl,
     this.influencerUsername,
@@ -24,6 +28,10 @@ class GeneratedRestaurantListing {
   final String? cuisineType;
   final String? priceRange;
   final String? reviewedDishes;
+  final String? placeProvider;
+  final String? googlePlaceId;
+  final double? latitude;
+  final double? longitude;
   final String sourcePlatform;
   final String sourcePostUrl;
   final String? influencerUsername;
@@ -96,6 +104,10 @@ class GeneratedRestaurantListing {
       cuisineType: cuisineType,
       priceRange: priceRange,
       reviewedDishes: reviewedDishes,
+      placeProvider: _optionalString(json['placeProvider']),
+      googlePlaceId: _optionalString(json['googlePlaceId']),
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
       sourcePlatform: sourcePlatform,
       sourcePostUrl: sourcePostUrl,
       influencerUsername: _optionalString(json['influencerUsername']),

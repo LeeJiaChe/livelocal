@@ -1,4 +1,5 @@
 import 'external_place.dart';
+import 'place_enrichment.dart';
 
 abstract interface class PlaceProvider {
   Future<ExternalPlacePage> search({
@@ -16,4 +17,8 @@ abstract interface class PlaceProvider {
   });
 
   Future<ExternalPlace> details(String placeId);
+
+  Future<Map<String, PlaceEnrichment>> enrichments(
+    Iterable<String> placeIds,
+  );
 }

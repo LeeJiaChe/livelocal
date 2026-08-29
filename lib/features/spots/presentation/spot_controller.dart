@@ -319,6 +319,8 @@ class SpotController with ChangeNotifier {
           moderationVersion: spot.moderationVersion,
           upvoteCount: result.count,
           isUpvotedByCurrentUser: result.upvoted,
+          placeProvider: spot.placeProvider,
+          googlePlaceId: spot.googlePlaceId,
         );
       }
       _errorMessage = null;

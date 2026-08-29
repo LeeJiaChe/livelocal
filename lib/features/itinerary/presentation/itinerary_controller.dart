@@ -262,15 +262,26 @@ class ItineraryController with ChangeNotifier {
     }
   }
 
-  bool isSaved({String? spotId, String? restaurantId}) {
+  bool isSaved({
+    String? spotId,
+    String? restaurantId,
+    String? googlePlaceId,
+  }) {
     return _savedPlaces.any(
       (place) =>
           (spotId != null && place.spotId == spotId) ||
-          (restaurantId != null && place.restaurantId == restaurantId),
+          (restaurantId != null && place.restaurantId == restaurantId) ||
+          (googlePlaceId != null &&
+              place.externalProvider == 'google' &&
+              place.externalPlaceId == googlePlaceId),
     );
   }
 
-  Future<bool> toggleSave({String? spotId, String? restaurantId}) async {
+  Future<bool> toggleSave({
+    String? spotId,
+    String? restaurantId,
+    String? googlePlaceId,
+  }) async {
     if ((spotId == null) == (restaurantId == null)) {
       _errorMessage = 'Choose exactly one place to save.';
       notifyListeners();
@@ -281,6 +292,7 @@ class ItineraryController with ChangeNotifier {
     final currentlySaved = isSaved(
       spotId: spotId,
       restaurantId: restaurantId,
+      googlePlaceId: googlePlaceId,
     );
 
     try {
@@ -472,7 +484,9 @@ class ItineraryController with ChangeNotifier {
       if (stop.isSpot) {
         return {
           'title': stop.name,
-          'location': '${stop.city}, ${stop.state}',
+          'location': stop.address.isNotEmpty
+              ? stop.address
+              : '${stop.city}, ${stop.state}',
           'best_time': stop.bestTime ?? 'Anytime',
           'activity': stop.thingsToDo ?? 'Explore spot',
           'type': 'Spot (${stop.categoryOrCuisine})',
@@ -480,26 +494,50 @@ class ItineraryController with ChangeNotifier {
           'lat': stop.latitude,
           'lng': stop.longitude,
           'area': stop.city,
+          'provider': stop.externalProvider ?? '',
+          'place_id': stop.targetId,
           if (index == 0) 'day_label': 'Route overview',
         };
       }
       if (stop.isExternal) {
+        final localContext = <String>[
+          if (stop.reviewedDishes?.trim().isNotEmpty == true)
+            'Local pick: ${stop.reviewedDishes}',
+          if (stop.thingsToDo?.trim().isNotEmpty == true) stop.thingsToDo!,
+        ];
+        final hasEat = stop.reviewedDishes?.trim().isNotEmpty == true;
+        final hasSpot = stop.thingsToDo?.trim().isNotEmpty == true ||
+            stop.bestTime?.trim().isNotEmpty == true;
         return {
           'title': stop.name,
-          'location': stop.city,
-          'best_time': 'Check current opening hours',
-          'activity': 'Explore this place',
-          'type': 'Google Place (${stop.categoryOrCuisine})',
+          'location': stop.address,
+          'best_time': stop.bestTime?.trim().isNotEmpty == true
+              ? stop.bestTime!
+              : 'Check current opening hours',
+          'activity': localContext.isEmpty
+              ? 'Basic place information'
+              : localContext.join(' · '),
+          'type': hasEat && hasSpot
+              ? 'Eat + Things to Do (${stop.categoryOrCuisine})'
+              : hasEat
+                  ? 'Eat (${stop.categoryOrCuisine})'
+                  : hasSpot
+                      ? 'Things to Do (${stop.categoryOrCuisine})'
+                      : 'Google Place (${stop.categoryOrCuisine})',
           'step': 'Stop ${index + 1}',
           'lat': stop.latitude,
           'lng': stop.longitude,
           'area': stop.city,
+          'provider': stop.externalProvider ?? '',
+          'place_id': stop.targetId,
           if (index == 0) 'day_label': 'Route overview',
         };
       }
       return {
         'title': stop.name,
-        'location': '${stop.city}, ${stop.state}',
+        'location': stop.address.isNotEmpty
+            ? stop.address
+            : '${stop.city}, ${stop.state}',
         'best_time': 'Meal stop',
         'activity':
             stop.reviewedDishes != null && stop.reviewedDishes!.isNotEmpty
@@ -510,6 +548,8 @@ class ItineraryController with ChangeNotifier {
         'lat': stop.latitude,
         'lng': stop.longitude,
         'area': stop.city,
+        'provider': stop.externalProvider ?? '',
+        'place_id': stop.targetId,
         if (index == 0) 'day_label': 'Route overview',
       };
     });

@@ -114,6 +114,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         context.watch<ModerationController>().supportsUserBlocking;
     final isSaved = itineraryController.isSaved(
       restaurantId: widget.restaurant.id,
+      googlePlaceId: widget.restaurant.googlePlaceId,
     );
     final discounts = localEats.getActiveDiscountsForRestaurant(
       widget.restaurant.id,

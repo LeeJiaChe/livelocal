@@ -182,6 +182,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
           status: row['status'] as String,
           aiAssisted: row['ai_assisted'] == true,
           aiSourcePlatform: row['ai_source_platform'] as String?,
+          placeProvider: row['place_provider'] as String?,
+          googlePlaceId: row['google_place_id'] as String?,
         );
       }));
     } on PostgrestException catch (error) {
@@ -217,6 +219,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
           hasApprovedRevision: row['has_approved_revision'] as bool? ?? false,
           latitude: (row['latitude'] as num?)?.toDouble(),
           longitude: (row['longitude'] as num?)?.toDouble(),
+          placeProvider: row['place_provider'] as String?,
+          googlePlaceId: row['google_place_id'] as String?,
         );
       }));
     } on PostgrestException catch (error) {
@@ -240,7 +244,7 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     late final String imagePath;
     try {
       imagePath = await _uploadImage(imageBytes, imageMimeType);
-      final response = await _client.rpc('create_restaurant_draft', params: {
+      final response = await _client.rpc('create_restaurant_draft_v2', params: {
         'p_name': input.name,
         'p_address': input.address,
         'p_state': input.state,
@@ -254,6 +258,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         'p_longitude': input.longitude,
         'p_ai_assisted': input.aiAssisted,
         'p_ai_source_platform': input.aiSourcePlatform,
+        'p_place_provider': input.placeProvider,
+        'p_google_place_id': input.googlePlaceId,
       });
       final row = Map<String, dynamic>.from(response as Map);
       final duplicates =
@@ -319,7 +325,7 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         uploadedPath = await _uploadImage(imageBytes, imageMimeType ?? '');
       }
       final response =
-          await _client.rpc('save_restaurant_revision_draft', params: {
+          await _client.rpc('save_restaurant_revision_draft_v2', params: {
         'p_source_revision_id': source.revisionId,
         'p_name': input.name,
         'p_address': input.address,
@@ -334,6 +340,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         'p_longitude': input.longitude,
         'p_ai_assisted': input.aiAssisted,
         'p_ai_source_platform': input.aiSourcePlatform,
+        'p_place_provider': input.placeProvider,
+        'p_google_place_id': input.googlePlaceId,
       });
       return _draftResult(Map<String, dynamic>.from(response as Map));
     } on StorageException catch (error) {
@@ -477,6 +485,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
       reviewCount: (row['review_count'] as num?)?.toInt() ?? 0,
       latitude: (row['latitude'] as num?)?.toDouble(),
       longitude: (row['longitude'] as num?)?.toDouble(),
+      placeProvider: row['place_provider'] as String?,
+      googlePlaceId: row['google_place_id'] as String?,
       ownershipStatus: row['ownership_status'] as String,
       socialLinkStatus: row['social_link_status'] as String? ?? 'active',
       isOwnedByCurrentUser: isOwned,

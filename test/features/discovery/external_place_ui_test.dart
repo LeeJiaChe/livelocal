@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:live_local/features/places/domain/external_place.dart';
 import 'package:live_local/features/places/domain/place_provider.dart';
+import 'package:live_local/features/places/domain/place_enrichment.dart';
 import 'package:live_local/features/places/presentation/external_places_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -38,7 +39,7 @@ void main() {
     expect(find.text('Add to Trip'), findsOneWidget);
     expect(find.text('Open directions in Maps'), findsOneWidget);
     expect(
-      find.textContaining('LiveLocal reviews are shown only'),
+      find.textContaining('Local recommendations are contributed to LiveLocal'),
       findsOneWidget,
     );
   });
@@ -75,6 +76,11 @@ void main() {
 }
 
 class _DetailProvider implements PlaceProvider {
+  @override
+  Future<Map<String, PlaceEnrichment>> enrichments(
+    Iterable<String> placeIds,
+  ) async =>
+      const {};
   const _DetailProvider(this.place);
   final ExternalPlace place;
 
@@ -101,6 +107,11 @@ class _DetailProvider implements PlaceProvider {
 }
 
 class _FailingDetailProvider implements PlaceProvider {
+  @override
+  Future<Map<String, PlaceEnrichment>> enrichments(
+    Iterable<String> placeIds,
+  ) async =>
+      const {};
   const _FailingDetailProvider();
 
   @override

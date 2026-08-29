@@ -224,6 +224,12 @@ class SavedCollectionPlace {
     required this.state,
     required this.city,
     required this.categoryOrCuisine,
+    this.address = '',
+    this.spotId,
+    this.restaurantId,
+    this.bestTime,
+    this.thingsToDo,
+    this.reviewedDishes,
     this.externalProvider,
     this.priceRange,
     this.imageUrl,
@@ -239,6 +245,12 @@ class SavedCollectionPlace {
   final String state;
   final String city;
   final String categoryOrCuisine;
+  final String address;
+  final String? spotId;
+  final String? restaurantId;
+  final String? bestTime;
+  final String? thingsToDo;
+  final String? reviewedDishes;
   final String? externalProvider;
   final String? priceRange;
   final String? imageUrl;
@@ -259,6 +271,12 @@ class SavedCollectionPlace {
       state: map['state'] as String? ?? '',
       city: map['city'] as String? ?? '',
       categoryOrCuisine: map['category_or_cuisine'] as String? ?? '',
+      address: map['address'] as String? ?? '',
+      spotId: map['spot_id'] as String?,
+      restaurantId: map['restaurant_id'] as String?,
+      bestTime: map['best_time'] as String?,
+      thingsToDo: map['things_to_do'] as String?,
+      reviewedDishes: map['reviewed_dishes'] as String?,
       externalProvider: map['external_provider'] as String?,
       priceRange: map['price_range'] as String?,
       imageUrl: map['image_url'] as String?,
@@ -278,6 +296,12 @@ class SavedCollectionPlace {
         'state': state,
         'city': city,
         'category_or_cuisine': categoryOrCuisine,
+        'address': address,
+        'spot_id': spotId,
+        'restaurant_id': restaurantId,
+        'best_time': bestTime,
+        'things_to_do': thingsToDo,
+        'reviewed_dishes': reviewedDishes,
         'external_provider': externalProvider,
         'price_range': priceRange,
         'image_url': imageUrl,
@@ -327,6 +351,9 @@ class SavedRouteCandidate {
     required this.latitude,
     required this.longitude,
     required this.categoryOrCuisine,
+    this.address = '',
+    this.spotId,
+    this.restaurantId,
     this.externalProvider,
     this.bestTime,
     this.thingsToDo,
@@ -346,6 +373,9 @@ class SavedRouteCandidate {
   final double latitude;
   final double longitude;
   final String categoryOrCuisine;
+  final String address;
+  final String? spotId;
+  final String? restaurantId;
   final String? externalProvider;
   final String? bestTime;
   final String? thingsToDo;
@@ -370,6 +400,9 @@ class SavedRouteCandidate {
       latitude: (map['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (map['longitude'] as num?)?.toDouble() ?? 0.0,
       categoryOrCuisine: map['category_or_cuisine'] as String? ?? '',
+      address: map['address'] as String? ?? '',
+      spotId: map['spot_id'] as String?,
+      restaurantId: map['restaurant_id'] as String?,
       externalProvider: map['external_provider'] as String?,
       bestTime: map['best_time'] as String?,
       thingsToDo: map['things_to_do'] as String?,

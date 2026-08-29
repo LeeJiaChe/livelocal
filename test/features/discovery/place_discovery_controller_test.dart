@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:live_local/core/errors/app_exception.dart';
 import 'package:live_local/features/places/domain/external_place.dart';
 import 'package:live_local/features/places/domain/place_provider.dart';
+import 'package:live_local/features/places/domain/place_enrichment.dart';
 import 'package:live_local/features/places/presentation/place_discovery_controller.dart';
 import 'package:live_local/services/location_service.dart';
 
@@ -141,6 +142,11 @@ ExternalPlace _place(String id, String name) => ExternalPlace(
     );
 
 class _FakePlaceProvider implements PlaceProvider {
+  @override
+  Future<Map<String, PlaceEnrichment>> enrichments(
+    Iterable<String> placeIds,
+  ) async =>
+      const {};
   final pages = <ExternalPlacePage>[];
   final searchPageTokens = <String?>[];
   Object? error;
@@ -180,6 +186,11 @@ class _FakePlaceProvider implements PlaceProvider {
 }
 
 class _CompleterPlaceProvider implements PlaceProvider {
+  @override
+  Future<Map<String, PlaceEnrichment>> enrichments(
+    Iterable<String> placeIds,
+  ) async =>
+      const {};
   final completers = <Completer<ExternalPlacePage>>[];
 
   @override

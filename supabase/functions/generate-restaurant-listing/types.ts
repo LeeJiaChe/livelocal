@@ -40,6 +40,10 @@ export type GeneratedRestaurantListing = {
   cuisineType: string | null;
   priceRange: string | null;
   reviewedDishes: string[];
+  placeProvider?: "google" | null;
+  googlePlaceId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   sourcePlatform: SocialPlatform;
   sourcePostUrl: string;
   influencerUsername: string | null;

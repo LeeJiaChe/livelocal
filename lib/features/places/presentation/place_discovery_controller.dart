@@ -6,6 +6,7 @@ import '../../../core/errors/app_exception.dart';
 import '../../../services/location_service.dart';
 import '../domain/external_place.dart';
 import '../domain/place_provider.dart';
+import '../domain/place_enrichment.dart';
 
 class PlaceDiscoveryController with ChangeNotifier {
   PlaceDiscoveryController({
@@ -17,6 +18,7 @@ class PlaceDiscoveryController with ChangeNotifier {
   final PlaceProvider _provider;
   final CurrentLocationService _locationService;
   final List<ExternalPlace> _places = [];
+  final Map<String, PlaceEnrichment> _enrichments = {};
   Timer? _debounce;
   int _requestId = 0;
   String _query = '';
@@ -29,6 +31,10 @@ class PlaceDiscoveryController with ChangeNotifier {
   bool _isNearby = false;
 
   List<ExternalPlace> get places => List.unmodifiable(_places);
+  Map<String, PlaceEnrichment> get enrichments =>
+      Map.unmodifiable(_enrichments);
+
+  PlaceEnrichment? enrichmentFor(String placeId) => _enrichments[placeId];
   String get query => _query;
   String? get category => _category;
   String? get errorMessage => _errorMessage;
@@ -47,6 +53,7 @@ class PlaceDiscoveryController with ChangeNotifier {
     // than allowing the previous query to paint during the debounce window.
     _requestId += 1;
     _places.clear();
+    _enrichments.clear();
     _nextPageToken = null;
     _errorMessage = null;
     _isLoadingMore = false;
@@ -88,6 +95,9 @@ class PlaceDiscoveryController with ChangeNotifier {
       _places
         ..clear()
         ..addAll(page.places);
+      _enrichments
+        ..clear()
+        ..addAll(await _safeEnrichments(page.places));
       _nextPageToken = page.nextPageToken;
     } catch (error) {
       if (requestId != _requestId) return;
@@ -119,6 +129,7 @@ class PlaceDiscoveryController with ChangeNotifier {
       _places.addAll(
         page.places.where((place) => identities.add(place.providerIdentity)),
       );
+      _enrichments.addAll(await _safeEnrichments(page.places));
       _nextPageToken = page.nextPageToken;
     } catch (error) {
       if (requestId == _requestId) {
@@ -162,6 +173,9 @@ class PlaceDiscoveryController with ChangeNotifier {
       _places
         ..clear()
         ..addAll(values);
+      _enrichments
+        ..clear()
+        ..addAll(await _safeEnrichments(values));
     } catch (error) {
       if (requestId != _requestId) return;
       _places.clear();
@@ -191,4 +205,16 @@ class PlaceDiscoveryController with ChangeNotifier {
 
   String _message(Object error, String fallback) =>
       error is AppException ? error.userMessage : fallback;
+
+  Future<Map<String, PlaceEnrichment>> _safeEnrichments(
+    Iterable<ExternalPlace> places,
+  ) async {
+    try {
+      return await _provider.enrichments(
+        places.map((place) => place.placeId),
+      );
+    } catch (_) {
+      return const {};
+    }
+  }
 }

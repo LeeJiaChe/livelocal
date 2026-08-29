@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/errors/app_exception.dart';
 import '../domain/external_place.dart';
 import '../domain/place_provider.dart';
+import '../domain/place_enrichment.dart';
 
 class SupabaseGooglePlacesProvider implements PlaceProvider {
   SupabaseGooglePlacesProvider(this._client);
@@ -86,6 +87,36 @@ class SupabaseGooglePlacesProvider implements PlaceProvider {
       if (place != null) result[placeId] = place;
     }
     return result;
+  }
+
+  @override
+  Future<Map<String, PlaceEnrichment>> enrichments(
+    Iterable<String> placeIds,
+  ) async {
+    final ids = placeIds.toSet().take(20).toList(growable: false);
+    if (ids.isEmpty) return const {};
+    try {
+      final response = await _client.rpc(
+        'lookup_place_enrichments',
+        params: {'p_google_place_ids': ids},
+      );
+      final rows = response as List<dynamic>? ?? const [];
+      final result = <String, PlaceEnrichment>{};
+      for (final raw in rows.whereType<Map>()) {
+        final value = PlaceEnrichment.fromJson(Map<String, dynamic>.from(raw));
+        if (value.googlePlaceId.isNotEmpty) {
+          result[value.googlePlaceId] = value;
+        }
+      }
+      return result;
+    } on PostgrestException catch (error) {
+      throw AppException(
+        code: AppErrorCode.unavailable,
+        userMessage: 'Local insight could not be loaded right now.',
+        technicalMessage: error.message,
+        cause: error,
+      );
+    }
   }
 
   List<ExternalPlace> _places(Object? raw) {
@@ -199,4 +230,10 @@ class UnavailablePlaceProvider implements PlaceProvider {
     String? pageToken,
   }) =>
       Future.error(_error);
+
+  @override
+  Future<Map<String, PlaceEnrichment>> enrichments(
+    Iterable<String> placeIds,
+  ) async =>
+      const {};
 }

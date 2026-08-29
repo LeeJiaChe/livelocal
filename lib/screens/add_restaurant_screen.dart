@@ -14,6 +14,9 @@ import '../core/validation/social_url_validator.dart';
 import '../features/restaurants/domain/generated_restaurant_listing.dart';
 import '../features/restaurants/domain/local_eats_repository.dart';
 import '../features/restaurants/domain/restaurant_taxonomy.dart';
+import '../features/places/domain/external_place.dart';
+import '../features/places/domain/place_provider.dart';
+import '../features/places/presentation/google_place_search_sheet.dart';
 import '../models/restaurant_model.dart';
 import '../shared/presentation/contributions/contribution_header.dart';
 import '../shared/presentation/contributions/contribution_image_picker.dart';
@@ -23,9 +26,10 @@ import '../shared/presentation/contributions/contribution_section.dart';
 import '../shared/presentation/contributions/contribution_success_view.dart';
 
 class AddRestaurantScreen extends StatefulWidget {
-  const AddRestaurantScreen({super.key, this.source});
+  const AddRestaurantScreen({super.key, this.source, this.initialPlace});
 
   final RestaurantModel? source;
+  final ExternalPlace? initialPlace;
 
   @override
   State<AddRestaurantScreen> createState() => _AddRestaurantScreenState();
@@ -38,6 +42,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _city = TextEditingController();
+  final _latitude = TextEditingController();
+  final _longitude = TextEditingController();
   final _dishes = TextEditingController();
   final _socialUrl = TextEditingController();
   final _cuisine = TextEditingController();
@@ -55,8 +61,16 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   bool _submittedSuccess = false;
   bool _aiAssisted = false;
   String? _aiSourcePlatform;
+  ExternalPlace? _selectedPlace;
+  bool _placeConfirmed = false;
+  late bool _useCustomPlace;
 
   bool get _isRevision => widget.source != null;
+  bool get _allowsLegacyMissingPin =>
+      _isRevision &&
+      widget.source?.googlePlaceId == null &&
+      widget.source?.latitude == null &&
+      widget.source?.longitude == null;
 
   @override
   void initState() {
@@ -67,6 +81,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     final source = widget.source;
     _aiAssisted = source?.aiAssisted ?? false;
     _aiSourcePlatform = source?.aiSourcePlatform;
+    _useCustomPlace = source != null && source.googlePlaceId == null;
     _displayState =
         source != null ? MalaysiaStates.toDisplay(source.state) : null;
     _states = MalaysiaStates.getDisplayList(
@@ -74,14 +89,31 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     );
     _cuisine.text = source?.cuisineType ?? '';
 
-    if (source == null) return;
+    if (source == null) {
+      final initialPlace = widget.initialPlace;
+      if (initialPlace != null) {
+        _selectedPlace = initialPlace;
+        _name.text = initialPlace.name;
+        _address.text = initialPlace.formattedAddress;
+        _latitude.text = initialPlace.latitude.toString();
+        _longitude.text = initialPlace.longitude.toString();
+      }
+      return;
+    }
     _name.text = source.name;
     _address.text = source.address;
     _city.text = source.city;
+    _latitude.text = source.latitude?.toString() ?? '';
+    _longitude.text = source.longitude?.toString() ?? '';
     _dishes.text = source.reviewedDishes;
     _socialUrl.text = source.socialMediaUrl;
     _price = source.priceRange;
     _imageRightsConfirmed = true;
+    if (source.googlePlaceId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadLinkedPlace(source.googlePlaceId!);
+      });
+    }
   }
 
   @override
@@ -91,6 +123,8 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     _name.dispose();
     _address.dispose();
     _city.dispose();
+    _latitude.dispose();
+    _longitude.dispose();
     _dishes.dispose();
     _socialUrl.dispose();
     _cuisine.dispose();
@@ -565,6 +599,92 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
               const SizedBox(height: AppSpacing.x2),
             ],
 
+            ContributionSection(
+              title: 'Place',
+              subtitle: _useCustomPlace
+                  ? 'LiveLocal custom food place'
+                  : 'Confirm the real-world restaurant before adding your insight.',
+              children: [
+                if (_selectedPlace == null && !_useCustomPlace)
+                  FilledButton.icon(
+                    key: const Key('restaurant_choose_google_place'),
+                    onPressed: _chooseGooglePlace,
+                    icon: const Icon(Icons.search),
+                    label: const Text('Find the restaurant'),
+                  )
+                else if (_selectedPlace != null)
+                  Card(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.x2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('PLACE',
+                              style: Theme.of(context).textTheme.labelMedium),
+                          const SizedBox(height: 4),
+                          Text(
+                            _selectedPlace!.name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          Text(_selectedPlace!.formattedAddress),
+                          const SizedBox(height: AppSpacing.x1),
+                          if (!_placeConfirmed)
+                            FilledButton(
+                              key: const Key('restaurant_confirm_google_place'),
+                              onPressed: () =>
+                                  setState(() => _placeConfirmed = true),
+                              child: const Text('Confirm this place'),
+                            )
+                          else
+                            const Row(
+                              children: [
+                                Icon(Icons.verified_outlined, size: 18),
+                                SizedBox(width: 6),
+                                Text('Place confirmed'),
+                              ],
+                            ),
+                          TextButton(
+                            onPressed: _chooseGooglePlace,
+                            child: const Text('Choose another place'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (!_useCustomPlace)
+                  TextButton(
+                    key: const Key('restaurant_custom_place_fallback'),
+                    onPressed: () => setState(() {
+                      _useCustomPlace = true;
+                      _selectedPlace = null;
+                      _placeConfirmed = false;
+                    }),
+                    child: const Text(
+                      "Can't find it on Google? Add an uncommon custom food place",
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Use this only for a genuine stall or business not listed on Google.',
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _chooseGooglePlace,
+                        child: const Text('Search Google'),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.x2),
+
             // BASICS SECTION
             ContributionSection(
               title: 'Restaurant info',
@@ -749,6 +869,34 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   maxLength: 300,
                   key: const Key('restaurant_address_field'),
                 ),
+                if (_useCustomPlace) ...[
+                  const SizedBox(height: AppSpacing.x2),
+                  const Text(
+                    'Pin coordinates are required so this uncommon food place can be saved, routed, and opened in Maps.',
+                  ),
+                  const SizedBox(height: AppSpacing.x1),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _coordinateField(
+                          _latitude,
+                          'Latitude',
+                          minimum: -90,
+                          maximum: 90,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.x2),
+                      Expanded(
+                        child: _coordinateField(
+                          _longitude,
+                          'Longitude',
+                          minimum: -180,
+                          maximum: 180,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: AppSpacing.x2),
@@ -1049,6 +1197,21 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
           const [r'$', r'$$', r'$$$', r'$$$$'].contains(candidate.priceRange)
               ? candidate.priceRange!
               : _price;
+      if (candidate.placeProvider == 'google' &&
+          candidate.googlePlaceId != null &&
+          candidate.latitude != null &&
+          candidate.longitude != null) {
+        _selectedPlace = ExternalPlace(
+          provider: 'google',
+          placeId: candidate.googlePlaceId!,
+          name: candidate.restaurantName ?? _name.text,
+          formattedAddress: candidate.address ?? _address.text,
+          latitude: candidate.latitude!,
+          longitude: candidate.longitude!,
+        );
+        _placeConfirmed = false;
+        _useCustomPlace = false;
+      }
     });
   }
 
@@ -1153,8 +1316,42 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     );
   }
 
+  Widget _coordinateField(
+    TextEditingController controller,
+    String label, {
+    required double minimum,
+    required double maximum,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(
+        signed: true,
+        decimal: true,
+      ),
+      decoration: InputDecoration(labelText: label),
+      validator: (value) {
+        if (_allowsLegacyMissingPin &&
+            _latitude.text.trim().isEmpty &&
+            _longitude.text.trim().isEmpty) {
+          return null;
+        }
+        final coordinate = double.tryParse(value?.trim() ?? '');
+        if (coordinate == null ||
+            coordinate < minimum ||
+            coordinate > maximum) {
+          return 'Enter $minimum to $maximum.';
+        }
+        return null;
+      },
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_useCustomPlace && (_selectedPlace == null || !_placeConfirmed)) {
+      _message('Choose and confirm the exact restaurant before submitting.');
+      return;
+    }
     final sourceCover = widget.source?.coverPhotoUrl;
     final hasExistingCover =
         sourceCover != null && sourceCover.trim().isNotEmpty;
@@ -1186,6 +1383,12 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       socialMediaUrl: _socialUrl.text.trim(),
       aiAssisted: _aiAssisted,
       aiSourcePlatform: _aiSourcePlatform,
+      latitude:
+          _selectedPlace?.latitude ?? double.tryParse(_latitude.text.trim()),
+      longitude:
+          _selectedPlace?.longitude ?? double.tryParse(_longitude.text.trim()),
+      placeProvider: _selectedPlace?.provider,
+      googlePlaceId: _selectedPlace?.placeId,
     );
 
     final controller = context.read<LocalEatsController>();
@@ -1225,6 +1428,46 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     setState(() {
       _submitting = false;
       _submittedSuccess = true;
+    });
+  }
+
+  Future<void> _loadLinkedPlace(String placeId) async {
+    try {
+      final place = await context.read<PlaceProvider>().details(placeId);
+      if (!mounted) return;
+      setState(() {
+        _selectedPlace = place;
+        _placeConfirmed = true;
+      });
+    } catch (_) {
+      // The existing revision remains intact. Choosing the place again retries
+      // provider resolution without silently changing identity.
+    }
+  }
+
+  Future<void> _chooseGooglePlace() async {
+    final place = await GooglePlaceSearchSheet.show(
+      context,
+      title: 'Find the restaurant',
+      hintText: 'Search restaurant name and city',
+    );
+    if (place == null || !mounted) return;
+    setState(() {
+      _selectedPlace = place;
+      _placeConfirmed = false;
+      _useCustomPlace = false;
+      _name.text = place.name;
+      _address.text = place.formattedAddress;
+      _latitude.text = place.latitude.toString();
+      _longitude.text = place.longitude.toString();
+      final lowerAddress = place.formattedAddress.toLowerCase();
+      for (final option in MalaysiaStates.options) {
+        if (lowerAddress.contains(option.rawValue.toLowerCase()) ||
+            lowerAddress.contains(option.displayName.toLowerCase())) {
+          _displayState = option.displayName;
+          break;
+        }
+      }
     });
   }
 

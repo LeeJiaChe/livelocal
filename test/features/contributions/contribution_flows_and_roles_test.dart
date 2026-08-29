@@ -438,7 +438,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Fill in stop 1 & 2 as custom stops
-      final customSegments = find.text('Custom stop');
+      final customSegments = find.text('Custom');
       expect(customSegments, findsNWidgets(2));
       await tester.tap(customSegments.first);
       await tester.tap(customSegments.last);

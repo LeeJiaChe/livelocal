@@ -184,13 +184,23 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
         params: {'p_collection_id': collectionId},
       );
       final list = (response as List<dynamic>?) ?? [];
+      final parsed = list
+          .whereType<Map>()
+          .map((raw) => SavedCollectionPlace.fromMap(
+                Map<String, dynamic>.from(raw),
+              ))
+          .toList(growable: false);
+      final externalPlaces = await _externalDetails(
+        parsed
+            .where((place) => place.isExternal)
+            .map((place) => place.targetId)
+            .toSet(),
+      );
       final results = <SavedCollectionPlace>[];
-      for (final raw in list) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        final place = SavedCollectionPlace.fromMap(row);
+      for (final place in parsed) {
         if (place.isExternal) {
-          try {
-            final external = await _placeProvider.details(place.targetId);
+          final external = externalPlaces[place.targetId];
+          if (external != null) {
             results.add(
               SavedCollectionPlace(
                 savedPlaceId: place.savedPlaceId,
@@ -199,16 +209,24 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
                 externalProvider: external.provider,
                 name: external.name,
                 state: 'Malaysia',
-                city: external.formattedAddress,
-                categoryOrCuisine:
-                    external.primaryType?.replaceAll('_', ' ') ?? 'Place',
+                city: place.city,
+                address: external.formattedAddress,
+                categoryOrCuisine: place.categoryOrCuisine.isNotEmpty
+                    ? place.categoryOrCuisine
+                    : external.primaryType?.replaceAll('_', ' ') ?? 'Place',
+                spotId: place.spotId,
+                restaurantId: place.restaurantId,
+                bestTime: place.bestTime,
+                thingsToDo: place.thingsToDo,
+                reviewedDishes: place.reviewedDishes,
                 priceRange: external.priceLevel,
+                imageUrl: external.imageUrl,
                 rating: external.rating ?? 0,
                 reviewCount: external.userRatingCount ?? 0,
                 addedAt: place.addedAt,
               ),
             );
-          } catch (_) {
+          } else {
             results.add(
               SavedCollectionPlace(
                 savedPlaceId: place.savedPlaceId,
@@ -218,7 +236,13 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
                 name: 'Google place – tap to retry',
                 state: 'Malaysia',
                 city: 'Current details could not be loaded',
+                address: place.address,
                 categoryOrCuisine: 'External place',
+                spotId: place.spotId,
+                restaurantId: place.restaurantId,
+                bestTime: place.bestTime,
+                thingsToDo: place.thingsToDo,
+                reviewedDishes: place.reviewedDishes,
                 addedAt: place.addedAt,
               ),
             );
@@ -238,6 +262,12 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
             state: place.state,
             city: place.city,
             categoryOrCuisine: place.categoryOrCuisine,
+            address: place.address,
+            spotId: place.spotId,
+            restaurantId: place.restaurantId,
+            bestTime: place.bestTime,
+            thingsToDo: place.thingsToDo,
+            reviewedDishes: place.reviewedDishes,
             externalProvider: place.externalProvider,
             priceRange: place.priceRange,
             imageUrl: signedUrl.isNotEmpty ? signedUrl : place.imageUrl,
@@ -314,13 +344,23 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
         params: params,
       );
       final list = (response as List<dynamic>?) ?? [];
+      final parsed = list
+          .whereType<Map>()
+          .map((raw) => SavedRouteCandidate.fromMap(
+                Map<String, dynamic>.from(raw),
+              ))
+          .toList(growable: false);
+      final externalPlaces = await _externalDetails(
+        parsed
+            .where((candidate) => candidate.isExternal)
+            .map((candidate) => candidate.targetId)
+            .toSet(),
+      );
       final results = <SavedRouteCandidate>[];
-      for (final raw in list) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        final candidate = SavedRouteCandidate.fromMap(row);
+      for (final candidate in parsed) {
         if (candidate.isExternal) {
-          try {
-            final external = await _placeProvider.details(candidate.targetId);
+          final external = externalPlaces[candidate.targetId];
+          if (external != null) {
             results.add(
               SavedRouteCandidate(
                 savedPlaceId: candidate.savedPlaceId,
@@ -329,19 +369,23 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
                 externalProvider: external.provider,
                 name: external.name,
                 state: 'Malaysia',
-                city: external.formattedAddress,
+                city: candidate.city,
+                address: external.formattedAddress,
                 latitude: external.latitude,
                 longitude: external.longitude,
-                categoryOrCuisine:
-                    external.primaryType?.replaceAll('_', ' ') ?? 'Place',
+                categoryOrCuisine: candidate.categoryOrCuisine.isNotEmpty
+                    ? candidate.categoryOrCuisine
+                    : external.primaryType?.replaceAll('_', ' ') ?? 'Place',
+                spotId: candidate.spotId,
+                restaurantId: candidate.restaurantId,
+                bestTime: candidate.bestTime,
+                thingsToDo: candidate.thingsToDo,
+                reviewedDishes: candidate.reviewedDishes,
                 priceRange: external.priceLevel,
                 rating: external.rating ?? 0,
                 reviewCount: external.userRatingCount ?? 0,
               ),
             );
-          } catch (_) {
-            // Keep other saved stops usable when one provider detail request
-            // fails. The next route attempt resolves this identity again.
           }
           continue;
         }
@@ -360,6 +404,9 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
             latitude: candidate.latitude,
             longitude: candidate.longitude,
             categoryOrCuisine: candidate.categoryOrCuisine,
+            address: candidate.address,
+            spotId: candidate.spotId,
+            restaurantId: candidate.restaurantId,
             externalProvider: candidate.externalProvider,
             bestTime: candidate.bestTime,
             thingsToDo: candidate.thingsToDo,

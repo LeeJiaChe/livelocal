@@ -3,10 +3,12 @@ import 'package:live_local/core/localization/localized_text.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app/theme/app_spacing.dart';
 import '../controllers/itinerary_controller.dart';
 import '../features/itinerary/domain/saved_itinerary_repository.dart';
+import '../features/itinerary/domain/google_maps_route.dart';
 import '../widgets/timeline_step_card.dart';
 
 class ItineraryScreen extends StatefulWidget {
@@ -130,6 +132,16 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
+                  ),
+                  const SizedBox(height: AppSpacing.x1),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      key: ValueKey('open_google_route_${entry.key}'),
+                      onPressed: () => _openRoute(entry.value),
+                      icon: const Icon(Icons.navigation_outlined),
+                      label: const Text('Open route in Google Maps'),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.x1),
                   ...List.generate(entry.value.length, (index) {
@@ -268,16 +280,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                           userAgentPackageName: 'com.livelocal.app',
                         ),
-                        if (validPoints.length > 1)
-                          PolylineLayer(
-                            polylines: [
-                              Polyline(
-                                points: validPoints,
-                                color: Theme.of(context).colorScheme.primary,
-                                strokeWidth: 3.5,
-                              ),
-                            ],
-                          ),
                         MarkerLayer(markers: markers),
                       ],
                     ),
@@ -293,6 +295,10 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                     ),
                   ),
                 ),
+              const SizedBox(height: AppSpacing.x2),
+              const Text(
+                'Numbered markers show stop order only. Google Maps provides the real road route and navigation.',
+              ),
               const SizedBox(height: AppSpacing.x2),
               Text(
                 'Day breakdown',
@@ -318,7 +324,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                       '${daySteps.length} stops',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    children: daySteps.map((step) {
+                    children: daySteps.map<Widget>((step) {
                       final title = step['title'] as String;
                       final type = step['type'] as String;
                       final location = step['location'] as String;
@@ -370,7 +376,26 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                           ),
                         ),
                       );
-                    }).toList(),
+                    }).toList()
+                      ..insert(
+                        0,
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.x2,
+                            0,
+                            AppSpacing.x2,
+                            AppSpacing.x1,
+                          ),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.tonalIcon(
+                              onPressed: () => _openRoute(daySteps),
+                              icon: const Icon(Icons.navigation_outlined),
+                              label: const Text('Open route in Google Maps'),
+                            ),
+                          ),
+                        ),
+                      ),
                   ),
                 );
               }),
@@ -379,6 +404,30 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openRoute(List<Map<String, Object>> steps) async {
+    final stops = steps.map((step) {
+      return GoogleMapsRouteStop(
+        name: step['title'] as String,
+        latitude: step['lat'] as double,
+        longitude: step['lng'] as double,
+        googlePlaceId:
+            (step['provider'] == 'google') ? step['place_id'] as String? : null,
+      );
+    }).toList(growable: false);
+    final uri = GoogleMapsRouteHandoff.build(stops);
+    var opened = false;
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google Maps could not be opened.')),
+      );
+    }
   }
 
   Future<void> _chooseOriginAndCreate() async {

@@ -337,6 +337,10 @@ export function mergeGeneratedWithFallback(
     reviewedDishes: generated.reviewedDishes.length > 0
       ? generated.reviewedDishes
       : fallback?.reviewedDishes ?? [],
+    placeProvider: fallback?.placeProvider ?? null,
+    googlePlaceId: fallback?.googlePlaceId ?? null,
+    latitude: fallback?.latitude ?? null,
+    longitude: fallback?.longitude ?? null,
     sourcePlatform: generated.sourcePlatform,
     sourcePostUrl: generated.sourcePostUrl,
     influencerUsername: generated.influencerUsername ??
@@ -569,6 +573,16 @@ function candidateFromGooglePlace(
       : null,
     priceRange: googlePrice(raw.priceLevel),
     reviewedDishes: [],
+    placeProvider: typeof raw.id === "string" ? "google" : null,
+    googlePlaceId: typeof raw.id === "string" ? raw.id : null,
+    latitude: raw.location && typeof raw.location === "object" &&
+        typeof (raw.location as Record<string, unknown>).latitude === "number"
+      ? (raw.location as Record<string, number>).latitude
+      : null,
+    longitude: raw.location && typeof raw.location === "object" &&
+        typeof (raw.location as Record<string, unknown>).longitude === "number"
+      ? (raw.location as Record<string, number>).longitude
+      : null,
     sourcePlatform: "google_maps",
     sourcePostUrl: sourceUrl,
     influencerUsername: null,

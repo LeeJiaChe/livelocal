@@ -204,6 +204,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
         isOwnedByCurrentUser: true,
         aiAssisted: input.aiAssisted,
         aiSourcePlatform: input.aiSourcePlatform,
+        placeProvider: input.placeProvider,
+        googlePlaceId: input.googlePlaceId,
       ),
     );
     _currentRevisionIds[id] = revisionId;
@@ -287,6 +289,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
       ),
       aiAssisted: input.aiAssisted,
       aiSourcePlatform: input.aiSourcePlatform,
+      placeProvider: input.placeProvider,
+      googlePlaceId: input.googlePlaceId,
     );
     if (revised.coverPhotoUrl.isEmpty) {
       throw const AppException(
@@ -622,6 +626,10 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
       isOwnedByCurrentUser: isOwnedByCurrentUser ?? value.isOwnedByCurrentUser,
       decisionReason: value.decisionReason,
       hasApprovedRevision: value.hasApprovedRevision,
+      aiAssisted: value.aiAssisted,
+      aiSourcePlatform: value.aiSourcePlatform,
+      placeProvider: value.placeProvider,
+      googlePlaceId: value.googlePlaceId,
     );
   }
 }

@@ -831,16 +831,16 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.byType(ExploreHubScreen), findsOneWidget);
-      expect(find.widgetWithText(Tab, 'All'), findsOneWidget);
-      expect(find.widgetWithText(Tab, 'Places'), findsOneWidget);
-      expect(find.widgetWithText(Tab, 'Spots'), findsOneWidget);
-      expect(find.widgetWithText(Tab, 'Eats'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Discover'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Eat'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Things to Do'), findsOneWidget);
       expect(find.widgetWithText(Tab, 'Guides'), findsOneWidget);
-      expect(find.byKey(const Key('explore_all_tab')), findsOneWidget);
-
-      await tester.tap(find.widgetWithText(Tab, 'Places'));
-      await tester.pumpAndSettle();
       expect(find.byType(ExternalPlacesScreen), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(Tab, 'Eat'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(LocalEatsScreen), findsOneWidget);
 
       final tabs = DefaultTabController.of(
         tester.element(find.byKey(const Key('explore_section_tabs'))),
@@ -853,17 +853,12 @@ void main() {
       tabs.animateTo(3, duration: Duration.zero);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.byType(LocalEatsScreen), findsOneWidget);
-
-      tabs.animateTo(4, duration: Duration.zero);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(NeighbourhoodExplorerScreen), findsOneWidget);
 
       tabs.animateTo(0, duration: Duration.zero);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.byKey(const Key('explore_all_tab')), findsOneWidget);
+      expect(find.byType(ExternalPlacesScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       await tester.tap(find.widgetWithText(NavigationDestination, 'Trips'));
