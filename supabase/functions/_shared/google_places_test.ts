@@ -14,6 +14,7 @@ Deno.test("Google Places field masks remain narrow and never request broad wildc
   equal(SEARCH_FIELD_MASK.includes("places.id"), true);
   equal(SEARCH_FIELD_MASK.includes("places.location"), true);
   equal(DETAILS_FIELD_MASK.includes("googleMapsUri"), true);
+  equal(DETAILS_FIELD_MASK.includes("photos.name"), true);
   equal(DETAILS_FIELD_MASK.includes("reviews"), false);
 });
 
@@ -90,6 +91,43 @@ Deno.test("Place Details accepts only normalized provider IDs", async () => {
   );
   equal(response.status, 400);
   equal((await response.json()).error.code, "INVALID_PLACE_ID");
+});
+
+Deno.test("Place Details batches bounded cover previews and maps photo URIs", async () => {
+  let detailCalls = 0;
+  let photoCalls = 0;
+  const response = await handlePlaceDetails(
+    request({ placeIds: ["ChIJPlaceOne123", "ChIJPlaceTwo456"] }),
+    {
+      env: { GOOGLE_PLACES_API_KEY: "server-secret" },
+      fetcher: (input) => {
+        const url = input.toString();
+        if (url.includes("/media")) {
+          photoCalls += 1;
+          return Promise.resolve(Response.json({
+            photoUri: `https://lh3.googleusercontent.com/place-${photoCalls}`,
+          }));
+        }
+        detailCalls += 1;
+        const id = url.includes("PlaceOne")
+          ? "ChIJPlaceOne123"
+          : "ChIJPlaceTwo456";
+        return Promise.resolve(Response.json({
+          id,
+          displayName: { text: `Place ${detailCalls}` },
+          formattedAddress: "Malaysia",
+          location: { latitude: 3.14, longitude: 101.69 },
+          photos: [{ name: `places/${id}/photos/PhotoResource123` }],
+        }));
+      },
+    },
+  );
+  equal(response.status, 200);
+  const data = await response.json();
+  equal(data.places.length, 2);
+  equal(detailCalls, 2);
+  equal(photoCalls, 2);
+  equal(data.places[0].imageUrl.startsWith("https://"), true);
 });
 
 function request(body: unknown): Request {

@@ -22,8 +22,9 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
 
   @override
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  ) async {
+    String sourceUrl, {
+    String? restaurantName,
+  }) async {
     if (!RestaurantSourceUrlValidator.isSupported(sourceUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
@@ -41,7 +42,11 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     try {
       final response = await _client.functions.invoke(
         'generate-restaurant-listing',
-        body: {'sourceUrl': sourceUrl.trim()},
+        body: {
+          'sourceUrl': sourceUrl.trim(),
+          if (restaurantName?.trim().isNotEmpty == true)
+            'restaurantName': restaurantName!.trim(),
+        },
       ).timeout(const Duration(seconds: 50));
       if (response.data is! Map) {
         throw const FormatException('Generation response is not an object');
@@ -624,6 +629,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     final message = switch (code) {
       'INVALID_SOURCE_URL' =>
         'Paste a public Google Maps, website, Instagram post/Reel, or TikTok video link.',
+      'INVALID_RESTAURANT_NAME' =>
+        'Enter a restaurant name between 2 and 120 characters.',
       'AUTHENTICATION_REQUIRED' ||
       'SESSION_EXPIRED' =>
         'Your session has expired. Sign in and try again.',
@@ -634,9 +641,9 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
       'SOCIAL_API_NOT_CONFIGURED' =>
         'Social-media import is not configured yet. Please contact support.',
       'POST_UNAVAILABLE' =>
-        'We could not read enough from that post. Any recovered details remain editable below.',
+        'That social post may be private or inaccessible. Retry, identify the restaurant by name, or continue manually.',
       'SOCIAL_API_UNAVAILABLE' =>
-        'The social platform is temporarily unavailable. Please try again.',
+        'The social platform is temporarily unavailable. Retry or identify the restaurant by name.',
       'NO_RESTAURANT_REVIEWS' =>
         'No likely restaurant-review posts were found in the recent posts.',
       'AI_QUOTA_UNAVAILABLE' ||

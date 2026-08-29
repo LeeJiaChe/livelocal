@@ -61,7 +61,9 @@ export async function handleSearchPlaces(
       },
     );
     const places = Array.isArray(data.places)
-      ? data.places.map(mapPlace).filter((place) => place !== null)
+      ? data.places.map((raw) => mapPlace(raw)).filter((place) =>
+        place !== null
+      )
       : [];
     return jsonReply({
       places,

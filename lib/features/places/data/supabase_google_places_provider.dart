@@ -59,6 +59,35 @@ class SupabaseGooglePlacesProvider implements PlaceProvider {
     return place;
   }
 
+  Future<Map<String, ExternalPlace>> detailsMany(
+    Iterable<String> placeIds,
+  ) async {
+    final requested = placeIds.toSet().toList(growable: false);
+    final unresolved = requested
+        .where((placeId) => !_detailsCache.containsKey(placeId))
+        .toList(growable: false);
+    for (var offset = 0; offset < unresolved.length; offset += 20) {
+      final end =
+          offset + 20 < unresolved.length ? offset + 20 : unresolved.length;
+      final batch = unresolved.sublist(offset, end);
+      final data = await _invoke('place-details', {'placeIds': batch});
+      final rawPlaces = data['places'];
+      if (rawPlaces is! List) {
+        throw const FormatException('Place details list missing');
+      }
+      for (final raw in rawPlaces.whereType<Map>()) {
+        final place = ExternalPlace.fromJson(Map<String, dynamic>.from(raw));
+        _detailsCache[place.placeId] = place;
+      }
+    }
+    final result = <String, ExternalPlace>{};
+    for (final placeId in requested) {
+      final place = _detailsCache[placeId];
+      if (place != null) result[placeId] = place;
+    }
+    return result;
+  }
+
   List<ExternalPlace> _places(Object? raw) {
     if (raw is! List) throw const FormatException('Places list missing');
     final identities = <String>{};

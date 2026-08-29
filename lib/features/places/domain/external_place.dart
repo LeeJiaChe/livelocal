@@ -16,6 +16,7 @@ class ExternalPlace {
     this.phoneNumber,
     this.websiteUri,
     this.googleMapsUri,
+    this.imageUrl,
   });
 
   final String provider;
@@ -34,6 +35,7 @@ class ExternalPlace {
   final String? phoneNumber;
   final String? websiteUri;
   final String? googleMapsUri;
+  final String? imageUrl;
 
   String get providerIdentity => '$provider:$placeId';
 
@@ -77,6 +79,7 @@ class ExternalPlace {
       phoneNumber: json['phoneNumber'] as String?,
       websiteUri: json['websiteUri'] as String?,
       googleMapsUri: json['googleMapsUri'] as String?,
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 }

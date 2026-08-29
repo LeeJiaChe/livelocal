@@ -40,6 +40,7 @@ export const DETAILS_FIELD_MASK = [
   "nationalPhoneNumber",
   "websiteUri",
   "googleMapsUri",
+  "photos.name",
 ].join(",");
 
 export const corsJsonHeaders = {
@@ -207,7 +208,10 @@ export async function callGooglePlaces(
   }
 }
 
-export function mapPlace(raw: unknown): Record<string, unknown> | null {
+export function mapPlace(
+  raw: unknown,
+  options?: { imageUrl?: string | null },
+): Record<string, unknown> | null {
   if (!raw || typeof raw !== "object") return null;
   const place = raw as Record<string, unknown>;
   const id = typeof place.id === "string" ? place.id : null;
@@ -262,7 +266,48 @@ export function mapPlace(raw: unknown): Record<string, unknown> | null {
       : null,
     websiteUri: safeHttpsUrl(place.websiteUri),
     googleMapsUri: safeHttpsUrl(place.googleMapsUri),
+    imageUrl: safeHttpsUrl(options?.imageUrl),
   };
+}
+
+export async function resolvePlacePhotoUri(
+  raw: unknown,
+  apiKey: string,
+  fetcher: typeof fetch = fetch,
+): Promise<string | null> {
+  if (!raw || typeof raw !== "object") return null;
+  const photos = (raw as Record<string, unknown>).photos;
+  const first = Array.isArray(photos) && photos[0] &&
+      typeof photos[0] === "object"
+    ? photos[0] as Record<string, unknown>
+    : null;
+  const name = typeof first?.name === "string" ? first.name : "";
+  if (
+    !/^places\/[A-Za-z0-9_-]{8,256}\/photos\/[A-Za-z0-9_-]{8,512}$/.test(name)
+  ) {
+    return null;
+  }
+  try {
+    const endpoint = new URL(
+      `https://places.googleapis.com/v1/${name}/media`,
+    );
+    endpoint.searchParams.set("maxWidthPx", "600");
+    endpoint.searchParams.set("maxHeightPx", "600");
+    endpoint.searchParams.set("skipHttpRedirect", "true");
+    const response = await fetcher(endpoint, {
+      method: "GET",
+      headers: { "x-goog-api-key": apiKey },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return null;
+    }
+    const data = await response.json() as Record<string, unknown>;
+    return safeHttpsUrl(data.photoUri);
+  } catch (_) {
+    return null;
+  }
 }
 
 function mappedPriceLevel(value: unknown): string | null {

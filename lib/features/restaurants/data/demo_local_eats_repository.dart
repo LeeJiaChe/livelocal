@@ -52,8 +52,9 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
 
   @override
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  ) async {
+    String sourceUrl, {
+    String? restaurantName,
+  }) async {
     _requireInfluencer();
     if (!SocialUrlValidator.isReviewPost(sourceUrl)) {
       throw const AppException(

@@ -109,7 +109,10 @@ class LocalEatsController with ChangeNotifier {
   GeneratedRestaurantListing? get selectedGeneratedCandidate =>
       _selectedGeneratedCandidate;
 
-  Future<bool> generateRestaurantListingFromSource(String sourceUrl) async {
+  Future<bool> generateRestaurantListingFromSource(
+    String sourceUrl, {
+    String? restaurantName,
+  }) async {
     final requestId = ++_generationRequestId;
     _isGeneratingListing = true;
     _generationError = null;
@@ -119,6 +122,7 @@ class LocalEatsController with ChangeNotifier {
     try {
       final result = await _repository.generateRestaurantListingFromSource(
         sourceUrl,
+        restaurantName: restaurantName,
       );
       if (requestId != _generationRequestId) return false;
       _generatedCandidates = result.candidates;

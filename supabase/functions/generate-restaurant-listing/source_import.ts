@@ -9,6 +9,7 @@ import type {
   SocialSourceContent,
 } from "./types.ts";
 import { GenerationError } from "./types.ts";
+import { resolvePublicSocialPostUrl } from "./social_source.ts";
 
 const MAPS_FIELD_MASK = [
   "id",
@@ -147,13 +148,14 @@ export async function fetchWebsiteSource(
 export async function fetchSocialMetadataFallback(
   detection: DetectedSource,
   fetcher: typeof fetch = fetch,
-  configuration?: { apiKey?: string },
+  configuration?: { apiKey?: string; restaurantName?: string },
 ): Promise<SocialSourceContent> {
   let title: string | null = null;
   let description: string | null = null;
   try {
+    const resolved = await resolvePublicSocialPostUrl(detection, fetcher);
     const metadata = await fetchPublicPageMetadata(
-      detection.normalizedUrl,
+      resolved.toString(),
       fetcher,
       true,
     );
@@ -162,15 +164,62 @@ export async function fetchSocialMetadataFallback(
   } catch (_) {
     // The URL itself remains useful provenance for a manual partial draft.
   }
-  let fallback = emptyCandidate(
+  const fallback = emptyCandidate(
     detection.platform,
     detection.normalizedUrl,
-    title,
+    normalizedRestaurantName(configuration?.restaurantName),
   );
+  const source: SocialSourceContent = {
+    detection,
+    posts: [{
+      sourcePlatform: detection.platform,
+      sourcePostUrl: detection.normalizedUrl,
+      influencerUsername: null,
+      sourceCaption: [title, description].filter(Boolean).join("\n") || null,
+    }],
+    fallbackCandidate: fallback,
+  };
+  return await enrichSocialSourceWithGoogleMatch(source, {
+    apiKey: configuration?.apiKey,
+    restaurantName: configuration?.restaurantName,
+  }, fetcher);
+}
+
+export async function enrichSocialSourceWithGoogleMatch(
+  source: SocialSourceContent,
+  configuration?: { apiKey?: string; restaurantName?: string },
+  fetcher: typeof fetch = fetch,
+): Promise<SocialSourceContent> {
+  if (
+    source.detection.platform !== "instagram" &&
+    source.detection.platform !== "tiktok"
+  ) return source;
+
+  const enrichedSource = await appendPublicSocialMetadata(source, fetcher);
+
   const apiKey = configuration?.apiKey?.trim();
-  const query = [title, description].filter(Boolean).join(" ").trim()
-    .slice(0, 160);
-  if (apiKey && query.length >= 2) {
+  const restaurantName = normalizedRestaurantName(
+    configuration?.restaurantName,
+  );
+  const signal = enrichedSource.posts.flatMap((post) => [
+    post.influencerUsername ? `@${post.influencerUsername}` : null,
+    post.sourceCaption,
+  ]).filter(Boolean).join("\n").slice(0, 6000);
+  if (!apiKey) {
+    return restaurantName
+      ? {
+        ...enrichedSource,
+        fallbackCandidate: emptyCandidate(
+          enrichedSource.detection.platform,
+          enrichedSource.detection.normalizedUrl,
+          restaurantName,
+        ),
+      }
+      : enrichedSource;
+  }
+
+  const queries = socialPlaceQueries(restaurantName, signal);
+  for (const query of queries) {
     try {
       const result = await callGooglePlaces(
         "https://places.googleapis.com/v1/places:searchText",
@@ -179,7 +228,7 @@ export async function fetchSocialMetadataFallback(
           fieldMask: MAPS_SEARCH_FIELD_MASK,
           body: {
             textQuery: query,
-            pageSize: 1,
+            pageSize: 3,
             languageCode: "en",
             regionCode: "MY",
             locationRestriction: {
@@ -192,36 +241,224 @@ export async function fetchSocialMetadataFallback(
           fetcher,
         },
       );
-      const matched = Array.isArray(result.places) && result.places[0] &&
-          typeof result.places[0] === "object"
-        ? result.places[0] as Record<string, unknown>
-        : null;
-      if (matched) {
-        fallback = candidateFromGooglePlace(
-          matched,
-          detection.normalizedUrl,
+      const matched = (Array.isArray(result.places) ? result.places : [])
+        .filter((place): place is Record<string, unknown> =>
+          Boolean(place) && typeof place === "object"
+        )
+        .find((place) =>
+          confidentSocialPlaceMatch(
+            place,
+            restaurantName ? `${restaurantName}\n${signal}` : signal,
+          )
         );
-        fallback.sourcePlatform = detection.platform;
-        fallback.sourceCaption =
-          [title, description].filter(Boolean).join("\n") ||
-          null;
-      }
+      if (!matched) continue;
+      const fallback = candidateFromGooglePlace(
+        matched,
+        enrichedSource.detection.normalizedUrl,
+      );
+      fallback.sourcePlatform = enrichedSource.detection.platform;
+      fallback.influencerUsername =
+        enrichedSource.posts[0]?.influencerUsername ?? null;
+      fallback.sourceCaption = signal || null;
+      fallback.confidence = restaurantName ? 0.95 : 0.85;
+      fallback.missingFields = missingFields(fallback);
+      return { ...enrichedSource, fallbackCandidate: fallback };
     } catch (_) {
-      // Google matching enriches the partial draft when available, but a
-      // provider/configuration failure must not turn social fallback into a
-      // dead end.
+      // Matching is a best-effort enrichment. The preserved source and manual
+      // form remain usable when Google is temporarily unavailable.
     }
   }
-  return {
-    detection,
-    posts: [{
-      sourcePlatform: detection.platform,
-      sourcePostUrl: detection.normalizedUrl,
+
+  if (restaurantName) {
+    return {
+      ...enrichedSource,
+      fallbackCandidate: emptyCandidate(
+        enrichedSource.detection.platform,
+        enrichedSource.detection.normalizedUrl,
+        restaurantName,
+      ),
+    };
+  }
+  return enrichedSource;
+}
+
+async function appendPublicSocialMetadata(
+  source: SocialSourceContent,
+  fetcher: typeof fetch,
+): Promise<SocialSourceContent> {
+  try {
+    const resolved = await resolvePublicSocialPostUrl(
+      source.detection,
+      fetcher,
+    );
+    const metadata = await fetchPublicPageMetadata(
+      resolved.toString(),
+      fetcher,
+      true,
+    );
+    const publicSignal = [metadata.title, metadata.description]
+      .filter(Boolean)
+      .join("\n");
+    if (!publicSignal) return source;
+    const first = source.posts[0] ?? {
+      sourcePlatform: source.detection.platform,
+      sourcePostUrl: source.detection.normalizedUrl,
       influencerUsername: null,
-      sourceCaption: [title, description].filter(Boolean).join("\n") || null,
-    }],
-    fallbackCandidate: fallback,
+      sourceCaption: null,
+    };
+    const combined = [first.sourceCaption, publicSignal]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, 5000);
+    return {
+      ...source,
+      posts: [
+        { ...first, sourceCaption: combined || null },
+        ...source.posts.slice(1),
+      ],
+    };
+  } catch (_) {
+    return source;
+  }
+}
+
+export function mergeGeneratedWithFallback(
+  generated: GeneratedRestaurantListing,
+  fallback: GeneratedRestaurantListing | undefined,
+): GeneratedRestaurantListing {
+  const generatedName = meaningfulGeneratedRestaurantName(generated);
+  const result: GeneratedRestaurantListing = {
+    restaurantName: generatedName ?? fallback?.restaurantName ?? null,
+    address: generated.address ?? fallback?.address ?? null,
+    state: generated.state ?? fallback?.state ?? null,
+    city: generated.city ?? fallback?.city ?? null,
+    cuisineType: generated.cuisineType ?? fallback?.cuisineType ?? null,
+    priceRange: generated.priceRange ?? fallback?.priceRange ?? null,
+    reviewedDishes: generated.reviewedDishes.length > 0
+      ? generated.reviewedDishes
+      : fallback?.reviewedDishes ?? [],
+    sourcePlatform: generated.sourcePlatform,
+    sourcePostUrl: generated.sourcePostUrl,
+    influencerUsername: generated.influencerUsername ??
+      fallback?.influencerUsername ?? null,
+    sourceCaption: generated.sourceCaption ?? fallback?.sourceCaption ?? null,
+    confidence: Math.max(generated.confidence, fallback?.confidence ?? 0),
+    missingFields: [],
   };
+  result.missingFields = missingFields(result);
+  return result;
+}
+
+function meaningfulGeneratedRestaurantName(
+  generated: GeneratedRestaurantListing,
+): string | null {
+  const name = generated.restaurantName?.trim();
+  if (!name) return null;
+  if (
+    generated.sourcePlatform === "instagram" ||
+    generated.sourcePlatform === "tiktok"
+  ) {
+    const generic = new Set([
+      "instagram",
+      "tiktok",
+      "restaurant",
+      "cafe",
+      "unknown",
+      "unknown restaurant",
+    ]);
+    if (generic.has(name.toLowerCase())) return null;
+  }
+  return name;
+}
+
+function normalizedRestaurantName(value: string | undefined): string | null {
+  const name = value?.replace(/\s+/g, " ").trim();
+  return name && name.length >= 2 && name.length <= 120 ? name : null;
+}
+
+function socialPlaceQueries(
+  restaurantName: string | null,
+  signal: string,
+): string[] {
+  const queries: string[] = [];
+  if (restaurantName) queries.push(`${restaurantName} Malaysia`);
+
+  for (const match of signal.matchAll(/@([a-z0-9._]{3,60})/gi)) {
+    const handle = match[1].replace(/[._]+/g, " ").trim();
+    if (handle) queries.push(`${handle} Malaysia restaurant`);
+  }
+
+  const caption = signal
+    .replace(/^.*?\bon (?:instagram|tiktok)\s*:\s*/i, "")
+    .replace(/^\d[\d,]*\s+(?:likes?|comments?).*?:\s*/i, "")
+    .replace(/#[a-z0-9_]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^["“]|["”]$/g, "")
+    .trim();
+  if (caption.length >= 3) queries.push(caption.slice(0, 180));
+
+  return [...new Set(queries.map((value) => value.trim()))].slice(0, 4);
+}
+
+function confidentSocialPlaceMatch(
+  place: Record<string, unknown>,
+  signal: string,
+): boolean {
+  const primaryType = typeof place.primaryType === "string"
+    ? place.primaryType
+    : "";
+  if (
+    primaryType &&
+    !primaryType.endsWith("_restaurant") &&
+    ![
+      "restaurant",
+      "cafe",
+      "coffee_shop",
+      "bakery",
+      "cake_shop",
+      "dessert_shop",
+      "food_court",
+      "ice_cream_shop",
+      "juice_shop",
+      "meal_takeaway",
+      "sandwich_shop",
+      "tea_house",
+      "bar",
+    ].includes(primaryType)
+  ) return false;
+
+  const display = place.displayName as Record<string, unknown> | undefined;
+  const name = typeof display?.text === "string" ? display.text : "";
+  const compactSignal = compactComparable(signal);
+  const compactName = compactComparable(name);
+  if (compactName.length >= 5 && compactSignal.includes(compactName)) {
+    return true;
+  }
+  const tokens = comparableTokens(name);
+  if (tokens.length === 0) return false;
+  const matched = tokens.filter((token) => compactSignal.includes(token));
+  return matched.length >= Math.min(2, tokens.length) &&
+    matched.length / tokens.length >= 0.5;
+}
+
+function compactComparable(value: string): string {
+  return value.toLowerCase().normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function comparableTokens(value: string): string[] {
+  const ignored = new Set([
+    "cafe",
+    "restaurant",
+    "restoran",
+    "kopitiam",
+    "bakery",
+    "kitchen",
+    "the",
+    "and",
+  ]);
+  return value.toLowerCase().normalize("NFKD").split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3 && !ignored.has(token));
 }
 
 async function resolveGoogleMapsUrl(
@@ -414,7 +651,11 @@ async function fetchPublicPageMetadata(
         400,
       );
     }
-    const html = await readLimitedText(response, 512 * 1024);
+    const html = await readLimitedText(
+      response,
+      512 * 1024,
+      allowSocialHosts,
+    );
     return extractMetadata(html);
   }
   throw new GenerationError(
@@ -493,6 +734,7 @@ function isPrivateIp(host: string): boolean {
 async function readLimitedText(
   response: Response,
   limit: number,
+  truncateAtLimit = false,
 ): Promise<string> {
   if (!response.body) return "";
   const reader = response.body.getReader();
@@ -502,15 +744,22 @@ async function readLimitedText(
     const { value, done } = await reader.read();
     if (done) break;
     if (!value) continue;
-    size += value.length;
-    if (size > limit) {
+    if (size + value.length > limit) {
+      if (!truncateAtLimit) {
+        await reader.cancel();
+        throw new GenerationError(
+          "WEBSITE_TOO_LARGE",
+          "Website content is too large",
+          400,
+        );
+      }
+      const remaining = limit - size;
+      if (remaining > 0) chunks.push(value.slice(0, remaining));
+      size = limit;
       await reader.cancel();
-      throw new GenerationError(
-        "WEBSITE_TOO_LARGE",
-        "Website content is too large",
-        400,
-      );
+      break;
     }
+    size += value.length;
     chunks.push(value);
   }
   const joined = new Uint8Array(size);
@@ -708,8 +957,25 @@ function cleanText(value: string | undefined, limit: number): string | null {
   if (!value) return null;
   const cleaned = value.replace(/&amp;/gi, "&").replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+    .replace(
+      /&#x([0-9a-f]+);/gi,
+      (_, code: string) => safeCodePoint(Number.parseInt(code, 16)),
+    )
+    .replace(
+      /&#(\d+);/g,
+      (_, code: string) => safeCodePoint(Number.parseInt(code, 10)),
+    )
     .replace(/\s+/g, " ").trim();
   return cleaned ? cleaned.slice(0, limit) : null;
+}
+
+function safeCodePoint(value: number): string {
+  if (!Number.isInteger(value) || value < 0 || value > 0x10ffff) return "";
+  try {
+    return String.fromCodePoint(value);
+  } catch (_) {
+    return "";
+  }
 }
 
 function titleCase(value: string): string {

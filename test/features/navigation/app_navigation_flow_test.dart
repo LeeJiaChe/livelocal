@@ -30,15 +30,19 @@ import 'package:live_local/features/itinerary/data/demo_saved_itinerary_reposito
 import 'package:live_local/features/moderation/data/demo_moderation_repository.dart';
 import 'package:live_local/features/notifications/data/demo_notification_repository.dart';
 import 'package:live_local/features/navigation/presentation/explore_hub_screen.dart';
+import 'package:live_local/features/places/presentation/external_places_screen.dart';
 import 'package:live_local/features/profile/data/demo_account_repository.dart';
 import 'package:live_local/features/profile/presentation/account_controller.dart';
 import 'package:live_local/features/restaurants/data/demo_local_eats_repository.dart';
 import 'package:live_local/features/reviews/data/demo_review_repository.dart';
 import 'package:live_local/features/spots/data/demo_spot_repository.dart';
 import 'package:live_local/screens/login_screen.dart';
+import 'package:live_local/screens/localeats_screen.dart';
 import 'package:live_local/screens/main_navigation_screen.dart';
+import 'package:live_local/screens/neighbourhood_explorer_screen.dart';
 import 'package:live_local/screens/register_screen.dart';
 import 'package:live_local/screens/itinerary_screen.dart';
+import 'package:live_local/screens/spots_discovery_screen.dart';
 import 'package:provider/provider.dart';
 
 class _FakeAuthRepository extends DemoAuthRepository {
@@ -827,7 +831,40 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.byType(ExploreHubScreen), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'All'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Places'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Spots'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Eats'), findsOneWidget);
       expect(find.widgetWithText(Tab, 'Guides'), findsOneWidget);
+      expect(find.byKey(const Key('explore_all_tab')), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(Tab, 'Places'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ExternalPlacesScreen), findsOneWidget);
+
+      final tabs = DefaultTabController.of(
+        tester.element(find.byKey(const Key('explore_section_tabs'))),
+      );
+      tabs.animateTo(2, duration: Duration.zero);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(SpotsDiscoveryScreen), findsOneWidget);
+
+      tabs.animateTo(3, duration: Duration.zero);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(LocalEatsScreen), findsOneWidget);
+
+      tabs.animateTo(4, duration: Duration.zero);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(NeighbourhoodExplorerScreen), findsOneWidget);
+
+      tabs.animateTo(0, duration: Duration.zero);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const Key('explore_all_tab')), findsOneWidget);
+      expect(tester.takeException(), isNull);
 
       await tester.tap(find.widgetWithText(NavigationDestination, 'Trips'));
       await tester.pump();

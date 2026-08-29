@@ -176,6 +176,79 @@ export function canonicalizeSourceUrlForQuota(url: string): string {
   return `https://${host}${canonicalPath}`;
 }
 
+export async function resolvePublicSocialPostUrl(
+  detected: DetectedSource,
+  fetcher: typeof fetch = fetch,
+): Promise<URL> {
+  const original = new URL(detected.normalizedUrl);
+  if (detected.platform !== "tiktok") return original;
+
+  let current = original;
+  for (let redirects = 0; redirects < 5; redirects += 1) {
+    assertTikTokPostHost(current);
+    if (!["vm.tiktok.com", "vt.tiktok.com"].includes(current.hostname)) {
+      const finalDetection = detectPlatformAndSourceType(current.toString());
+      if (
+        finalDetection.platform !== "tiktok" ||
+        finalDetection.sourceType !== "post"
+      ) {
+        throw new GenerationError(
+          "INVALID_SOURCE_URL",
+          "TikTok link did not resolve to a public video",
+        );
+      }
+      return new URL(finalDetection.normalizedUrl);
+    }
+
+    let response: Response;
+    try {
+      response = await fetcher(current, {
+        method: "GET",
+        redirect: "manual",
+        signal: AbortSignal.timeout(10_000),
+        headers: { "user-agent": "LiveLocal/1.0 public-social-import" },
+      });
+    } catch (_) {
+      throw new GenerationError(
+        "SOCIAL_API_UNAVAILABLE",
+        "TikTok link could not be resolved",
+        503,
+      );
+    }
+    await response.body?.cancel();
+    const location = response.headers.get("location");
+    if (!location) {
+      throw new GenerationError(
+        "POST_UNAVAILABLE",
+        "TikTok link did not resolve to a public video",
+        404,
+      );
+    }
+    current = new URL(location, current);
+  }
+  throw new GenerationError(
+    "INVALID_SOURCE_URL",
+    "TikTok link redirected too many times",
+  );
+}
+
+function assertTikTokPostHost(url: URL): void {
+  if (
+    url.protocol !== "https:" || url.port || url.username || url.password ||
+    ![
+      "tiktok.com",
+      "www.tiktok.com",
+      "vm.tiktok.com",
+      "vt.tiktok.com",
+    ].includes(url.hostname.toLowerCase())
+  ) {
+    throw new GenerationError(
+      "INVALID_SOURCE_URL",
+      "TikTok redirect target is not supported",
+    );
+  }
+}
+
 function isPublicWebsiteHost(host: string): boolean {
   const normalized = host.toLowerCase();
   if (
@@ -277,8 +350,9 @@ export async function fetchTikTokSource(
   fetcher: typeof fetch = fetch,
 ): Promise<SocialSourceContent> {
   if (detected.sourceType === "post") {
+    const resolved = await resolvePublicSocialPostUrl(detected, fetcher);
     const endpoint = new URL("https://www.tiktok.com/oembed");
-    endpoint.searchParams.set("url", detected.normalizedUrl);
+    endpoint.searchParams.set("url", resolved.toString());
     const data = await checkedJson(
       await fetcher(endpoint, { signal: AbortSignal.timeout(12_000) }),
     );

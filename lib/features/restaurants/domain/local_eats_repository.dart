@@ -75,8 +75,9 @@ abstract interface class LocalEatsRepository {
   Future<List<RestaurantModel>> fetchOwnedRestaurantSubmissions();
 
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  );
+    String sourceUrl, {
+    String? restaurantName,
+  });
 
   Future<RestaurantDraftResult> createRestaurantDraft({
     required RestaurantDraftInput input,

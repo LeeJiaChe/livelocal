@@ -1,5 +1,49 @@
+class CollectionCoverItem {
+  const CollectionCoverItem({
+    required this.targetType,
+    required this.targetId,
+    this.externalProvider,
+    this.imagePath,
+    this.imageUrl,
+  });
+
+  final String targetType;
+  final String targetId;
+  final String? externalProvider;
+  final String? imagePath;
+  final String? imageUrl;
+
+  bool get hasImage => imageUrl?.trim().isNotEmpty == true;
+  bool get isExternal => targetType == 'external';
+
+  factory CollectionCoverItem.fromMap(Map<String, dynamic> map) =>
+      CollectionCoverItem(
+        targetType: map['target_type'] as String? ?? 'spot',
+        targetId: map['target_id'] as String? ?? '',
+        externalProvider: map['external_provider'] as String?,
+        imagePath: map['image_path'] as String?,
+        imageUrl: map['image_url'] as String?,
+      );
+
+  Map<String, dynamic> toMap() => {
+        'target_type': targetType,
+        'target_id': targetId,
+        'external_provider': externalProvider,
+        'image_path': imagePath,
+        'image_url': imageUrl,
+      };
+
+  CollectionCoverItem copyWith({String? imageUrl}) => CollectionCoverItem(
+        targetType: targetType,
+        targetId: targetId,
+        externalProvider: externalProvider,
+        imagePath: imagePath,
+        imageUrl: imageUrl ?? this.imageUrl,
+      );
+}
+
 class SavedCollectionModel {
-  const SavedCollectionModel({
+  SavedCollectionModel({
     required this.id,
     required this.userId,
     required this.name,
@@ -11,9 +55,10 @@ class SavedCollectionModel {
     this.coverTargetType,
     this.coverImageUrl,
     this.coverImagePath,
+    List<CollectionCoverItem> coverItems = const [],
     required this.createdAt,
     required this.updatedAt,
-  });
+  }) : coverItems = List.unmodifiable(coverItems.take(4));
 
   final String id;
   final String userId;
@@ -26,10 +71,36 @@ class SavedCollectionModel {
   final String? coverTargetType;
   final String? coverImageUrl;
   final String? coverImagePath;
+  final List<CollectionCoverItem> coverItems;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   factory SavedCollectionModel.fromMap(Map<String, dynamic> map) {
+    final rawCoverItems = map['cover_items'];
+    final coverItems = rawCoverItems is List
+        ? rawCoverItems
+            .whereType<Map>()
+            .map(
+              (item) => CollectionCoverItem.fromMap(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .take(4)
+            .toList()
+        : <CollectionCoverItem>[];
+    if (coverItems.isEmpty &&
+        ((map['cover_target_type'] as String?)?.isNotEmpty == true ||
+            (map['cover_image_path'] as String?)?.isNotEmpty == true)) {
+      coverItems.add(
+        CollectionCoverItem(
+          targetType: map['cover_target_type'] as String? ?? 'spot',
+          targetId: '',
+          imagePath: map['cover_image_path'] as String? ??
+              map['cover_image_url'] as String?,
+          imageUrl: map['cover_image_url'] as String?,
+        ),
+      );
+    }
     return SavedCollectionModel(
       id: map['id'] as String? ?? '',
       userId: map['user_id'] as String? ?? '',
@@ -43,6 +114,7 @@ class SavedCollectionModel {
       coverImageUrl: map['cover_image_url'] as String?,
       coverImagePath: map['cover_image_path'] as String? ??
           map['cover_image_url'] as String?,
+      coverItems: coverItems,
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
           : DateTime.now(),
@@ -64,6 +136,7 @@ class SavedCollectionModel {
         'cover_target_type': coverTargetType,
         'cover_image_url': coverImageUrl,
         'cover_image_path': coverImagePath,
+        'cover_items': coverItems.map((item) => item.toMap()).toList(),
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -81,6 +154,7 @@ class SavedCollectionModel {
     String? coverTargetType,
     String? coverImageUrl,
     String? coverImagePath,
+    List<CollectionCoverItem>? coverItems,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -96,6 +170,7 @@ class SavedCollectionModel {
       coverTargetType: coverTargetType ?? this.coverTargetType,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       coverImagePath: coverImagePath ?? this.coverImagePath,
+      coverItems: coverItems ?? this.coverItems,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

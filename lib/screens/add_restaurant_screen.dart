@@ -34,6 +34,7 @@ class AddRestaurantScreen extends StatefulWidget {
 class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   final _formKey = GlobalKey<FormState>();
   final _sourceUrl = TextEditingController();
+  final _restaurantLookup = TextEditingController();
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _city = TextEditingController();
@@ -86,6 +87,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   @override
   void dispose() {
     _sourceUrl.dispose();
+    _restaurantLookup.dispose();
     _name.dispose();
     _address.dispose();
     _city.dispose();
@@ -331,6 +333,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                                     icon: const Icon(Icons.clear),
                                     onPressed: () {
                                       _sourceUrl.clear();
+                                      _restaurantLookup.clear();
                                       controller.clearGeneratedResult();
                                       setState(() {});
                                     },
@@ -417,6 +420,60 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                                       label: const Text('Try again'),
                                     ),
                                   ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (_shouldOfferRestaurantLookup(controller)) ...[
+                          const SizedBox(height: AppSpacing.x2),
+                          Container(
+                            key: const Key('social_restaurant_lookup'),
+                            padding: const EdgeInsets.all(AppSpacing.x2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .secondaryContainer
+                                  .withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  'We couldn\'t identify the restaurant from this social link. Enter the restaurant name below and we\'ll look it up.',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: AppSpacing.x1),
+                                TextField(
+                                  key: const Key(
+                                    'social_restaurant_name_field',
+                                  ),
+                                  controller: _restaurantLookup,
+                                  textCapitalization: TextCapitalization.words,
+                                  maxLength: 120,
+                                  decoration: InputDecoration(
+                                    labelText: context.tr('Restaurant name'),
+                                    hintText: context.tr(
+                                      'e.g. Line Clear Nasi Kandar',
+                                    ),
+                                    counterText: '',
+                                  ),
+                                  onSubmitted: (_) =>
+                                      _identifyRestaurantFromSocial(),
+                                ),
+                                const SizedBox(height: AppSpacing.x1),
+                                FilledButton.tonalIcon(
+                                  key: const Key(
+                                    'identify_social_restaurant_button',
+                                  ),
+                                  onPressed: controller.isGeneratingListing
+                                      ? null
+                                      : _identifyRestaurantFromSocial,
+                                  icon: const Icon(Icons.search),
+                                  label: const Text(
+                                    'Find restaurant and fill draft',
+                                  ),
                                 ),
                               ],
                             ),
@@ -840,6 +897,38 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     }
     final generated =
         await controller.generateRestaurantListingFromSource(source);
+    if (!mounted || !generated) return;
+    final candidate = controller.selectedGeneratedCandidate;
+    if (candidate != null) await _promptAndApplyCandidate(candidate);
+  }
+
+  bool _shouldOfferRestaurantLookup(LocalEatsController controller) {
+    final detection = RestaurantSourceUrlValidator.detect(
+      _sourceUrl.text.trim(),
+    );
+    if (detection.type != RestaurantSourceType.socialPost) return false;
+    final candidate = controller.selectedGeneratedCandidate;
+    return controller.generationError != null ||
+        (candidate != null && candidate.restaurantName == null);
+  }
+
+  Future<void> _identifyRestaurantFromSocial() async {
+    final source = _sourceUrl.text.trim();
+    final name = _restaurantLookup.text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (name.length < 2) {
+      _message('Enter the restaurant name to look it up.');
+      return;
+    }
+    if (RestaurantSourceUrlValidator.detect(source).type !=
+        RestaurantSourceType.socialPost) {
+      _message('Paste a public Instagram post/Reel or TikTok video link.');
+      return;
+    }
+    final controller = context.read<LocalEatsController>();
+    final generated = await controller.generateRestaurantListingFromSource(
+      source,
+      restaurantName: name,
+    );
     if (!mounted || !generated) return;
     final candidate = controller.selectedGeneratedCandidate;
     if (candidate != null) await _promptAndApplyCandidate(candidate);

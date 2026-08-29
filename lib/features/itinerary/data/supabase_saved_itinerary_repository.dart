@@ -4,6 +4,7 @@ import '../../../core/errors/app_exception.dart';
 import '../../../models/saved_collection_model.dart';
 import '../../../models/saved_place_model.dart';
 import '../domain/saved_itinerary_repository.dart';
+import '../../places/domain/external_place.dart';
 import '../../places/domain/place_provider.dart';
 import '../../places/data/supabase_google_places_provider.dart';
 
@@ -19,19 +20,58 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
     try {
       final response = await _client.rpc('list_my_saved_collections');
       final list = (response as List<dynamic>?) ?? [];
-      final results = <SavedCollectionModel>[];
-      for (final raw in list) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        final model = SavedCollectionModel.fromMap(row);
-        final signedCover = await _resolveImage(
-          model.coverImagePath,
-          model.coverTargetType,
-        );
-        results.add(model.copyWith(
-            coverImageUrl:
-                signedCover.isNotEmpty ? signedCover : model.coverImageUrl));
+      final models = list
+          .map(
+            (raw) => SavedCollectionModel.fromMap(
+              Map<String, dynamic>.from(raw as Map),
+            ),
+          )
+          .toList(growable: false);
+      final spotPaths = <String>{};
+      final restaurantPaths = <String>{};
+      final externalIds = <String>{};
+      for (final item in models.expand((model) => model.coverItems)) {
+        final imagePath = item.imagePath?.trim();
+        if (item.isExternal) {
+          if (item.targetId.isNotEmpty) externalIds.add(item.targetId);
+        } else if (imagePath?.isNotEmpty == true && !_isHttpUrl(imagePath!)) {
+          (item.targetType == 'restaurant' ? restaurantPaths : spotPaths)
+              .add(imagePath);
+        }
       }
-      return results;
+
+      final resolved = await Future.wait([
+        _signedUrls('spot-images', spotPaths),
+        _signedUrls('restaurant-images', restaurantPaths),
+        _externalDetails(externalIds),
+      ]);
+      final signedSpots = resolved[0] as Map<String, String>;
+      final signedRestaurants = resolved[1] as Map<String, String>;
+      final externalPlaces = resolved[2] as Map<String, ExternalPlace>;
+
+      return models.map((model) {
+        final coverItems = model.coverItems.map((item) {
+          if (item.isExternal) {
+            return item.copyWith(
+              imageUrl: externalPlaces[item.targetId]?.imageUrl,
+            );
+          }
+          final path = item.imagePath?.trim();
+          if (path == null || path.isEmpty) return item;
+          if (_isHttpUrl(path)) return item.copyWith(imageUrl: path);
+          final signed = item.targetType == 'restaurant'
+              ? signedRestaurants[path]
+              : signedSpots[path];
+          return item.copyWith(imageUrl: signed);
+        }).toList(growable: false);
+        final first = coverItems.firstOrNull;
+        return model.copyWith(
+          coverItems: coverItems,
+          coverTargetType: first?.targetType,
+          coverImagePath: first?.imagePath,
+          coverImageUrl: first?.imageUrl,
+        );
+      }).toList(growable: false);
     } on PostgrestException catch (error) {
       throw _error(error, 'Saved collections could not be loaded.');
     }
@@ -477,6 +517,49 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
       return await _client.storage.from(bucket).createSignedUrl(trimmed, 3600);
     } catch (_) {
       return '';
+    }
+  }
+
+  bool _isHttpUrl(String value) {
+    final uri = Uri.tryParse(value);
+    return uri != null &&
+        uri.hasScheme &&
+        (uri.scheme == 'http' || uri.scheme == 'https');
+  }
+
+  Future<Map<String, String>> _signedUrls(
+    String bucket,
+    Set<String> paths,
+  ) async {
+    if (paths.isEmpty) return const {};
+    try {
+      final results = await _client.storage
+          .from(bucket)
+          .createSignedUrlsResult(paths.toList(growable: false), 3600);
+      return {
+        for (final result in results)
+          if (result is SignedUrlSuccess) result.path: result.signedUrl,
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<Map<String, ExternalPlace>> _externalDetails(
+    Set<String> placeIds,
+  ) async {
+    if (placeIds.isEmpty) return const {};
+    try {
+      if (_placeProvider is SupabaseGooglePlacesProvider) {
+        return await (_placeProvider as SupabaseGooglePlacesProvider)
+            .detailsMany(placeIds);
+      }
+      final places = await Future.wait(
+        placeIds.map(_placeProvider.details),
+      );
+      return {for (final place in places) place.placeId: place};
+    } catch (_) {
+      return const {};
     }
   }
 

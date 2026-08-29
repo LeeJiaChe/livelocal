@@ -11,9 +11,11 @@ import {
   fetchTikTokSource,
 } from "./social_source.ts";
 import {
+  enrichSocialSourceWithGoogleMatch,
   fetchGoogleMapsSource,
   fetchSocialMetadataFallback,
   fetchWebsiteSource,
+  mergeGeneratedWithFallback,
 } from "./source_import.ts";
 import type { SocialSourceContent } from "./types.ts";
 import { GenerationError } from "./types.ts";
@@ -149,6 +151,19 @@ export async function handleGenerateRequest(
     }
 
     const detection = detectPlatformAndSourceType(sourceUrl);
+    const rawRestaurantName = typeof payload.restaurantName === "string"
+      ? payload.restaurantName.replace(/\s+/g, " ").trim()
+      : "";
+    if (
+      rawRestaurantName &&
+      (rawRestaurantName.length < 2 || rawRestaurantName.length > 120 ||
+        !["instagram", "tiktok"].includes(detection.platform))
+    ) {
+      throw new GenerationError(
+        "INVALID_RESTAURANT_NAME",
+        "Restaurant name must be 2 to 120 characters",
+      );
+    }
 
     // Social profiles require account-level API access and are intentionally
     // excluded from the paste-one-link workflow. Public posts, Maps places and
@@ -162,7 +177,11 @@ export async function handleGenerateRequest(
     }
 
     const canonicalSourceUrl = canonicalizeSourceUrlForQuota(sourceUrl);
-    const sourceHash = await computeSha256(canonicalSourceUrl);
+    const sourceHash = await computeSha256(
+      rawRestaurantName
+        ? `${canonicalSourceUrl}#identify=${rawRestaurantName.toLowerCase()}`
+        : canonicalSourceUrl,
+    );
 
     // Enforce quota and duplicate request protection before executing AI call (FAIL CLOSED)
     const { data: quotaData, error: quotaError } = await admin.rpc(
@@ -217,12 +236,17 @@ export async function handleGenerateRequest(
             graphApiVersion: getEnv("META_GRAPH_API_VERSION"),
             oEmbedAccessToken: getEnv("INSTAGRAM_OEMBED_ACCESS_TOKEN"),
           }, fetcher);
+        source = await enrichSocialSourceWithGoogleMatch(source, {
+          apiKey: getEnv("GOOGLE_PLACES_API_KEY"),
+          restaurantName: rawRestaurantName || undefined,
+        }, fetcher);
       } catch {
         // A valid public-post URL remains useful provenance even when the
         // platform API, oEmbed endpoint, or page fetch is unavailable. Keep
         // the Creator in the form with a partial editable draft.
         source = await fetchSocialMetadataFallback(detection, fetcher, {
           apiKey: getEnv("GOOGLE_PLACES_API_KEY"),
+          restaurantName: rawRestaurantName || undefined,
         });
       }
     }
@@ -249,6 +273,9 @@ export async function handleGenerateRequest(
           model,
           baseUrl,
         }, fetcher);
+        candidates = candidates.map((candidate) =>
+          mergeGeneratedWithFallback(candidate, source.fallbackCandidate)
+        );
       } catch (error) {
         if (source.fallbackCandidate) {
           candidates = [source.fallbackCandidate];

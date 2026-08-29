@@ -1,7 +1,9 @@
 import {
+  enrichSocialSourceWithGoogleMatch,
   fetchGoogleMapsSource,
   fetchSocialMetadataFallback,
   fetchWebsiteSource,
+  mergeGeneratedWithFallback,
 } from "./source_import.ts";
 
 Deno.test("Google Maps short URL resolves to authoritative editable fields", async () => {
@@ -174,6 +176,157 @@ Deno.test("social metadata fallback can enrich an editable draft with a Malaysia
     source.fallbackCandidate?.sourcePostUrl,
     "https://instagram.com/reel/PUBLIC123/",
   );
+});
+
+Deno.test("oversized public Instagram HTML keeps bounded OpenGraph metadata", async () => {
+  const html =
+    `<html><head><meta property="og:title" content="Pak Yuu Kopitiam, Petaling Jaya"></head><body>${
+      "x".repeat(600 * 1024)
+    }</body></html>`;
+  const source = await fetchSocialMetadataFallback(
+    {
+      platform: "instagram",
+      sourceType: "post",
+      normalizedUrl: "https://instagram.com/reel/PUBLIC456/",
+    },
+    () =>
+      Promise.resolve(
+        new Response(html, {
+          headers: { "content-type": "text/html" },
+        }),
+      ),
+  );
+  equal(source.fallbackCandidate?.restaurantName, null);
+  if (!source.posts[0]?.sourceCaption?.includes("Pak Yuu Kopitiam")) {
+    throw new Error("Expected bounded public metadata to remain available");
+  }
+});
+
+Deno.test("social author and caption signals receive a conservative Google match", async () => {
+  const source = await enrichSocialSourceWithGoogleMatch(
+    {
+      detection: {
+        platform: "tiktok",
+        sourceType: "post",
+        normalizedUrl:
+          "https://www.tiktok.com/@sundaydo.hq/video/7444170884375383304",
+      },
+      posts: [{
+        sourcePlatform: "tiktok",
+        sourcePostUrl:
+          "https://www.tiktok.com/@sundaydo.hq/video/7444170884375383304",
+        influencerUsername: "Sundaydo",
+        sourceCaption: "A birthday surprise at our bakery in Kuala Lumpur",
+      }],
+    },
+    { apiKey: "server-key" },
+    () =>
+      Promise.resolve(Response.json({
+        places: [{
+          id: "ChIJSundaydoBakery",
+          displayName: { text: "Sundaydo Bakery" },
+          formattedAddress: "Kuala Lumpur, Malaysia",
+          primaryType: "dessert_shop",
+          location: { latitude: 3.14, longitude: 101.69 },
+          addressComponents: [
+            { longText: "Kuala Lumpur", types: ["locality"] },
+            {
+              longText: "Wilayah Persekutuan Kuala Lumpur",
+              types: ["administrative_area_level_1"],
+            },
+          ],
+        }],
+      })),
+  );
+  equal(source.fallbackCandidate?.restaurantName, "Sundaydo Bakery");
+  equal(source.fallbackCandidate?.sourcePlatform, "tiktok");
+});
+
+Deno.test("manual social identification preserves source and fills from Google", async () => {
+  const source = await fetchSocialMetadataFallback(
+    {
+      platform: "instagram",
+      sourceType: "post",
+      normalizedUrl: "https://instagram.com/p/PUBLIC789/",
+    },
+    (input) =>
+      input.toString().includes("instagram.com")
+        ? Promise.resolve(new Response("blocked", { status: 403 }))
+        : Promise.resolve(Response.json({
+          places: [{
+            id: "ChIJPakYuu123",
+            displayName: { text: "Pak Yuu Kopitiam" },
+            formattedAddress: "39 Jalan 20/7, Petaling Jaya, Selangor",
+            primaryType: "chinese_restaurant",
+            location: { latitude: 3.11, longitude: 101.62 },
+            addressComponents: [
+              { longText: "Petaling Jaya", types: ["locality"] },
+              { longText: "Selangor", types: ["administrative_area_level_1"] },
+            ],
+          }],
+        })),
+    { apiKey: "server-key", restaurantName: "Pak Yuu Kopitiam" },
+  );
+  equal(source.fallbackCandidate?.restaurantName, "Pak Yuu Kopitiam");
+  equal(source.fallbackCandidate?.city, "Petaling Jaya");
+  equal(
+    source.fallbackCandidate?.sourcePostUrl,
+    "https://instagram.com/p/PUBLIC789/",
+  );
+});
+
+Deno.test("AI values merge with authoritative Google fallback fields", () => {
+  const base = {
+    restaurantName: "Example Cafe",
+    address: "12 Jalan Example",
+    state: "Perak",
+    city: "Ipoh",
+    cuisineType: "Cafe",
+    priceRange: "$$",
+    reviewedDishes: [] as string[],
+    sourcePlatform: "instagram" as const,
+    sourcePostUrl: "https://instagram.com/reel/PUBLIC123/",
+    influencerUsername: null,
+    sourceCaption: "Example Cafe Ipoh",
+    confidence: 0.85,
+    missingFields: ["reviewedDishes"],
+  };
+  const merged = mergeGeneratedWithFallback({
+    ...base,
+    restaurantName: null,
+    address: null,
+    state: null,
+    city: null,
+    cuisineType: null,
+    priceRange: null,
+    reviewedDishes: ["White coffee"],
+    confidence: 0.6,
+  }, base);
+  equal(merged.restaurantName, "Example Cafe");
+  equal(merged.reviewedDishes[0], "White coffee");
+  equal(merged.missingFields.length, 0);
+});
+
+Deno.test("generic social platform identity remains an editable missing field", () => {
+  const merged = mergeGeneratedWithFallback({
+    restaurantName: "Instagram",
+    address: null,
+    state: null,
+    city: null,
+    cuisineType: null,
+    priceRange: null,
+    reviewedDishes: [],
+    sourcePlatform: "instagram",
+    sourcePostUrl: "https://instagram.com/reel/PUBLIC123/",
+    influencerUsername: null,
+    sourceCaption: null,
+    confidence: 0.2,
+    missingFields: [],
+  }, undefined);
+  equal(merged.restaurantName, null);
+  if (!merged.missingFields.includes("restaurantName")) {
+    throw new Error("Expected restaurantName to require Creator completion");
+  }
 });
 
 function equal(actual: unknown, expected: unknown): void {

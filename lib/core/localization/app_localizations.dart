@@ -201,6 +201,30 @@ class AppLocalizations {
     'State or territory': 'Negeri atau wilayah',
     'Select state or territory': 'Pilih negeri atau wilayah',
     'All': 'Semua',
+    'Explore all of Malaysia': 'Terokai seluruh Malaysia',
+    'Discover real places, community favourites, local food and ready-made guides in one place.':
+        'Temui tempat sebenar, kegemaran komuniti, makanan tempatan dan panduan sedia digunakan di satu tempat.',
+    'Real places near you': 'Tempat sebenar berdekatan anda',
+    'Broad real-world discovery for food, attractions and everyday places.':
+        'Penemuan dunia sebenar yang luas untuk makanan, tarikan dan tempat harian.',
+    'Community Spots': 'Tempat Komuniti',
+    'Things to do and places recommended by the LiveLocal community.':
+        'Aktiviti dan tempat yang disyorkan oleh komuniti LiveLocal.',
+    'Approved restaurant recommendations with richer Creator insight.':
+        'Cadangan restoran diluluskan dengan pandangan Pencipta yang lebih terperinci.',
+    'Community routes and recommendations ready to follow.':
+        'Laluan dan cadangan komuniti yang sedia diikuti.',
+    'See all': 'Lihat semua',
+    'Real places could not be loaded': 'Tempat sebenar tidak dapat dimuatkan',
+    'Search above or use Near me to discover thousands of real places.':
+        'Cari di atas atau gunakan Berdekatan saya untuk menemui ribuan tempat sebenar.',
+    'No matching real places yet. Try a broader search.':
+        'Belum ada tempat sebenar yang sepadan. Cuba carian yang lebih luas.',
+    'Community Spots are being prepared.': 'Tempat Komuniti sedang disediakan.',
+    'Local restaurant recommendations are being prepared.':
+        'Cadangan restoran tempatan sedang disediakan.',
+    'Travel guides are being prepared.':
+        'Panduan perjalanan sedang disediakan.',
     'Spots': 'Tempat',
     'Eats': 'Makan',
     'Restaurants': 'Restoran',
