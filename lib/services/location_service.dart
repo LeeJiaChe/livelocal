@@ -4,6 +4,52 @@ import '../models/restaurant_model.dart';
 import '../models/saved_collection_model.dart';
 import '../models/spot_model.dart';
 
+enum LocationRequestFailure {
+  serviceDisabled,
+  denied,
+  deniedForever,
+  unavailable,
+}
+
+class LocationRequestResult {
+  const LocationRequestResult._({
+    this.latitude,
+    this.longitude,
+    this.failure,
+    this.message,
+    this.position,
+  });
+
+  factory LocationRequestResult.success(Position position) =>
+      LocationRequestResult._(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        position: position,
+      );
+
+  const LocationRequestResult.coordinates(double latitude, double longitude)
+      : this._(latitude: latitude, longitude: longitude);
+
+  const LocationRequestResult.failed(
+    LocationRequestFailure failure,
+    String message,
+  ) : this._(failure: failure, message: message);
+
+  final double? latitude;
+  final double? longitude;
+  final LocationRequestFailure? failure;
+  final String? message;
+  final Position? position;
+
+  bool get isSuccess => latitude != null && longitude != null;
+}
+
+abstract interface class CurrentLocationService {
+  Future<LocationRequestResult> requestCurrentLocation();
+  Future<bool> openAppSettings();
+  Future<bool> openLocationSettings();
+}
+
 /// Abstract strategy for calculating proximity-based itineraries.
 abstract class RoutingStrategy {
   List<Map<String, dynamic>> calculateRoute(
@@ -143,7 +189,7 @@ class NearestNeighborRouting implements RoutingStrategy {
   }
 }
 
-class LocationService {
+class LocationService implements CurrentLocationService {
   final RoutingStrategy _routingStrategy;
 
   // Injection allows easy swapping of routing logic in the future
@@ -152,36 +198,58 @@ class LocationService {
 
   /// Fetches the user's current GPS location, handling permissions gracefully.
   Future<Position?> getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+    final result = await requestCurrentLocation();
+    return result.position;
+  }
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return null;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return null;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      return null;
-    }
-
+  @override
+  Future<LocationRequestResult> requestCurrentLocation() async {
     try {
-      return await Geolocator.getCurrentPosition(
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        return const LocationRequestResult.failed(
+          LocationRequestFailure.serviceDisabled,
+          'Location services are off. Turn them on, or search by city or state.',
+        );
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied) {
+        return const LocationRequestResult.failed(
+          LocationRequestFailure.denied,
+          'Location permission was denied. You can still search anywhere in Malaysia by text.',
+        );
+      }
+      if (permission == LocationPermission.deniedForever) {
+        return const LocationRequestResult.failed(
+          LocationRequestFailure.deniedForever,
+          'Location permission is blocked in system settings. Enable it there, or search by city or state.',
+        );
+      }
+
+      final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
         ),
       );
+      return LocationRequestResult.success(position);
     } catch (_) {
-      return null;
+      return const LocationRequestResult.failed(
+        LocationRequestFailure.unavailable,
+        'Your current location could not be read. Retry, or search by city or state.',
+      );
     }
   }
+
+  @override
+  Future<bool> openAppSettings() => Geolocator.openAppSettings();
+
+  @override
+  Future<bool> openLocationSettings() => Geolocator.openLocationSettings();
 
   /// Calculates the optimized route using the injected RoutingStrategy.
   List<Map<String, dynamic>> sortLocationsByProximity(

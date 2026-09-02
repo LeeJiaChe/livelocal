@@ -171,6 +171,8 @@ class DemoSpotRepository implements SpotRepository {
         status: 'draft',
         latitude: input.latitude,
         longitude: input.longitude,
+        placeProvider: input.placeProvider,
+        googlePlaceId: input.googlePlaceId,
       ),
     );
     _currentRevisionIds[id] = revisionId;
@@ -240,6 +242,8 @@ class DemoSpotRepository implements SpotRepository {
           .any((spot) => spot.id == existing.id && spot.status == 'approved'),
       latitude: input.latitude,
       longitude: input.longitude,
+      placeProvider: input.placeProvider,
+      googlePlaceId: input.googlePlaceId,
     );
     if (revised.imageUrl.isEmpty) {
       throw const AppException(
@@ -476,6 +480,8 @@ class DemoSpotRepository implements SpotRepository {
       moderationVersion: spot.moderationVersion,
       upvoteCount: (spot.upvoteCount + (upvoted ? 1 : -1)).clamp(0, 1 << 30),
       isUpvotedByCurrentUser: upvoted,
+      placeProvider: spot.placeProvider,
+      googlePlaceId: spot.googlePlaceId,
     );
     return SpotUpvoteResult(upvoted: upvoted, count: _spots[index].upvoteCount);
   }
@@ -522,6 +528,8 @@ class DemoSpotRepository implements SpotRepository {
       longitude: spot.longitude,
       upvoteCount: spot.upvoteCount,
       isUpvotedByCurrentUser: spot.isUpvotedByCurrentUser,
+      placeProvider: spot.placeProvider,
+      googlePlaceId: spot.googlePlaceId,
     );
   }
 }

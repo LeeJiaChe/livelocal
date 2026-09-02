@@ -3,6 +3,8 @@ class SavedPlaceModel {
   final String userId;
   final String? spotId;
   final String? restaurantId;
+  final String? externalProvider;
+  final String? externalPlaceId;
   final DateTime savedAt;
 
   SavedPlaceModel({
@@ -10,6 +12,8 @@ class SavedPlaceModel {
     required this.userId,
     this.spotId,
     this.restaurantId,
+    this.externalProvider,
+    this.externalPlaceId,
     required this.savedAt,
   });
 
@@ -18,6 +22,8 @@ class SavedPlaceModel {
         userId: map['user_id'] ?? '',
         spotId: map['spot_id'],
         restaurantId: map['restaurant_id'],
+        externalProvider: map['external_provider'],
+        externalPlaceId: map['external_place_id'],
         savedAt:
             DateTime.parse(map['saved_at'] ?? DateTime.now().toIso8601String()),
       );

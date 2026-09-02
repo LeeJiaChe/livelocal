@@ -4,30 +4,74 @@ import '../../../core/errors/app_exception.dart';
 import '../../../models/saved_collection_model.dart';
 import '../../../models/saved_place_model.dart';
 import '../domain/saved_itinerary_repository.dart';
+import '../../places/domain/external_place.dart';
+import '../../places/domain/place_provider.dart';
+import '../../places/data/supabase_google_places_provider.dart';
 
 class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
-  SupabaseSavedItineraryRepository(this._client);
+  SupabaseSavedItineraryRepository(this._client, {PlaceProvider? placeProvider})
+      : _placeProvider = placeProvider ?? const UnavailablePlaceProvider();
 
   final SupabaseClient _client;
+  final PlaceProvider _placeProvider;
 
   @override
   Future<List<SavedCollectionModel>> fetchCollections() async {
     try {
       final response = await _client.rpc('list_my_saved_collections');
       final list = (response as List<dynamic>?) ?? [];
-      final results = <SavedCollectionModel>[];
-      for (final raw in list) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        final model = SavedCollectionModel.fromMap(row);
-        final signedCover = await _resolveImage(
-          model.coverImagePath,
-          model.coverTargetType,
-        );
-        results.add(model.copyWith(
-            coverImageUrl:
-                signedCover.isNotEmpty ? signedCover : model.coverImageUrl));
+      final models = list
+          .map(
+            (raw) => SavedCollectionModel.fromMap(
+              Map<String, dynamic>.from(raw as Map),
+            ),
+          )
+          .toList(growable: false);
+      final spotPaths = <String>{};
+      final restaurantPaths = <String>{};
+      final externalIds = <String>{};
+      for (final item in models.expand((model) => model.coverItems)) {
+        final imagePath = item.imagePath?.trim();
+        if (item.isExternal) {
+          if (item.targetId.isNotEmpty) externalIds.add(item.targetId);
+        } else if (imagePath?.isNotEmpty == true && !_isHttpUrl(imagePath!)) {
+          (item.targetType == 'restaurant' ? restaurantPaths : spotPaths)
+              .add(imagePath);
+        }
       }
-      return results;
+
+      final resolved = await Future.wait([
+        _signedUrls('spot-images', spotPaths),
+        _signedUrls('restaurant-images', restaurantPaths),
+        _externalDetails(externalIds),
+      ]);
+      final signedSpots = resolved[0] as Map<String, String>;
+      final signedRestaurants = resolved[1] as Map<String, String>;
+      final externalPlaces = resolved[2] as Map<String, ExternalPlace>;
+
+      return models.map((model) {
+        final coverItems = model.coverItems.map((item) {
+          if (item.isExternal) {
+            return item.copyWith(
+              imageUrl: externalPlaces[item.targetId]?.imageUrl,
+            );
+          }
+          final path = item.imagePath?.trim();
+          if (path == null || path.isEmpty) return item;
+          if (_isHttpUrl(path)) return item.copyWith(imageUrl: path);
+          final signed = item.targetType == 'restaurant'
+              ? signedRestaurants[path]
+              : signedSpots[path];
+          return item.copyWith(imageUrl: signed);
+        }).toList(growable: false);
+        final first = coverItems.firstOrNull;
+        return model.copyWith(
+          coverItems: coverItems,
+          coverTargetType: first?.targetType,
+          coverImagePath: first?.imagePath,
+          coverImageUrl: first?.imageUrl,
+        );
+      }).toList(growable: false);
     } on PostgrestException catch (error) {
       throw _error(error, 'Saved collections could not be loaded.');
     }
@@ -108,7 +152,9 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
     try {
       final rows = await _client
           .from('saved_collection_items')
-          .select('*, saved_places(spot_id, restaurant_id)')
+          .select(
+            '*, saved_places(spot_id, restaurant_id, external_provider, external_place_id)',
+          )
           .eq('collection_id', collectionId)
           .order('added_at', ascending: false);
 
@@ -119,6 +165,8 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
             : <String, dynamic>{};
         row['spot_id'] = sp['spot_id'];
         row['restaurant_id'] = sp['restaurant_id'];
+        row['external_provider'] = sp['external_provider'];
+        row['external_place_id'] = sp['external_place_id'];
         return SavedCollectionItemModel.fromMap(row);
       }).toList();
     } on PostgrestException catch (error) {
@@ -136,10 +184,71 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
         params: {'p_collection_id': collectionId},
       );
       final list = (response as List<dynamic>?) ?? [];
+      final parsed = list
+          .whereType<Map>()
+          .map((raw) => SavedCollectionPlace.fromMap(
+                Map<String, dynamic>.from(raw),
+              ))
+          .toList(growable: false);
+      final externalPlaces = await _externalDetails(
+        parsed
+            .where((place) => place.isExternal)
+            .map((place) => place.targetId)
+            .toSet(),
+      );
       final results = <SavedCollectionPlace>[];
-      for (final raw in list) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        final place = SavedCollectionPlace.fromMap(row);
+      for (final place in parsed) {
+        if (place.isExternal) {
+          final external = externalPlaces[place.targetId];
+          if (external != null) {
+            results.add(
+              SavedCollectionPlace(
+                savedPlaceId: place.savedPlaceId,
+                targetType: 'external',
+                targetId: external.placeId,
+                externalProvider: external.provider,
+                name: external.name,
+                state: 'Malaysia',
+                city: place.city,
+                address: external.formattedAddress,
+                categoryOrCuisine: place.categoryOrCuisine.isNotEmpty
+                    ? place.categoryOrCuisine
+                    : external.primaryType?.replaceAll('_', ' ') ?? 'Place',
+                spotId: place.spotId,
+                restaurantId: place.restaurantId,
+                bestTime: place.bestTime,
+                thingsToDo: place.thingsToDo,
+                reviewedDishes: place.reviewedDishes,
+                priceRange: external.priceLevel,
+                imageUrl: external.imageUrl,
+                rating: external.rating ?? 0,
+                reviewCount: external.userRatingCount ?? 0,
+                addedAt: place.addedAt,
+              ),
+            );
+          } else {
+            results.add(
+              SavedCollectionPlace(
+                savedPlaceId: place.savedPlaceId,
+                targetType: 'external',
+                targetId: place.targetId,
+                externalProvider: place.externalProvider ?? 'google',
+                name: 'Google place – tap to retry',
+                state: 'Malaysia',
+                city: 'Current details could not be loaded',
+                address: place.address,
+                categoryOrCuisine: 'External place',
+                spotId: place.spotId,
+                restaurantId: place.restaurantId,
+                bestTime: place.bestTime,
+                thingsToDo: place.thingsToDo,
+                reviewedDishes: place.reviewedDishes,
+                addedAt: place.addedAt,
+              ),
+            );
+          }
+          continue;
+        }
         final signedUrl = await _resolveImage(
           place.imageUrl,
           place.targetType,
@@ -153,6 +262,13 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
             state: place.state,
             city: place.city,
             categoryOrCuisine: place.categoryOrCuisine,
+            address: place.address,
+            spotId: place.spotId,
+            restaurantId: place.restaurantId,
+            bestTime: place.bestTime,
+            thingsToDo: place.thingsToDo,
+            reviewedDishes: place.reviewedDishes,
+            externalProvider: place.externalProvider,
             priceRange: place.priceRange,
             imageUrl: signedUrl.isNotEmpty ? signedUrl : place.imageUrl,
             rating: place.rating,
@@ -171,23 +287,19 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
   Future<List<String>> fetchPlaceCollectionIds({
     required String targetType,
     required String targetId,
+    String? externalProvider,
   }) async {
     try {
-      final userId = _client.auth.currentUser?.id;
-      if (userId == null) return const [];
-
-      final spFilter = targetType == 'spot'
-          ? 'spot_id.eq.$targetId'
-          : 'restaurant_id.eq.$targetId';
-
-      final rows = await _client
-          .from('saved_collection_items')
-          .select('collection_id, saved_places!inner(user_id)')
-          .eq('saved_places.user_id', userId)
-          .or(spFilter, referencedTable: 'saved_places');
-
-      return (rows as List<dynamic>)
-          .map((r) => r['collection_id'] as String)
+      final response = await _client.rpc(
+        'list_place_collection_ids',
+        params: {
+          'p_target_type': targetType,
+          'p_target_id': targetId,
+          'p_external_provider': externalProvider,
+        },
+      );
+      return (response as List<dynamic>? ?? const [])
+          .map((value) => value.toString())
           .toList();
     } on PostgrestException catch (error) {
       throw _error(error, 'Collection memberships could not be loaded.');
@@ -199,6 +311,7 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
+    String? externalProvider,
   }) async {
     try {
       final response = await _client.rpc(
@@ -207,6 +320,7 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
           'p_target_type': targetType,
           'p_target_id': targetId,
           'p_collection_ids': collectionIds,
+          'p_external_provider': externalProvider,
         },
       );
       final map = Map<String, dynamic>.from(response as Map);
@@ -230,10 +344,51 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
         params: params,
       );
       final list = (response as List<dynamic>?) ?? [];
+      final parsed = list
+          .whereType<Map>()
+          .map((raw) => SavedRouteCandidate.fromMap(
+                Map<String, dynamic>.from(raw),
+              ))
+          .toList(growable: false);
+      final externalPlaces = await _externalDetails(
+        parsed
+            .where((candidate) => candidate.isExternal)
+            .map((candidate) => candidate.targetId)
+            .toSet(),
+      );
       final results = <SavedRouteCandidate>[];
-      for (final raw in list) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        final candidate = SavedRouteCandidate.fromMap(row);
+      for (final candidate in parsed) {
+        if (candidate.isExternal) {
+          final external = externalPlaces[candidate.targetId];
+          if (external != null) {
+            results.add(
+              SavedRouteCandidate(
+                savedPlaceId: candidate.savedPlaceId,
+                targetType: 'external',
+                targetId: external.placeId,
+                externalProvider: external.provider,
+                name: external.name,
+                state: 'Malaysia',
+                city: candidate.city,
+                address: external.formattedAddress,
+                latitude: external.latitude,
+                longitude: external.longitude,
+                categoryOrCuisine: candidate.categoryOrCuisine.isNotEmpty
+                    ? candidate.categoryOrCuisine
+                    : external.primaryType?.replaceAll('_', ' ') ?? 'Place',
+                spotId: candidate.spotId,
+                restaurantId: candidate.restaurantId,
+                bestTime: candidate.bestTime,
+                thingsToDo: candidate.thingsToDo,
+                reviewedDishes: candidate.reviewedDishes,
+                priceRange: external.priceLevel,
+                rating: external.rating ?? 0,
+                reviewCount: external.userRatingCount ?? 0,
+              ),
+            );
+          }
+          continue;
+        }
         final signedUrl = await _resolveImage(
           candidate.imageUrl,
           candidate.targetType,
@@ -249,6 +404,10 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
             latitude: candidate.latitude,
             longitude: candidate.longitude,
             categoryOrCuisine: candidate.categoryOrCuisine,
+            address: candidate.address,
+            spotId: candidate.spotId,
+            restaurantId: candidate.restaurantId,
+            externalProvider: candidate.externalProvider,
             bestTime: candidate.bestTime,
             thingsToDo: candidate.thingsToDo,
             reviewedDishes: candidate.reviewedDishes,
@@ -283,12 +442,14 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
     required String targetType,
     required String targetId,
     required bool saved,
+    String? externalProvider,
   }) async {
     try {
       final response = await _client.rpc('set_saved_place', params: {
         'p_target_type': targetType,
         'p_target_id': targetId,
         'p_saved': saved,
+        if (externalProvider != null) 'p_external_provider': externalProvider,
       });
       return Map<String, dynamic>.from(response as Map)['saved'] as bool;
     } on PostgrestException catch (error) {
@@ -321,8 +482,15 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
           targets: items
               .map(
                 (item) => ItineraryTarget(
-                  type: item['spot_id'] == null ? 'restaurant' : 'spot',
-                  id: (item['spot_id'] ?? item['restaurant_id']) as String,
+                  type: item['spot_id'] != null
+                      ? 'spot'
+                      : item['restaurant_id'] != null
+                          ? 'restaurant'
+                          : 'external',
+                  id: (item['spot_id'] ??
+                      item['restaurant_id'] ??
+                      item['external_place_id']) as String,
+                  provider: item['external_provider'] as String?,
                 ),
               )
               .toList(),
@@ -396,6 +564,49 @@ class SupabaseSavedItineraryRepository implements SavedItineraryRepository {
       return await _client.storage.from(bucket).createSignedUrl(trimmed, 3600);
     } catch (_) {
       return '';
+    }
+  }
+
+  bool _isHttpUrl(String value) {
+    final uri = Uri.tryParse(value);
+    return uri != null &&
+        uri.hasScheme &&
+        (uri.scheme == 'http' || uri.scheme == 'https');
+  }
+
+  Future<Map<String, String>> _signedUrls(
+    String bucket,
+    Set<String> paths,
+  ) async {
+    if (paths.isEmpty) return const {};
+    try {
+      final results = await _client.storage
+          .from(bucket)
+          .createSignedUrlsResult(paths.toList(growable: false), 3600);
+      return {
+        for (final result in results)
+          if (result is SignedUrlSuccess) result.path: result.signedUrl,
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<Map<String, ExternalPlace>> _externalDetails(
+    Set<String> placeIds,
+  ) async {
+    if (placeIds.isEmpty) return const {};
+    try {
+      if (_placeProvider is SupabaseGooglePlacesProvider) {
+        return await (_placeProvider as SupabaseGooglePlacesProvider)
+            .detailsMany(placeIds);
+      }
+      final places = await Future.wait(
+        placeIds.map(_placeProvider.details),
+      );
+      return {for (final place in places) place.placeId: place};
+    } catch (_) {
+      return const {};
     }
   }
 

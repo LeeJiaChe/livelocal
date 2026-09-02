@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/errors/app_exception.dart';
-import '../../../core/validation/social_url_validator.dart';
+import '../../../core/validation/restaurant_source_url_validator.dart';
 import '../../../models/discount_code_model.dart';
 import '../../../models/restaurant_model.dart';
 import '../domain/generated_restaurant_listing.dart';
@@ -22,13 +22,14 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
 
   @override
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  ) async {
-    if (!SocialUrlValidator.isReviewPost(sourceUrl)) {
+    String sourceUrl, {
+    String? restaurantName,
+  }) async {
+    if (!RestaurantSourceUrlValidator.isSupported(sourceUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
         userMessage:
-            'Paste a valid TikTok review video or Instagram post/Reel link.',
+            'Paste a public Google Maps, website, TikTok, or Instagram link.',
       );
     }
     if (_client.auth.currentSession == null) {
@@ -41,7 +42,11 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     try {
       final response = await _client.functions.invoke(
         'generate-restaurant-listing',
-        body: {'sourceUrl': sourceUrl.trim()},
+        body: {
+          'sourceUrl': sourceUrl.trim(),
+          if (restaurantName?.trim().isNotEmpty == true)
+            'restaurantName': restaurantName!.trim(),
+        },
       ).timeout(const Duration(seconds: 50));
       if (response.data is! Map) {
         throw const FormatException('Generation response is not an object');
@@ -68,8 +73,7 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     } catch (error) {
       throw AppException(
         code: AppErrorCode.network,
-        userMessage:
-            'The social source could not be analysed. Please try again.',
+        userMessage: 'The source could not be analysed. Please try again.',
         cause: error,
       );
     }
@@ -178,6 +182,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
           status: row['status'] as String,
           aiAssisted: row['ai_assisted'] == true,
           aiSourcePlatform: row['ai_source_platform'] as String?,
+          placeProvider: row['place_provider'] as String?,
+          googlePlaceId: row['google_place_id'] as String?,
         );
       }));
     } on PostgrestException catch (error) {
@@ -213,6 +219,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
           hasApprovedRevision: row['has_approved_revision'] as bool? ?? false,
           latitude: (row['latitude'] as num?)?.toDouble(),
           longitude: (row['longitude'] as num?)?.toDouble(),
+          placeProvider: row['place_provider'] as String?,
+          googlePlaceId: row['google_place_id'] as String?,
         );
       }));
     } on PostgrestException catch (error) {
@@ -226,16 +234,17 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     required Uint8List imageBytes,
     required String imageMimeType,
   }) async {
-    if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
+    if (!RestaurantSourceUrlValidator.isSupported(input.socialMediaUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
-        userMessage: 'Use a valid TikTok video or Instagram post/reel URL.',
+        userMessage:
+            'Use a valid Google Maps, public website, Instagram post/reel, or TikTok video URL.',
       );
     }
     late final String imagePath;
     try {
       imagePath = await _uploadImage(imageBytes, imageMimeType);
-      final response = await _client.rpc('create_restaurant_draft', params: {
+      final response = await _client.rpc('create_restaurant_draft_v2', params: {
         'p_name': input.name,
         'p_address': input.address,
         'p_state': input.state,
@@ -249,6 +258,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         'p_longitude': input.longitude,
         'p_ai_assisted': input.aiAssisted,
         'p_ai_source_platform': input.aiSourcePlatform,
+        'p_place_provider': input.placeProvider,
+        'p_google_place_id': input.googlePlaceId,
       });
       final row = Map<String, dynamic>.from(response as Map);
       final duplicates =
@@ -301,10 +312,11 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     Uint8List? imageBytes,
     String? imageMimeType,
   }) async {
-    if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
+    if (!RestaurantSourceUrlValidator.isSupported(input.socialMediaUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
-        userMessage: 'Use a valid TikTok video or Instagram post/reel URL.',
+        userMessage:
+            'Use a valid Google Maps, public website, Instagram post/reel, or TikTok video URL.',
       );
     }
     String? uploadedPath;
@@ -313,7 +325,7 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         uploadedPath = await _uploadImage(imageBytes, imageMimeType ?? '');
       }
       final response =
-          await _client.rpc('save_restaurant_revision_draft', params: {
+          await _client.rpc('save_restaurant_revision_draft_v2', params: {
         'p_source_revision_id': source.revisionId,
         'p_name': input.name,
         'p_address': input.address,
@@ -328,6 +340,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
         'p_longitude': input.longitude,
         'p_ai_assisted': input.aiAssisted,
         'p_ai_source_platform': input.aiSourcePlatform,
+        'p_place_provider': input.placeProvider,
+        'p_google_place_id': input.googlePlaceId,
       });
       return _draftResult(Map<String, dynamic>.from(response as Map));
     } on StorageException catch (error) {
@@ -471,6 +485,8 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
       reviewCount: (row['review_count'] as num?)?.toInt() ?? 0,
       latitude: (row['latitude'] as num?)?.toDouble(),
       longitude: (row['longitude'] as num?)?.toDouble(),
+      placeProvider: row['place_provider'] as String?,
+      googlePlaceId: row['google_place_id'] as String?,
       ownershipStatus: row['ownership_status'] as String,
       socialLinkStatus: row['social_link_status'] as String? ?? 'active',
       isOwnedByCurrentUser: isOwned,
@@ -622,7 +638,9 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
     }
     final message = switch (code) {
       'INVALID_SOURCE_URL' =>
-        'Paste a valid TikTok review video or Instagram post/Reel link.',
+        'Paste a public Google Maps, website, Instagram post/Reel, or TikTok video link.',
+      'INVALID_RESTAURANT_NAME' =>
+        'Enter a restaurant name between 2 and 120 characters.',
       'AUTHENTICATION_REQUIRED' ||
       'SESSION_EXPIRED' =>
         'Your session has expired. Sign in and try again.',
@@ -633,9 +651,9 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
       'SOCIAL_API_NOT_CONFIGURED' =>
         'Social-media import is not configured yet. Please contact support.',
       'POST_UNAVAILABLE' =>
-        'That post is private, deleted, or unavailable to LiveLocal.',
+        'That social post may be private or inaccessible. Retry, identify the restaurant by name, or continue manually.',
       'SOCIAL_API_UNAVAILABLE' =>
-        'The social platform is temporarily unavailable. Please try again.',
+        'The social platform is temporarily unavailable. Retry or identify the restaurant by name.',
       'NO_RESTAURANT_REVIEWS' =>
         'No likely restaurant-review posts were found in the recent posts.',
       'AI_QUOTA_UNAVAILABLE' ||
@@ -647,11 +665,23 @@ class SupabaseLocalEatsRepository implements LocalEatsRepository {
       'MALFORMED_AI_RESPONSE' =>
         'The AI returned an unreadable result. Please try again.',
       'GENERATION_TIMEOUT' => 'The analysis timed out. Please try again.',
+      'WEBSITE_UNAVAILABLE' =>
+        'That website could not be read. Retry or continue entering the restaurant manually.',
+      'WEBSITE_TOO_LARGE' =>
+        'That website contains too much content to import safely. Continue entering the restaurant manually.',
+      'MAPS_PLACE_NOT_FOUND' =>
+        'We could not identify a place from that Google Maps link. Try the place’s Share link or continue manually.',
+      'PLACES_NOT_CONFIGURED' =>
+        'Google Maps import is not configured on the staging backend yet. You can continue entering the restaurant manually.',
+      'PLACES_RATE_LIMITED' =>
+        'Google place lookup is busy. Wait a moment, retry, or continue manually.',
+      'PLACES_UNAVAILABLE' =>
+        'Google place lookup is temporarily unavailable. Retry or continue manually.',
       _ when error.status == 401 =>
         'Your session has expired. Sign in and try again.',
       _ when error.status == 403 =>
         'An approved Creator account is required to generate restaurant drafts.',
-      _ => 'The social source could not be analysed. Please try again.',
+      _ => 'The source could not be analysed. Please try again.',
     };
     return AppException(
       code: switch (error.status) {

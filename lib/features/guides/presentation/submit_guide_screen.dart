@@ -18,6 +18,8 @@ import '../../../constants/malaysia_states.dart';
 import '../../../models/guide_model.dart';
 import '../../restaurants/presentation/local_eats_controller.dart';
 import '../../spots/presentation/spot_controller.dart';
+import '../../places/domain/external_place.dart';
+import '../../places/presentation/google_place_search_sheet.dart';
 
 class SubmitGuideScreen extends StatefulWidget {
   const SubmitGuideScreen({super.key});
@@ -340,18 +342,24 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                               ButtonSegment(
                                 value: GuideStopKind.listing,
                                 icon: Icon(Icons.verified_outlined),
-                                label: Text('LiveLocal listing'),
+                                label: Text('LiveLocal'),
+                              ),
+                              ButtonSegment(
+                                value: GuideStopKind.provider,
+                                icon: Icon(Icons.map_outlined),
+                                label: Text('Google'),
                               ),
                               ButtonSegment(
                                 value: GuideStopKind.custom,
                                 icon: Icon(Icons.add_location_alt_outlined),
-                                label: Text('Custom stop'),
+                                label: Text('Custom'),
                               ),
                             ],
                             selected: {stop.kind},
                             onSelectionChanged: (selection) => setState(() {
                               stop.kind = selection.first;
                               stop.listingKey = null;
+                              stop.externalPlace = null;
                               stop.stopName.clear();
                             }),
                           ),
@@ -389,6 +397,50 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
                                   stop.stopName.text = choice?.name ?? '';
                                 });
                               },
+                            )
+                          else if (stop.kind == GuideStopKind.provider)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (stop.externalPlace != null)
+                                  Card(
+                                    child: ListTile(
+                                      leading:
+                                          const Icon(Icons.verified_outlined),
+                                      title: Text(stop.externalPlace!.name),
+                                      subtitle: Text(
+                                        stop.externalPlace!.formattedAddress,
+                                      ),
+                                    ),
+                                  ),
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final place =
+                                        await GooglePlaceSearchSheet.show(
+                                      context,
+                                      title: 'Choose a guide stop',
+                                      hintText: 'Search place name and city',
+                                    );
+                                    if (place == null || !mounted) return;
+                                    setState(() {
+                                      stop.externalPlace = place;
+                                      stop.stopName.text = place.name;
+                                    });
+                                  },
+                                  icon: const Icon(Icons.search),
+                                  label: Text(stop.externalPlace == null
+                                      ? 'Find a real place'
+                                      : 'Choose another place'),
+                                ),
+                                if (stop.externalPlace == null)
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      'Choose the exact Google place for this stop.',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                              ],
                             )
                           else
                             TextFormField(
@@ -531,6 +583,13 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
       );
       return;
     }
+    if (_stops.any((stop) =>
+        stop.kind == GuideStopKind.provider && stop.externalPlace == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose every Google-backed guide stop.')),
+      );
+      return;
+    }
 
     final accepted = await showUgcConsentDialog(context);
     if (!accepted || !mounted) return;
@@ -555,6 +614,8 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
           listingId: listingParts != null && listingParts.length == 2
               ? listingParts.last
               : null,
+          placeProvider: stop.externalPlace?.provider,
+          googlePlaceId: stop.externalPlace?.placeId,
         );
       }).toList(),
       estimatedDuration: _duration.text.trim(),
@@ -575,6 +636,7 @@ class _SubmitGuideScreenState extends State<SubmitGuideScreen> {
 class _StopDraft {
   GuideStopKind kind = GuideStopKind.listing;
   String? listingKey;
+  ExternalPlace? externalPlace;
   final TextEditingController stopName = TextEditingController();
   final TextEditingController walkingInstruction = TextEditingController();
 

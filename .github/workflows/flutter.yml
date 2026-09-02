@@ -87,7 +87,7 @@ jobs:
       - name: Lint Edge Functions
         run: deno lint supabase/functions
       - name: Test Edge Function modules
-        run: deno test supabase/functions/generate-restaurant-listing/*_test.ts
+        run: deno test supabase/functions/**/*_test.ts
       - name: Start local Supabase
         run: supabase start
       - name: Replay migrations from empty database

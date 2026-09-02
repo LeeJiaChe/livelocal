@@ -201,6 +201,30 @@ class AppLocalizations {
     'State or territory': 'Negeri atau wilayah',
     'Select state or territory': 'Pilih negeri atau wilayah',
     'All': 'Semua',
+    'Explore all of Malaysia': 'Terokai seluruh Malaysia',
+    'Discover real places, community favourites, local food and ready-made guides in one place.':
+        'Temui tempat sebenar, kegemaran komuniti, makanan tempatan dan panduan sedia digunakan di satu tempat.',
+    'Real places near you': 'Tempat sebenar berdekatan anda',
+    'Broad real-world discovery for food, attractions and everyday places.':
+        'Penemuan dunia sebenar yang luas untuk makanan, tarikan dan tempat harian.',
+    'Community Spots': 'Tempat Komuniti',
+    'Things to do and places recommended by the LiveLocal community.':
+        'Aktiviti dan tempat yang disyorkan oleh komuniti LiveLocal.',
+    'Approved restaurant recommendations with richer Creator insight.':
+        'Cadangan restoran diluluskan dengan pandangan Pencipta yang lebih terperinci.',
+    'Community routes and recommendations ready to follow.':
+        'Laluan dan cadangan komuniti yang sedia diikuti.',
+    'See all': 'Lihat semua',
+    'Real places could not be loaded': 'Tempat sebenar tidak dapat dimuatkan',
+    'Search above or use Near me to discover thousands of real places.':
+        'Cari di atas atau gunakan Berdekatan saya untuk menemui ribuan tempat sebenar.',
+    'No matching real places yet. Try a broader search.':
+        'Belum ada tempat sebenar yang sepadan. Cuba carian yang lebih luas.',
+    'Community Spots are being prepared.': 'Tempat Komuniti sedang disediakan.',
+    'Local restaurant recommendations are being prepared.':
+        'Cadangan restoran tempatan sedang disediakan.',
+    'Travel guides are being prepared.':
+        'Panduan perjalanan sedang disediakan.',
     'Spots': 'Tempat',
     'Eats': 'Makan',
     'Restaurants': 'Restoran',
@@ -598,8 +622,6 @@ class AppLocalizations {
     'Thanks for sharing this place': 'Terima kasih kerana berkongsi tempat ini',
     'Your submission is waiting for review. An administrator will verify the details before it appears in public discovery.':
         'Sumbangan anda sedang menunggu semakan. Pentadbir akan mengesahkan butiran sebelum ia dipaparkan dalam penemuan awam.',
-    'Places could not be loaded': 'Tempat tidak dapat dimuatkan',
-    'No matching places': 'Tiada tempat yang sepadan',
     'Try another search, category, or state filter.':
         'Cuba carian, kategori atau penapis negeri yang lain.',
     'About this Local Spot': 'Tentang Tempat Lokal ini',
@@ -1157,6 +1179,54 @@ class AppLocalizations {
         'Rayuan anda telah disemak. Buka status akaun untuk melihat keputusan.',
     'Unread': 'Belum dibaca',
     'Just now': 'Baru sahaja',
+    'Places': 'Tempat',
+    'Discover Malaysia': 'Terokai Malaysia',
+    'Search real places across Malaysia, alongside LiveLocal community Spots, Eats and Guides.':
+        'Cari tempat sebenar di seluruh Malaysia bersama Tempat, Makanan dan Panduan komuniti LiveLocal.',
+    'e.g. cafe in Penang': 'cth. kafe di Pulau Pinang',
+    'Near me': 'Berdekatan saya',
+    'Food': 'Makanan',
+    'Cafes': 'Kafe',
+    'Attractions': 'Tarikan',
+    'Museums': 'Muzium',
+    'Parks': 'Taman',
+    'Beaches': 'Pantai',
+    'Places near your current location': 'Tempat berdekatan lokasi semasa anda',
+    'Google Places results': 'Hasil Google Places',
+    'Places could not be loaded': 'Tempat tidak dapat dimuatkan',
+    'Location is not available': 'Lokasi tidak tersedia',
+    'Open settings': 'Buka tetapan',
+    'Search thousands of real places': 'Cari ribuan tempat sebenar',
+    'No matching places': 'Tiada tempat yang sepadan',
+    'Try “museum Kuala Lumpur”, “beach Terengganu”, or use Near me.':
+        'Cuba “muzium Kuala Lumpur”, “pantai Terengganu”, atau gunakan Berdekatan saya.',
+    'Try a broader search, another category, or a nearby city.':
+        'Cuba carian yang lebih luas, kategori lain atau bandar berdekatan.',
+    'Load more places': 'Muatkan lebih banyak tempat',
+    'Add to Trip': 'Tambah ke Perjalanan',
+    'Open directions in Maps': 'Buka arah dalam Peta',
+    'Opening hours': 'Waktu operasi',
+    'Google Places': 'Google Places',
+    'Restaurant or review link': 'Pautan restoran atau ulasan',
+    'Paste a public Google Maps, website, TikTok, or Instagram link':
+        'Tampal pautan Google Maps, laman web, TikTok atau Instagram awam',
+    'Generate details with AI': 'Jana butiran dengan AI',
+    'Open now': 'Dibuka sekarang',
+    'Closed now': 'Ditutup sekarang',
+    'Place details could not be loaded': 'Butiran tempat tidak dapat dimuatkan',
+    'Google rating': 'penilaian Google',
+    'Visit website': 'Lawati laman web',
+    'Place information is provided live by Google Places. LiveLocal reviews are shown only for LiveLocal community listings.':
+        'Maklumat tempat disediakan secara langsung oleh Google Places. Ulasan LiveLocal hanya ditunjukkan untuk penyenaraian komuniti LiveLocal.',
+    'No Maps application could open this place.':
+        'Tiada aplikasi Peta yang dapat membuka tempat ini.',
+    'Place could not be added.': 'Tempat tidak dapat ditambahkan.',
+    'Import from a link (Optional)': 'Import daripada pautan (Pilihan)',
+    'AI uses the public source to suggest details. You\'ll review everything before submitting.':
+        'AI menggunakan sumber awam untuk mencadangkan butiran. Anda akan menyemak semuanya sebelum menghantar.',
+    'Recommended dishes & source': 'Hidangan disyorkan & sumber',
+    'Highlight your recommendations and keep the original public link':
+        'Serlahkan cadangan anda dan simpan pautan awam asal',
   };
 }
 

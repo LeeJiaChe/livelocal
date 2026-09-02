@@ -16,6 +16,8 @@ class SpotDraftInput {
     required this.thingsToDo,
     this.latitude,
     this.longitude,
+    this.placeProvider,
+    this.googlePlaceId,
   });
 
   final String name;
@@ -29,6 +31,8 @@ class SpotDraftInput {
   final String thingsToDo;
   final double? latitude;
   final double? longitude;
+  final String? placeProvider;
+  final String? googlePlaceId;
 }
 
 class ProbableSpotDuplicate {

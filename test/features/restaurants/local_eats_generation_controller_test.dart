@@ -89,8 +89,9 @@ class _GenerationRepository extends DemoLocalEatsRepository {
 
   @override
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  ) =>
+    String sourceUrl, {
+    String? restaurantName,
+  }) =>
       result;
 }
 

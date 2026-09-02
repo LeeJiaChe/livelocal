@@ -120,12 +120,12 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Discover Malaysia like a local',
+                      'Things locals recommend',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: AppSpacing.x1),
                     Text(
-                      'Explore authentic heritage, nature, and cultural places recommended by local communities.',
+                      'Things to do with useful local timing, activities, tips and context.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color:
                                 Theme.of(context).colorScheme.onSurfaceVariant,
@@ -134,7 +134,8 @@ class _SpotsDiscoveryScreenState extends State<SpotsDiscoveryScreen> {
                     const SizedBox(height: AppSpacing.x2),
                     SearchBar(
                       controller: _search,
-                      hintText: context.tr('Search places, heritage, or towns'),
+                      hintText: context
+                          .tr('Search things to do or local experiences'),
                       leading: const Icon(Icons.search),
                       trailing: [
                         if (_search.text.isNotEmpty)
@@ -326,7 +327,10 @@ class _SpotCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final itineraryCtrl = context.watch<ItineraryController>();
-    final isSaved = itineraryCtrl.isSaved(spotId: spot.id);
+    final isSaved = itineraryCtrl.isSaved(
+      spotId: spot.id,
+      googlePlaceId: spot.googlePlaceId,
+    );
 
     return Card(
       clipBehavior: Clip.antiAlias,

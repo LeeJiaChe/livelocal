@@ -49,12 +49,36 @@ class ItineraryController with ChangeNotifier {
   String? get itineraryError => _errorMessage;
 
   void setActiveCollection(SavedCollectionModel? collection) {
+    final changedCollection = _activeCollection?.id != collection?.id;
     _activeCollection = collection;
-    if (collection == null) {
+    if (collection == null || changedCollection) {
       _activeCollectionItems = [];
       _activeCollectionPlaces = [];
     }
     notifyListeners();
+  }
+
+  Future<bool> loadActiveCollection(String collectionId) async {
+    _isLoadingCollectionPlaces = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final values = await Future.wait([
+        _repository.fetchCollectionPlaces(collectionId),
+        _repository.fetchCollectionItems(collectionId),
+      ]);
+      _activeCollectionPlaces = values[0] as List<SavedCollectionPlace>;
+      _activeCollectionItems = values[1] as List<SavedCollectionItemModel>;
+      return true;
+    } catch (error) {
+      _activeCollectionPlaces = [];
+      _activeCollectionItems = [];
+      _errorMessage = _message(error, 'Collection places could not be loaded.');
+      return false;
+    } finally {
+      _isLoadingCollectionPlaces = false;
+      notifyListeners();
+    }
   }
 
   Future<void> loadCollections() async {
@@ -168,10 +192,12 @@ class ItineraryController with ChangeNotifier {
   Future<List<String>> fetchPlaceCollectionIds({
     required String targetType,
     required String targetId,
+    String? externalProvider,
   }) async {
     return await _repository.fetchPlaceCollectionIds(
       targetType: targetType,
       targetId: targetId,
+      externalProvider: externalProvider,
     );
   }
 
@@ -179,6 +205,7 @@ class ItineraryController with ChangeNotifier {
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
+    String? externalProvider,
   }) async {
     _errorMessage = null;
     notifyListeners();
@@ -187,16 +214,14 @@ class ItineraryController with ChangeNotifier {
         targetType: targetType,
         targetId: targetId,
         collectionIds: collectionIds,
+        externalProvider: externalProvider,
       );
       await Future.wait([
         loadSavedPlaces(),
         loadCollections(),
       ]);
       if (_activeCollection != null) {
-        await Future.wait([
-          loadActiveCollectionItems(_activeCollection!.id),
-          loadActiveCollectionPlaces(_activeCollection!.id),
-        ]);
+        await loadActiveCollection(_activeCollection!.id);
       }
       return result;
     } catch (error) {
@@ -237,15 +262,26 @@ class ItineraryController with ChangeNotifier {
     }
   }
 
-  bool isSaved({String? spotId, String? restaurantId}) {
+  bool isSaved({
+    String? spotId,
+    String? restaurantId,
+    String? googlePlaceId,
+  }) {
     return _savedPlaces.any(
       (place) =>
           (spotId != null && place.spotId == spotId) ||
-          (restaurantId != null && place.restaurantId == restaurantId),
+          (restaurantId != null && place.restaurantId == restaurantId) ||
+          (googlePlaceId != null &&
+              place.externalProvider == 'google' &&
+              place.externalPlaceId == googlePlaceId),
     );
   }
 
-  Future<bool> toggleSave({String? spotId, String? restaurantId}) async {
+  Future<bool> toggleSave({
+    String? spotId,
+    String? restaurantId,
+    String? googlePlaceId,
+  }) async {
     if ((spotId == null) == (restaurantId == null)) {
       _errorMessage = 'Choose exactly one place to save.';
       notifyListeners();
@@ -256,6 +292,7 @@ class ItineraryController with ChangeNotifier {
     final currentlySaved = isSaved(
       spotId: spotId,
       restaurantId: restaurantId,
+      googlePlaceId: googlePlaceId,
     );
 
     try {
@@ -303,6 +340,47 @@ class ItineraryController with ChangeNotifier {
       _errorMessage = _message(
         error,
         'The saved-place change could not be completed.',
+      );
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> saveExternalToDefaultCollection({
+    required String provider,
+    required String placeId,
+  }) async {
+    try {
+      if (_collections.isEmpty) await loadCollections();
+      var defaultCollection = _collections.firstWhere(
+        (collection) => collection.name.toLowerCase() == 'saved places',
+        orElse: () => _collections.isNotEmpty
+            ? _collections.first
+            : SavedCollectionModel(
+                id: '',
+                userId: '',
+                name: 'Saved places',
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              ),
+      );
+      if (defaultCollection.id.isEmpty) {
+        defaultCollection = await _repository.createCollection(
+          name: 'Saved places',
+          description: 'Default collection for your saved places',
+        );
+      }
+      await setPlaceCollections(
+        targetType: 'external',
+        targetId: placeId,
+        externalProvider: provider,
+        collectionIds: [defaultCollection.id],
+      );
+      return true;
+    } catch (error) {
+      _errorMessage = _message(
+        error,
+        'The external place could not be added to your trip.',
       );
       notifyListeners();
       return false;
@@ -371,6 +449,7 @@ class ItineraryController with ChangeNotifier {
         return ItineraryTarget(
           type: candidate.targetType,
           id: candidate.targetId,
+          provider: candidate.externalProvider,
         );
       }).toList();
 
@@ -405,7 +484,9 @@ class ItineraryController with ChangeNotifier {
       if (stop.isSpot) {
         return {
           'title': stop.name,
-          'location': '${stop.city}, ${stop.state}',
+          'location': stop.address.isNotEmpty
+              ? stop.address
+              : '${stop.city}, ${stop.state}',
           'best_time': stop.bestTime ?? 'Anytime',
           'activity': stop.thingsToDo ?? 'Explore spot',
           'type': 'Spot (${stop.categoryOrCuisine})',
@@ -413,12 +494,50 @@ class ItineraryController with ChangeNotifier {
           'lat': stop.latitude,
           'lng': stop.longitude,
           'area': stop.city,
+          'provider': stop.externalProvider ?? '',
+          'place_id': stop.targetId,
+          if (index == 0) 'day_label': 'Route overview',
+        };
+      }
+      if (stop.isExternal) {
+        final localContext = <String>[
+          if (stop.reviewedDishes?.trim().isNotEmpty == true)
+            'Local pick: ${stop.reviewedDishes}',
+          if (stop.thingsToDo?.trim().isNotEmpty == true) stop.thingsToDo!,
+        ];
+        final hasEat = stop.reviewedDishes?.trim().isNotEmpty == true;
+        final hasSpot = stop.thingsToDo?.trim().isNotEmpty == true ||
+            stop.bestTime?.trim().isNotEmpty == true;
+        return {
+          'title': stop.name,
+          'location': stop.address,
+          'best_time': stop.bestTime?.trim().isNotEmpty == true
+              ? stop.bestTime!
+              : 'Check current opening hours',
+          'activity': localContext.isEmpty
+              ? 'Basic place information'
+              : localContext.join(' · '),
+          'type': hasEat && hasSpot
+              ? 'Eat + Things to Do (${stop.categoryOrCuisine})'
+              : hasEat
+                  ? 'Eat (${stop.categoryOrCuisine})'
+                  : hasSpot
+                      ? 'Things to Do (${stop.categoryOrCuisine})'
+                      : 'Google Place (${stop.categoryOrCuisine})',
+          'step': 'Stop ${index + 1}',
+          'lat': stop.latitude,
+          'lng': stop.longitude,
+          'area': stop.city,
+          'provider': stop.externalProvider ?? '',
+          'place_id': stop.targetId,
           if (index == 0) 'day_label': 'Route overview',
         };
       }
       return {
         'title': stop.name,
-        'location': '${stop.city}, ${stop.state}',
+        'location': stop.address.isNotEmpty
+            ? stop.address
+            : '${stop.city}, ${stop.state}',
         'best_time': 'Meal stop',
         'activity':
             stop.reviewedDishes != null && stop.reviewedDishes!.isNotEmpty
@@ -429,6 +548,8 @@ class ItineraryController with ChangeNotifier {
         'lat': stop.latitude,
         'lng': stop.longitude,
         'area': stop.city,
+        'provider': stop.externalProvider ?? '',
+        'place_id': stop.targetId,
         if (index == 0) 'day_label': 'Route overview',
       };
     });

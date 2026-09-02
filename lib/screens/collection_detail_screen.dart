@@ -11,6 +11,8 @@ import '../models/saved_collection_model.dart';
 import '../shared/presentation/app_state_view.dart';
 import 'itinerary_screen.dart';
 import 'restaurant_detail_screen.dart';
+import '../features/places/domain/place_provider.dart';
+import '../features/places/presentation/external_places_screen.dart';
 import 'spot_detail_screen.dart';
 
 class CollectionDetailScreen extends StatefulWidget {
@@ -28,6 +30,7 @@ class CollectionDetailScreen extends StatefulWidget {
 class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   late SavedCollectionModel _currentCollection;
   bool _isLoading = true;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -37,13 +40,21 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 
   Future<void> _loadItems() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _loadFailed = false;
+      });
+    }
     final controller = context.read<ItineraryController>();
     controller.setActiveCollection(_currentCollection);
-    await Future.wait([
-      controller.loadActiveCollectionPlaces(_currentCollection.id),
-      controller.loadActiveCollectionItems(_currentCollection.id),
-    ]);
-    if (mounted) setState(() => _isLoading = false);
+    final loaded = await controller.loadActiveCollection(_currentCollection.id);
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _loadFailed = !loaded;
+      });
+    }
   }
 
   Future<void> _showRenameDialog() async {
@@ -157,6 +168,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
       currentMemberships = await controller.fetchPlaceCollectionIds(
         targetType: place.targetType,
         targetId: place.targetId,
+        externalProvider: place.externalProvider,
       );
     } catch (error) {
       if (mounted) {
@@ -179,6 +191,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
         targetType: place.targetType,
         targetId: place.targetId,
         collectionIds: newMemberships,
+        externalProvider: place.externalProvider,
       );
 
       if (mounted) {
@@ -213,6 +226,29 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
   }
 
   Future<void> _openPlaceDetail(SavedCollectionPlace place) async {
+    if (place.isExternal) {
+      try {
+        final external =
+            await context.read<PlaceProvider>().details(place.targetId);
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => ExternalPlaceDetailScreen(initialPlace: external),
+          ),
+        );
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Current place details could not be loaded. Retry shortly.'),
+            ),
+          );
+        }
+      }
+      return;
+    }
     if (place.isSpot) {
       final spotCtrl = context.read<SpotController>();
       final spot = await spotCtrl.fetchSpotById(place.targetId);
@@ -275,94 +311,103 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.x2,
-                      AppSpacing.x1,
-                      AppSpacing.x2,
-                      AppSpacing.x2,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_currentCollection.description != null &&
-                            _currentCollection.description!.isNotEmpty) ...[
-                          Text(
-                            _currentCollection.description!,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
-                          ),
-                          const SizedBox(height: AppSpacing.x2),
-                        ],
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          : _loadFailed
+              ? AppStateView(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Collection could not be loaded',
+                  message: itineraryCtrl.errorMessage ??
+                      'Check your connection and try again.',
+                  actionLabel: context.tr('Try again'),
+                  onAction: _loadItems,
+                )
+              : CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.x2,
+                          AppSpacing.x1,
+                          AppSpacing.x2,
+                          AppSpacing.x2,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '$totalCount ${totalCount == 1 ? 'place' : 'places'} saved',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                            if (totalCount > 0)
-                              FilledButton.tonalIcon(
-                                onPressed: _planRouteFromCollection,
-                                icon:
-                                    const Icon(Icons.route_outlined, size: 18),
-                                label: const Text('Plan route'),
+                            if (_currentCollection.description != null &&
+                                _currentCollection.description!.isNotEmpty) ...[
+                              Text(
+                                _currentCollection.description!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
                               ),
+                              const SizedBox(height: AppSpacing.x2),
+                            ],
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '$totalCount ${totalCount == 1 ? 'place' : 'places'} saved',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                                if (totalCount > 0)
+                                  FilledButton.tonalIcon(
+                                    onPressed: _planRouteFromCollection,
+                                    icon: const Icon(Icons.route_outlined,
+                                        size: 18),
+                                    label: const Text('Plan route'),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    if (places.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: AppStateView(
+                          icon: Icons.bookmark_border_rounded,
+                          title: 'No places in this collection',
+                          message:
+                              'Explore spots and restaurants and save them to "${_currentCollection.name}".',
+                          actionLabel: context.tr('Discover places'),
+                          onAction: () => Navigator.pop(context),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.x2,
+                          0,
+                          AppSpacing.x2,
+                          AppSpacing.x4,
+                        ),
+                        sliver: SliverList.separated(
+                          itemCount: places.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: AppSpacing.x2),
+                          itemBuilder: (context, index) {
+                            final place = places[index];
+                            return _buildCollectionPlaceCard(place);
+                          },
+                        ),
+                      ),
+                  ],
                 ),
-                if (places.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: AppStateView(
-                      icon: Icons.bookmark_border_rounded,
-                      title: 'No places in this collection',
-                      message:
-                          'Explore spots and restaurants and save them to "${_currentCollection.name}".',
-                      actionLabel: context.tr('Discover places'),
-                      onAction: () => Navigator.pop(context),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.x2,
-                      0,
-                      AppSpacing.x2,
-                      AppSpacing.x4,
-                    ),
-                    sliver: SliverList.separated(
-                      itemCount: places.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: AppSpacing.x2),
-                      itemBuilder: (context, index) {
-                        final place = places[index];
-                        return _buildCollectionPlaceCard(place);
-                      },
-                    ),
-                  ),
-              ],
-            ),
     );
   }
 
@@ -412,7 +457,9 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                             child: Icon(
                               place.isSpot
                                   ? Icons.place_outlined
-                                  : Icons.restaurant_outlined,
+                                  : place.isExternal
+                                      ? Icons.travel_explore_outlined
+                                      : Icons.restaurant_outlined,
                               color: colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -422,7 +469,9 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                           child: Icon(
                             place.isSpot
                                 ? Icons.place_outlined
-                                : Icons.restaurant_outlined,
+                                : place.isExternal
+                                    ? Icons.travel_explore_outlined
+                                    : Icons.restaurant_outlined,
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),

@@ -36,3 +36,12 @@ file_size_limit = "10MiB"
 
 [functions.generate-restaurant-listing]
 verify_jwt = true
+
+[functions.search-places]
+verify_jwt = false
+
+[functions.nearby-places]
+verify_jwt = false
+
+[functions.place-details]
+verify_jwt = false

@@ -212,12 +212,12 @@ void main() {
       expect(find.text('Recommend a restaurant'), findsWidgets);
       expect(find.text('Restaurant info'), findsOneWidget);
       expect(find.text('Location details'), findsOneWidget);
-      expect(find.text('Recommended dishes & social source'), findsOneWidget);
+      expect(find.text('Recommended dishes & source'), findsOneWidget);
       expect(find.text('Cover photo'), findsOneWidget);
     });
 
     testWidgets(
-        '10. Creator submitting restaurant with invalid social video URL fails validation',
+        '10. Creator submitting restaurant with unsupported source URL fails validation',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 2000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -234,8 +234,8 @@ void main() {
       );
       // Enter invalid URL
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'TikTok or Instagram video link'),
-        'https://invalid-video-site.com/123',
+        find.widgetWithText(TextFormField, 'Source / reference link'),
+        'http://invalid-video-site.com/123',
       );
       await tester.pumpAndSettle();
 
@@ -246,7 +246,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Enter a supported TikTok or Instagram HTTPS URL.'),
+        find.text(
+          'Enter a public Google Maps, website, TikTok, or Instagram HTTPS URL.',
+        ),
         findsOneWidget,
       );
     });
@@ -436,7 +438,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Fill in stop 1 & 2 as custom stops
-      final customSegments = find.text('Custom stop');
+      final customSegments = find.text('Custom');
       expect(customSegments, findsNWidgets(2));
       await tester.tap(customSegments.first);
       await tester.tap(customSegments.last);

@@ -151,7 +151,10 @@ class _SpotDetailScreenState extends State<SpotDetailScreen> {
     final isUpvoted = currentSpot?.isUpvotedByCurrentUser ??
         widget.spot.isUpvotedByCurrentUser;
 
-    final isSaved = itineraryCtrl.isSaved(spotId: widget.spot.id);
+    final isSaved = itineraryCtrl.isSaved(
+      spotId: widget.spot.id,
+      googlePlaceId: widget.spot.googlePlaceId,
+    );
     final spotReviews = reviewCtrl.getReviewsForSpot(widget.spot.id);
 
     return Scaffold(

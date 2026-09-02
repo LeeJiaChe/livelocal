@@ -88,4 +88,43 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('parses Google Maps and website partial drafts', () {
+    final maps = SocialSourceAnalysisResult.fromJson({
+      'sourceType': 'place',
+      'platform': 'google_maps',
+      'candidates': [
+        {
+          'restaurantName': 'Line Clear Nasi Kandar',
+          'address': '177 Jalan Penang, George Town, Pulau Pinang',
+          'state': 'Pulau Pinang',
+          'city': 'George Town',
+          'cuisineType': 'Restaurant',
+          'priceRange': r'$$',
+          'reviewedDishes': <String>[],
+          'sourcePlatform': 'google_maps',
+          'sourcePostUrl': 'https://maps.app.goo.gl/AbCdEf123456',
+          'confidence': 1,
+          'missingFields': ['reviewedDishes'],
+        },
+      ],
+    });
+    final website = GeneratedRestaurantListing.fromJson({
+      'restaurantName': 'Public Cafe',
+      'address': null,
+      'state': null,
+      'city': null,
+      'cuisineType': null,
+      'priceRange': null,
+      'reviewedDishes': <String>[],
+      'sourcePlatform': 'website',
+      'sourcePostUrl': 'https://public-cafe.example/about',
+      'confidence': 0.3,
+      'missingFields': GeneratedRestaurantListing.listingFields,
+    });
+
+    expect(maps.candidates.single.city, 'George Town');
+    expect(website.restaurantName, 'Public Cafe');
+    expect(website.missingFields, contains('address'));
+  });
 }
