@@ -489,8 +489,9 @@ class _MockSpyLocalEatsRepository extends DemoLocalEatsRepository {
 
   @override
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  ) async {
+    String sourceUrl, {
+    String? restaurantName,
+  }) async {
     generateCalls++;
     return const SocialSourceAnalysisResult(
       sourceType: 'post',

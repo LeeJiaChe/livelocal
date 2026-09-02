@@ -451,8 +451,9 @@ class _FailingLocalEatsRepository extends DemoLocalEatsRepository {
 
   @override
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  ) async {
+    String sourceUrl, {
+    String? restaurantName,
+  }) async {
     throw errorToThrow;
   }
 }
@@ -465,8 +466,9 @@ class _MockRecordingLocalEatsRepository extends DemoLocalEatsRepository {
 
   @override
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  ) async {
+    String sourceUrl, {
+    String? restaurantName,
+  }) async {
     return const SocialSourceAnalysisResult(
       sourceType: 'post',
       platform: 'tiktok',

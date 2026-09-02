@@ -49,36 +49,55 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
     return userCollections.map((col) {
       final items = _collectionItems
           .where((item) => item.collectionId == col.id)
-          .toList();
+          .toList()
+        ..sort((left, right) => right.addedAt.compareTo(left.addedAt));
       final spotCount = items.where((i) => i.spotId != null).length;
       final restaurantCount = items.where((i) => i.restaurantId != null).length;
+      final externalCount =
+          items.where((i) => i.externalPlaceId != null).length;
 
-      String? coverUrl;
-      String? coverTargetType;
-      if (items.isNotEmpty) {
-        final firstItem = items.first;
-        if (firstItem.spotId != null) {
-          coverTargetType = 'spot';
-          coverUrl = spots
-              .where((s) => s.id == firstItem.spotId)
-              .map((s) => s.imagePath)
+      final coverItems = items.take(4).map((item) {
+        if (item.spotId != null) {
+          final image = spots
+              .where((spot) => spot.id == item.spotId)
+              .map((spot) => spot.imagePath)
               .firstOrNull;
-        } else if (firstItem.restaurantId != null) {
-          coverTargetType = 'restaurant';
-          coverUrl = restaurants
-              .where((r) => r.id == firstItem.restaurantId)
-              .map((r) => r.coverImagePath)
-              .firstOrNull;
+          return CollectionCoverItem(
+            targetType: 'spot',
+            targetId: item.spotId!,
+            imagePath: image,
+            imageUrl: image,
+          );
         }
-      }
+        if (item.restaurantId != null) {
+          final image = restaurants
+              .where((restaurant) => restaurant.id == item.restaurantId)
+              .map((restaurant) => restaurant.coverImagePath)
+              .firstOrNull;
+          return CollectionCoverItem(
+            targetType: 'restaurant',
+            targetId: item.restaurantId!,
+            imagePath: image,
+            imageUrl: image,
+          );
+        }
+        return CollectionCoverItem(
+          targetType: 'external',
+          targetId: item.externalPlaceId ?? '',
+          externalProvider: item.externalProvider,
+        );
+      }).toList(growable: false);
+      final firstCover = coverItems.firstOrNull;
 
       return col.copyWith(
         itemCount: items.length,
         spotCount: spotCount,
         restaurantCount: restaurantCount,
-        coverTargetType: coverTargetType,
-        coverImageUrl: coverUrl,
-        coverImagePath: coverUrl,
+        externalCount: externalCount,
+        coverTargetType: firstCover?.targetType,
+        coverImageUrl: firstCover?.imageUrl,
+        coverImagePath: firstCover?.imagePath,
+        coverItems: coverItems,
       );
     }).toList();
   }
@@ -295,6 +314,7 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
   Future<List<String>> fetchPlaceCollectionIds({
     required String targetType,
     required String targetId,
+    String? externalProvider,
   }) async {
     final userId = _requireUser();
     final savedPlace = _savedPlaces.firstWhere(
@@ -320,6 +340,7 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
     required String targetType,
     required String targetId,
     required List<String> collectionIds,
+    String? externalProvider,
   }) async {
     final userId = _requireUser();
     _validateTarget(targetType, targetId);
@@ -477,6 +498,7 @@ class DemoSavedItineraryRepository implements SavedItineraryRepository {
     required String targetType,
     required String targetId,
     required bool saved,
+    String? externalProvider,
   }) async {
     final userId = _requireUser();
     _validateTarget(targetType, targetId);

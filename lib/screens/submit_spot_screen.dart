@@ -9,6 +9,9 @@ import '../controllers/auth_controller.dart';
 import '../controllers/spot_controller.dart';
 import '../core/routing/protected_navigation.dart';
 import '../features/spots/domain/spot_repository.dart';
+import '../features/places/domain/external_place.dart';
+import '../features/places/domain/place_provider.dart';
+import '../features/places/presentation/google_place_search_sheet.dart';
 import '../models/spot_model.dart';
 import '../shared/presentation/contributions/contribution_header.dart';
 import '../shared/presentation/contributions/contribution_image_picker.dart';
@@ -21,9 +24,10 @@ import '../constants/malaysia_states.dart';
 import '../features/spots/domain/spot_taxonomy.dart';
 
 class SubmitSpotScreen extends StatefulWidget {
-  const SubmitSpotScreen({super.key, this.source});
+  const SubmitSpotScreen({super.key, this.source, this.initialPlace});
 
   final SpotModel? source;
+  final ExternalPlace? initialPlace;
 
   @override
   State<SubmitSpotScreen> createState() => _SubmitSpotScreenState();
@@ -35,6 +39,8 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   final _description = TextEditingController();
   final _city = TextEditingController();
   final _address = TextEditingController();
+  final _latitude = TextEditingController();
+  final _longitude = TextEditingController();
   final _bestTime = TextEditingController();
   final _thingsToDo = TextEditingController();
 
@@ -49,8 +55,16 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
   bool _submitting = false;
   bool _imageRightsConfirmed = false;
   bool _submittedSuccess = false;
+  ExternalPlace? _selectedPlace;
+  bool _placeConfirmed = false;
+  late bool _useCustomPlace;
 
   bool get _isRevision => widget.source != null;
+  bool get _allowsLegacyMissingPin =>
+      _isRevision &&
+      widget.source?.googlePlaceId == null &&
+      widget.source?.latitude == null &&
+      widget.source?.longitude == null;
 
   @override
   void initState() {
@@ -63,16 +77,34 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
     );
     _category = source?.category;
     _categories = SpotTaxonomy.getCategoriesForRevision(source?.category);
+    _useCustomPlace = source != null && source.googlePlaceId == null;
 
-    if (source == null) return;
+    if (source == null) {
+      final initialPlace = widget.initialPlace;
+      if (initialPlace != null) {
+        _selectedPlace = initialPlace;
+        _name.text = initialPlace.name;
+        _address.text = initialPlace.formattedAddress;
+        _latitude.text = initialPlace.latitude.toString();
+        _longitude.text = initialPlace.longitude.toString();
+      }
+      return;
+    }
     _name.text = source.name;
     _description.text = source.description;
     _city.text = source.city;
     _address.text = source.address;
+    _latitude.text = source.latitude?.toString() ?? '';
+    _longitude.text = source.longitude?.toString() ?? '';
     _bestTime.text = source.bestTime;
     _thingsToDo.text = source.thingsToDo;
     _priceRange = source.priceRange;
     _imageRightsConfirmed = true;
+    if (source.googlePlaceId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadLinkedPlace(source.googlePlaceId!);
+      });
+    }
   }
 
   @override
@@ -81,6 +113,8 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
     _description.dispose();
     _city.dispose();
     _address.dispose();
+    _latitude.dispose();
+    _longitude.dispose();
     _bestTime.dispose();
     _thingsToDo.dispose();
     super.dispose();
@@ -188,6 +222,92 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
             ),
             const SizedBox(height: AppSpacing.x2),
 
+            ContributionSection(
+              title: 'Find the real place',
+              subtitle: _useCustomPlace
+                  ? 'LiveLocal custom place'
+                  : 'Google provides the location. You provide the local insight.',
+              children: [
+                if (_selectedPlace == null && !_useCustomPlace)
+                  FilledButton.icon(
+                    key: const Key('spot_choose_google_place'),
+                    onPressed: _chooseGooglePlace,
+                    icon: const Icon(Icons.search),
+                    label: const Text('Find this place'),
+                  )
+                else if (_selectedPlace != null) ...[
+                  Card(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.x2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('PLACE',
+                              style: Theme.of(context).textTheme.labelMedium),
+                          const SizedBox(height: 4),
+                          Text(
+                            _selectedPlace!.name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          Text(_selectedPlace!.formattedAddress),
+                          const SizedBox(height: AppSpacing.x1),
+                          if (!_placeConfirmed)
+                            FilledButton(
+                              key: const Key('spot_confirm_google_place'),
+                              onPressed: () =>
+                                  setState(() => _placeConfirmed = true),
+                              child: const Text('Confirm this place'),
+                            )
+                          else
+                            const Row(
+                              children: [
+                                Icon(Icons.verified_outlined, size: 18),
+                                SizedBox(width: 6),
+                                Text('Place confirmed'),
+                              ],
+                            ),
+                          TextButton(
+                            onPressed: _chooseGooglePlace,
+                            child: const Text('Choose another place'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (!_useCustomPlace)
+                  TextButton(
+                    key: const Key('spot_custom_place_fallback'),
+                    onPressed: () => setState(() {
+                      _useCustomPlace = true;
+                      _selectedPlace = null;
+                      _placeConfirmed = false;
+                    }),
+                    child: const Text(
+                        "Can't find it on Google? Add a custom local place"),
+                  )
+                else
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Use this only for a genuine hidden place that is not on Google.',
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _chooseGooglePlace,
+                        child: const Text('Search Google'),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.x2),
+
             // BASICS SECTION
             ContributionSection(
               title: 'Place basics',
@@ -261,6 +381,34 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
                   minLength: 5,
                   maxLength: 300,
                 ),
+                if (_useCustomPlace) ...[
+                  const SizedBox(height: AppSpacing.x2),
+                  const Text(
+                    'Pin coordinates are required so this hidden gem can be saved, routed, and opened in Maps.',
+                  ),
+                  const SizedBox(height: AppSpacing.x1),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _coordinateField(
+                          _latitude,
+                          'Latitude',
+                          minimum: -90,
+                          maximum: 90,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.x2),
+                      Expanded(
+                        child: _coordinateField(
+                          _longitude,
+                          'Longitude',
+                          minimum: -180,
+                          maximum: 180,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: AppSpacing.x2),
@@ -451,12 +599,46 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
     );
   }
 
+  Widget _coordinateField(
+    TextEditingController controller,
+    String label, {
+    required double minimum,
+    required double maximum,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(
+        signed: true,
+        decimal: true,
+      ),
+      decoration: InputDecoration(labelText: label),
+      validator: (value) {
+        if (_allowsLegacyMissingPin &&
+            _latitude.text.trim().isEmpty &&
+            _longitude.text.trim().isEmpty) {
+          return null;
+        }
+        final coordinate = double.tryParse(value?.trim() ?? '');
+        if (coordinate == null ||
+            coordinate < minimum ||
+            coordinate > maximum) {
+          return 'Enter $minimum to $maximum.';
+        }
+        return null;
+      },
+    );
+  }
+
   Future<void> _submit() async {
     if (_createdDraft != null) {
       await _resolveDuplicates(_createdDraft!);
       return;
     }
     if (!_formKey.currentState!.validate()) return;
+    if (!_useCustomPlace && (_selectedPlace == null || !_placeConfirmed)) {
+      _message('Choose and confirm the exact place before submitting.');
+      return;
+    }
     if (_imageBytes == null && widget.source?.imageUrl.isNotEmpty != true) {
       _message('Choose a clear photo of the place.');
       return;
@@ -476,6 +658,12 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
       priceRange: _priceRange,
       bestTime: _bestTime.text.trim(),
       thingsToDo: _thingsToDo.text.trim(),
+      latitude:
+          _selectedPlace?.latitude ?? double.tryParse(_latitude.text.trim()),
+      longitude:
+          _selectedPlace?.longitude ?? double.tryParse(_longitude.text.trim()),
+      placeProvider: _selectedPlace?.provider,
+      googlePlaceId: _selectedPlace?.placeId,
     );
     final controller = context.read<SpotController>();
     final result = _isRevision
@@ -503,6 +691,46 @@ class _SubmitSpotScreenState extends State<SubmitSpotScreen> {
       return;
     }
     setState(() => _submittedSuccess = true);
+  }
+
+  Future<void> _loadLinkedPlace(String placeId) async {
+    try {
+      final place = await context.read<PlaceProvider>().details(placeId);
+      if (!mounted) return;
+      setState(() {
+        _selectedPlace = place;
+        _placeConfirmed = true;
+      });
+    } catch (_) {
+      // Keep the linked identity on the editable legacy fields if Google is
+      // temporarily unavailable; the user can retry by choosing another place.
+    }
+  }
+
+  Future<void> _chooseGooglePlace() async {
+    final place = await GooglePlaceSearchSheet.show(
+      context,
+      title: 'Find a place for this insight',
+      hintText: 'Search place name and city',
+    );
+    if (place == null || !mounted) return;
+    setState(() {
+      _selectedPlace = place;
+      _placeConfirmed = false;
+      _useCustomPlace = false;
+      _name.text = place.name;
+      _address.text = place.formattedAddress;
+      _latitude.text = place.latitude.toString();
+      _longitude.text = place.longitude.toString();
+      final lowerAddress = place.formattedAddress.toLowerCase();
+      for (final option in MalaysiaStates.options) {
+        if (lowerAddress.contains(option.rawValue.toLowerCase()) ||
+            lowerAddress.contains(option.displayName.toLowerCase())) {
+          _displayState = option.displayName;
+          break;
+        }
+      }
+    });
   }
 
   Future<void> _resolveDuplicates(SpotDraftResult draft) async {

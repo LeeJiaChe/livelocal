@@ -9,10 +9,14 @@ import '../constants/malaysia_states.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/localeats_controller.dart';
 import '../core/routing/protected_navigation.dart';
+import '../core/validation/restaurant_source_url_validator.dart';
 import '../core/validation/social_url_validator.dart';
 import '../features/restaurants/domain/generated_restaurant_listing.dart';
 import '../features/restaurants/domain/local_eats_repository.dart';
 import '../features/restaurants/domain/restaurant_taxonomy.dart';
+import '../features/places/domain/external_place.dart';
+import '../features/places/domain/place_provider.dart';
+import '../features/places/presentation/google_place_search_sheet.dart';
 import '../models/restaurant_model.dart';
 import '../shared/presentation/contributions/contribution_header.dart';
 import '../shared/presentation/contributions/contribution_image_picker.dart';
@@ -22,9 +26,10 @@ import '../shared/presentation/contributions/contribution_section.dart';
 import '../shared/presentation/contributions/contribution_success_view.dart';
 
 class AddRestaurantScreen extends StatefulWidget {
-  const AddRestaurantScreen({super.key, this.source});
+  const AddRestaurantScreen({super.key, this.source, this.initialPlace});
 
   final RestaurantModel? source;
+  final ExternalPlace? initialPlace;
 
   @override
   State<AddRestaurantScreen> createState() => _AddRestaurantScreenState();
@@ -33,9 +38,12 @@ class AddRestaurantScreen extends StatefulWidget {
 class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   final _formKey = GlobalKey<FormState>();
   final _sourceUrl = TextEditingController();
+  final _restaurantLookup = TextEditingController();
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _city = TextEditingController();
+  final _latitude = TextEditingController();
+  final _longitude = TextEditingController();
   final _dishes = TextEditingController();
   final _socialUrl = TextEditingController();
   final _cuisine = TextEditingController();
@@ -53,8 +61,16 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   bool _submittedSuccess = false;
   bool _aiAssisted = false;
   String? _aiSourcePlatform;
+  ExternalPlace? _selectedPlace;
+  bool _placeConfirmed = false;
+  late bool _useCustomPlace;
 
   bool get _isRevision => widget.source != null;
+  bool get _allowsLegacyMissingPin =>
+      _isRevision &&
+      widget.source?.googlePlaceId == null &&
+      widget.source?.latitude == null &&
+      widget.source?.longitude == null;
 
   @override
   void initState() {
@@ -65,6 +81,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     final source = widget.source;
     _aiAssisted = source?.aiAssisted ?? false;
     _aiSourcePlatform = source?.aiSourcePlatform;
+    _useCustomPlace = source != null && source.googlePlaceId == null;
     _displayState =
         source != null ? MalaysiaStates.toDisplay(source.state) : null;
     _states = MalaysiaStates.getDisplayList(
@@ -72,22 +89,42 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     );
     _cuisine.text = source?.cuisineType ?? '';
 
-    if (source == null) return;
+    if (source == null) {
+      final initialPlace = widget.initialPlace;
+      if (initialPlace != null) {
+        _selectedPlace = initialPlace;
+        _name.text = initialPlace.name;
+        _address.text = initialPlace.formattedAddress;
+        _latitude.text = initialPlace.latitude.toString();
+        _longitude.text = initialPlace.longitude.toString();
+      }
+      return;
+    }
     _name.text = source.name;
     _address.text = source.address;
     _city.text = source.city;
+    _latitude.text = source.latitude?.toString() ?? '';
+    _longitude.text = source.longitude?.toString() ?? '';
     _dishes.text = source.reviewedDishes;
     _socialUrl.text = source.socialMediaUrl;
     _price = source.priceRange;
     _imageRightsConfirmed = true;
+    if (source.googlePlaceId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadLinkedPlace(source.googlePlaceId!);
+      });
+    }
   }
 
   @override
   void dispose() {
     _sourceUrl.dispose();
+    _restaurantLookup.dispose();
     _name.dispose();
     _address.dispose();
     _city.dispose();
+    _latitude.dispose();
+    _longitude.dispose();
     _dishes.dispose();
     _socialUrl.dispose();
     _cuisine.dispose();
@@ -284,9 +321,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
             // AI IMPORT SECTION (for new recommendations)
             if (!_isRevision) ...[
               ContributionSection(
-                title: 'Import from a review (Optional)',
+                title: 'Import from a link (Optional)',
                 subtitle:
-                    'Auto-fill details from an Instagram or TikTok review post',
+                    'Auto-fill from Google Maps, a public website, Instagram or TikTok',
                 children: [
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.x2),
@@ -304,7 +341,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'AI uses the review to suggest details. You\'ll review everything before submitting.',
+                          'AI uses the public source to suggest details. You\'ll review everything before submitting.',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context)
@@ -319,12 +356,10 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                           keyboardType: TextInputType.url,
                           autocorrect: false,
                           decoration: InputDecoration(
-                            labelText:
-                                context.tr('TikTok or Instagram review link'),
-                            hintText:
-                                'https://www.tiktok.com/@creator/video/123...',
+                            labelText: context.tr('Restaurant or review link'),
+                            hintText: 'https://maps.app.goo.gl/...',
                             helperText: context.tr(
-                              'Paste a TikTok video or Instagram Reel/post link',
+                              'Paste a public Google Maps, website, TikTok, or Instagram link',
                             ),
                             prefixIcon: const Icon(Icons.link),
                             suffixIcon: _sourceUrl.text.isNotEmpty
@@ -332,6 +367,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                                     icon: const Icon(Icons.clear),
                                     onPressed: () {
                                       _sourceUrl.clear();
+                                      _restaurantLookup.clear();
                                       controller.clearGeneratedResult();
                                       setState(() {});
                                     },
@@ -355,7 +391,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                               : const Icon(Icons.auto_awesome_outlined),
                           label: Text(
                             controller.isGeneratingListing
-                                ? 'Analyzing review link…'
+                                ? 'Reading source and preparing draft…'
                                 : 'Generate details with AI',
                           ),
                         ),
@@ -418,6 +454,60 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                                       label: const Text('Try again'),
                                     ),
                                   ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (_shouldOfferRestaurantLookup(controller)) ...[
+                          const SizedBox(height: AppSpacing.x2),
+                          Container(
+                            key: const Key('social_restaurant_lookup'),
+                            padding: const EdgeInsets.all(AppSpacing.x2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .secondaryContainer
+                                  .withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  'We couldn\'t identify the restaurant from this social link. Enter the restaurant name below and we\'ll look it up.',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: AppSpacing.x1),
+                                TextField(
+                                  key: const Key(
+                                    'social_restaurant_name_field',
+                                  ),
+                                  controller: _restaurantLookup,
+                                  textCapitalization: TextCapitalization.words,
+                                  maxLength: 120,
+                                  decoration: InputDecoration(
+                                    labelText: context.tr('Restaurant name'),
+                                    hintText: context.tr(
+                                      'e.g. Line Clear Nasi Kandar',
+                                    ),
+                                    counterText: '',
+                                  ),
+                                  onSubmitted: (_) =>
+                                      _identifyRestaurantFromSocial(),
+                                ),
+                                const SizedBox(height: AppSpacing.x1),
+                                FilledButton.tonalIcon(
+                                  key: const Key(
+                                    'identify_social_restaurant_button',
+                                  ),
+                                  onPressed: controller.isGeneratingListing
+                                      ? null
+                                      : _identifyRestaurantFromSocial,
+                                  icon: const Icon(Icons.search),
+                                  label: const Text(
+                                    'Find restaurant and fill draft',
+                                  ),
                                 ),
                               ],
                             ),
@@ -508,6 +598,92 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
               ),
               const SizedBox(height: AppSpacing.x2),
             ],
+
+            ContributionSection(
+              title: 'Place',
+              subtitle: _useCustomPlace
+                  ? 'LiveLocal custom food place'
+                  : 'Confirm the real-world restaurant before adding your insight.',
+              children: [
+                if (_selectedPlace == null && !_useCustomPlace)
+                  FilledButton.icon(
+                    key: const Key('restaurant_choose_google_place'),
+                    onPressed: _chooseGooglePlace,
+                    icon: const Icon(Icons.search),
+                    label: const Text('Find the restaurant'),
+                  )
+                else if (_selectedPlace != null)
+                  Card(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.x2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('PLACE',
+                              style: Theme.of(context).textTheme.labelMedium),
+                          const SizedBox(height: 4),
+                          Text(
+                            _selectedPlace!.name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          Text(_selectedPlace!.formattedAddress),
+                          const SizedBox(height: AppSpacing.x1),
+                          if (!_placeConfirmed)
+                            FilledButton(
+                              key: const Key('restaurant_confirm_google_place'),
+                              onPressed: () =>
+                                  setState(() => _placeConfirmed = true),
+                              child: const Text('Confirm this place'),
+                            )
+                          else
+                            const Row(
+                              children: [
+                                Icon(Icons.verified_outlined, size: 18),
+                                SizedBox(width: 6),
+                                Text('Place confirmed'),
+                              ],
+                            ),
+                          TextButton(
+                            onPressed: _chooseGooglePlace,
+                            child: const Text('Choose another place'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (!_useCustomPlace)
+                  TextButton(
+                    key: const Key('restaurant_custom_place_fallback'),
+                    onPressed: () => setState(() {
+                      _useCustomPlace = true;
+                      _selectedPlace = null;
+                      _placeConfirmed = false;
+                    }),
+                    child: const Text(
+                      "Can't find it on Google? Add an uncommon custom food place",
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Use this only for a genuine stall or business not listed on Google.',
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _chooseGooglePlace,
+                        child: const Text('Search Google'),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.x2),
 
             // BASICS SECTION
             ContributionSection(
@@ -693,14 +869,43 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                   maxLength: 300,
                   key: const Key('restaurant_address_field'),
                 ),
+                if (_useCustomPlace) ...[
+                  const SizedBox(height: AppSpacing.x2),
+                  const Text(
+                    'Pin coordinates are required so this uncommon food place can be saved, routed, and opened in Maps.',
+                  ),
+                  const SizedBox(height: AppSpacing.x1),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _coordinateField(
+                          _latitude,
+                          'Latitude',
+                          minimum: -90,
+                          maximum: 90,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.x2),
+                      Expanded(
+                        child: _coordinateField(
+                          _longitude,
+                          'Longitude',
+                          minimum: -180,
+                          maximum: 180,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: AppSpacing.x2),
 
             // WHAT TO TRY SECTION
             ContributionSection(
-              title: 'Recommended dishes & social source',
-              subtitle: 'Highlight your top recommendations and video link',
+              title: 'Recommended dishes & source',
+              subtitle:
+                  'Highlight your recommendations and keep the original public link',
               children: [
                 _field(
                   _dishes,
@@ -716,16 +921,17 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
                 const SizedBox(height: AppSpacing.x2),
                 _field(
                   _socialUrl,
-                  'TikTok or Instagram video link',
-                  hintText: context
-                      .tr('https://www.tiktok.com/@creator/video/123...'),
+                  'Source / reference link',
+                  hintText: context.tr('https://maps.app.goo.gl/...'),
                   minLength: 8,
                   maxLength: 500,
                   key: const Key('social_review_url_field'),
                   validator: (value) {
-                    if (!SocialUrlValidator.isReviewPost(value ?? '')) {
+                    if (!RestaurantSourceUrlValidator.isSupported(
+                      value ?? '',
+                    )) {
                       return context.tr(
-                        'Enter a supported TikTok or Instagram HTTPS URL.',
+                        'Enter a public Google Maps, website, TikTok, or Instagram HTTPS URL.',
                       );
                     }
                     return null;
@@ -830,15 +1036,47 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       );
       return;
     }
-    if (!SocialUrlValidator.isReviewPost(source)) {
+    if (!RestaurantSourceUrlValidator.isSupported(source)) {
       controller.clearGeneratedResult();
       _message(
-        'Paste a valid TikTok or Instagram review video or post link.',
+        'Paste a public Google Maps, website, Instagram post/Reel, or TikTok video link.',
       );
       return;
     }
     final generated =
         await controller.generateRestaurantListingFromSource(source);
+    if (!mounted || !generated) return;
+    final candidate = controller.selectedGeneratedCandidate;
+    if (candidate != null) await _promptAndApplyCandidate(candidate);
+  }
+
+  bool _shouldOfferRestaurantLookup(LocalEatsController controller) {
+    final detection = RestaurantSourceUrlValidator.detect(
+      _sourceUrl.text.trim(),
+    );
+    if (detection.type != RestaurantSourceType.socialPost) return false;
+    final candidate = controller.selectedGeneratedCandidate;
+    return controller.generationError != null ||
+        (candidate != null && candidate.restaurantName == null);
+  }
+
+  Future<void> _identifyRestaurantFromSocial() async {
+    final source = _sourceUrl.text.trim();
+    final name = _restaurantLookup.text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (name.length < 2) {
+      _message('Enter the restaurant name to look it up.');
+      return;
+    }
+    if (RestaurantSourceUrlValidator.detect(source).type !=
+        RestaurantSourceType.socialPost) {
+      _message('Paste a public Instagram post/Reel or TikTok video link.');
+      return;
+    }
+    final controller = context.read<LocalEatsController>();
+    final generated = await controller.generateRestaurantListingFromSource(
+      source,
+      restaurantName: name,
+    );
     if (!mounted || !generated) return;
     final candidate = controller.selectedGeneratedCandidate;
     if (candidate != null) await _promptAndApplyCandidate(candidate);
@@ -867,7 +1105,7 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
               Text(candidate.reviewedDishes ?? 'Dishes not identified'),
               const SizedBox(height: 4),
               Text(
-                '${SocialUrlValidator.platformLabel(candidate.sourcePostUrl)} · ${(candidate.confidence * 100).round()}% confidence',
+                '${RestaurantSourceUrlValidator.platformLabel(candidate.sourcePostUrl)} · ${(candidate.confidence * 100).round()}% confidence',
               ),
               const SizedBox(height: 4),
               Text(
@@ -892,8 +1130,9 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   Future<void> _promptAndApplyCandidate(
     GeneratedRestaurantListing candidate,
   ) async {
-    if (!SocialUrlValidator.isReviewPost(candidate.sourcePostUrl)) {
-      _message('The generated candidate did not contain a valid review post.');
+    if (!RestaurantSourceUrlValidator.isSupported(candidate.sourcePostUrl)) {
+      _message(
+          'The generated candidate did not contain a valid public source.');
       return;
     }
     if (_hasMeaningfulFormEntries) {
@@ -923,18 +1162,23 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
   }
 
   void _applyCandidate(GeneratedRestaurantListing candidate) {
-    if (!SocialUrlValidator.isReviewPost(candidate.sourcePostUrl)) {
-      _message('The generated candidate did not contain a valid review post.');
+    if (!RestaurantSourceUrlValidator.isSupported(candidate.sourcePostUrl)) {
+      _message(
+          'The generated candidate did not contain a valid public source.');
       return;
     }
     context.read<LocalEatsController>().selectGeneratedCandidate(candidate);
     setState(() {
       _aiAssisted = true;
       _aiSourcePlatform = candidate.sourcePlatform;
-      _name.text = candidate.restaurantName ?? '';
-      _address.text = candidate.address ?? '';
-      _city.text = candidate.city ?? '';
-      _dishes.text = candidate.reviewedDishes ?? '';
+      if (candidate.restaurantName != null) {
+        _name.text = candidate.restaurantName!;
+      }
+      if (candidate.address != null) _address.text = candidate.address!;
+      if (candidate.city != null) _city.text = candidate.city!;
+      if (candidate.reviewedDishes != null) {
+        _dishes.text = candidate.reviewedDishes!;
+      }
       _socialUrl.text = candidate.sourcePostUrl;
       if (candidate.cuisineType?.isNotEmpty == true) {
         _cuisine.text = candidate.cuisineType!;
@@ -953,6 +1197,21 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
           const [r'$', r'$$', r'$$$', r'$$$$'].contains(candidate.priceRange)
               ? candidate.priceRange!
               : _price;
+      if (candidate.placeProvider == 'google' &&
+          candidate.googlePlaceId != null &&
+          candidate.latitude != null &&
+          candidate.longitude != null) {
+        _selectedPlace = ExternalPlace(
+          provider: 'google',
+          placeId: candidate.googlePlaceId!,
+          name: candidate.restaurantName ?? _name.text,
+          formattedAddress: candidate.address ?? _address.text,
+          latitude: candidate.latitude!,
+          longitude: candidate.longitude!,
+        );
+        _placeConfirmed = false;
+        _useCustomPlace = false;
+      }
     });
   }
 
@@ -1057,8 +1316,42 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     );
   }
 
+  Widget _coordinateField(
+    TextEditingController controller,
+    String label, {
+    required double minimum,
+    required double maximum,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(
+        signed: true,
+        decimal: true,
+      ),
+      decoration: InputDecoration(labelText: label),
+      validator: (value) {
+        if (_allowsLegacyMissingPin &&
+            _latitude.text.trim().isEmpty &&
+            _longitude.text.trim().isEmpty) {
+          return null;
+        }
+        final coordinate = double.tryParse(value?.trim() ?? '');
+        if (coordinate == null ||
+            coordinate < minimum ||
+            coordinate > maximum) {
+          return 'Enter $minimum to $maximum.';
+        }
+        return null;
+      },
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_useCustomPlace && (_selectedPlace == null || !_placeConfirmed)) {
+      _message('Choose and confirm the exact restaurant before submitting.');
+      return;
+    }
     final sourceCover = widget.source?.coverPhotoUrl;
     final hasExistingCover =
         sourceCover != null && sourceCover.trim().isNotEmpty;
@@ -1090,6 +1383,12 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
       socialMediaUrl: _socialUrl.text.trim(),
       aiAssisted: _aiAssisted,
       aiSourcePlatform: _aiSourcePlatform,
+      latitude:
+          _selectedPlace?.latitude ?? double.tryParse(_latitude.text.trim()),
+      longitude:
+          _selectedPlace?.longitude ?? double.tryParse(_longitude.text.trim()),
+      placeProvider: _selectedPlace?.provider,
+      googlePlaceId: _selectedPlace?.placeId,
     );
 
     final controller = context.read<LocalEatsController>();
@@ -1129,6 +1428,46 @@ class _AddRestaurantScreenState extends State<AddRestaurantScreen> {
     setState(() {
       _submitting = false;
       _submittedSuccess = true;
+    });
+  }
+
+  Future<void> _loadLinkedPlace(String placeId) async {
+    try {
+      final place = await context.read<PlaceProvider>().details(placeId);
+      if (!mounted) return;
+      setState(() {
+        _selectedPlace = place;
+        _placeConfirmed = true;
+      });
+    } catch (_) {
+      // The existing revision remains intact. Choosing the place again retries
+      // provider resolution without silently changing identity.
+    }
+  }
+
+  Future<void> _chooseGooglePlace() async {
+    final place = await GooglePlaceSearchSheet.show(
+      context,
+      title: 'Find the restaurant',
+      hintText: 'Search restaurant name and city',
+    );
+    if (place == null || !mounted) return;
+    setState(() {
+      _selectedPlace = place;
+      _placeConfirmed = false;
+      _useCustomPlace = false;
+      _name.text = place.name;
+      _address.text = place.formattedAddress;
+      _latitude.text = place.latitude.toString();
+      _longitude.text = place.longitude.toString();
+      final lowerAddress = place.formattedAddress.toLowerCase();
+      for (final option in MalaysiaStates.options) {
+        if (lowerAddress.contains(option.rawValue.toLowerCase()) ||
+            lowerAddress.contains(option.displayName.toLowerCase())) {
+          _displayState = option.displayName;
+          break;
+        }
+      }
     });
   }
 

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(22);
 
 -- Setup test users
 insert into auth.users (
@@ -161,6 +161,14 @@ select is(
   (select (c ->> 'item_count')::int from jsonb_array_elements(public.list_my_saved_collections()) c where c ->> 'name' = 'Penang Food Tour'),
   1,
   'list_my_saved_collections reports item_count = 1'
+);
+
+select is(
+  (select jsonb_array_length(c -> 'cover_items')
+   from jsonb_array_elements(public.list_my_saved_collections()) c
+   where c ->> 'name' = 'Penang Food Tour'),
+  1,
+  'list_my_saved_collections returns one ordered logical cover item'
 );
 
 -- Switch to User 2

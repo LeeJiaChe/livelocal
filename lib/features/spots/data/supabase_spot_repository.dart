@@ -142,6 +142,8 @@ class SupabaseSpotRepository implements SpotRepository {
             status: row['status'] as String,
             latitude: (row['latitude'] as num?)?.toDouble(),
             longitude: (row['longitude'] as num?)?.toDouble(),
+            placeProvider: row['place_provider'] as String?,
+            googlePlaceId: row['google_place_id'] as String?,
           );
         }),
       );
@@ -180,6 +182,8 @@ class SupabaseSpotRepository implements SpotRepository {
           hasApprovedRevision: row['has_approved_revision'] as bool? ?? false,
           latitude: (row['latitude'] as num?)?.toDouble(),
           longitude: (row['longitude'] as num?)?.toDouble(),
+          placeProvider: row['place_provider'] as String?,
+          googlePlaceId: row['google_place_id'] as String?,
         );
       }));
     } on PostgrestException catch (error) {
@@ -203,7 +207,7 @@ class SupabaseSpotRepository implements SpotRepository {
         uploadedPath = await _uploadImage(imageBytes, mimeType);
       }
 
-      final response = await _client.rpc('create_spot_draft', params: {
+      final response = await _client.rpc('create_spot_draft_v2', params: {
         'p_name': input.name,
         'p_category': input.category,
         'p_description': input.description,
@@ -216,6 +220,8 @@ class SupabaseSpotRepository implements SpotRepository {
         'p_image_path': uploadedPath,
         'p_latitude': input.latitude,
         'p_longitude': input.longitude,
+        'p_place_provider': input.placeProvider,
+        'p_google_place_id': input.googlePlaceId,
       });
       final map = Map<String, dynamic>.from(response as Map);
       final duplicates =
@@ -273,7 +279,8 @@ class SupabaseSpotRepository implements SpotRepository {
       if (imageBytes != null) {
         uploadedPath = await _uploadImage(imageBytes, imageMimeType ?? '');
       }
-      final response = await _client.rpc('save_spot_revision_draft', params: {
+      final response =
+          await _client.rpc('save_spot_revision_draft_v2', params: {
         'p_source_revision_id': source.revisionId,
         'p_name': input.name,
         'p_category': input.category,
@@ -287,6 +294,8 @@ class SupabaseSpotRepository implements SpotRepository {
         'p_image_path': uploadedPath,
         'p_latitude': input.latitude,
         'p_longitude': input.longitude,
+        'p_place_provider': input.placeProvider,
+        'p_google_place_id': input.googlePlaceId,
       });
       final map = Map<String, dynamic>.from(response as Map);
       return _draftResult(map);
@@ -430,6 +439,8 @@ class SupabaseSpotRepository implements SpotRepository {
       status: 'approved',
       latitude: (row['latitude'] as num?)?.toDouble(),
       longitude: (row['longitude'] as num?)?.toDouble(),
+      placeProvider: row['place_provider'] as String?,
+      googlePlaceId: row['google_place_id'] as String?,
       upvoteCount: (row['upvote_count'] as num?)?.toInt() ?? 0,
       isUpvotedByCurrentUser: isUpvoted,
     );

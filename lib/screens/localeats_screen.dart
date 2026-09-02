@@ -130,12 +130,12 @@ class _LocalEatsScreenState extends State<LocalEatsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Local eats recommended by creators',
+                      'Eat like a local',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: AppSpacing.x1),
                     Text(
-                      'Authentic dining, street food, and kopitiams recommended by verified food lovers.',
+                      'What to order, local context, and food places recommended by approved contributors.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color:
                                 Theme.of(context).colorScheme.onSurfaceVariant,
@@ -545,7 +545,10 @@ class _RestaurantCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final itineraryCtrl = context.watch<ItineraryController>();
-    final isSaved = itineraryCtrl.isSaved(restaurantId: restaurant.id);
+    final isSaved = itineraryCtrl.isSaved(
+      restaurantId: restaurant.id,
+      googlePlaceId: restaurant.googlePlaceId,
+    );
 
     return Card(
       clipBehavior: Clip.antiAlias,

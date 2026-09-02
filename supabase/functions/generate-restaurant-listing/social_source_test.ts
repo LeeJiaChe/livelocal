@@ -3,6 +3,7 @@ import {
   detectPlatformAndSourceType,
   fetchInstagramSource,
   fetchTikTokSource,
+  resolvePublicSocialPostUrl,
 } from "./social_source.ts";
 import { GenerationError } from "./types.ts";
 
@@ -56,6 +57,15 @@ Deno.test("detects supported post and profile URLs", () => {
     detectPlatformAndSourceType("https://instagram.com/creator/").sourceType,
     "profile",
   );
+  equal(
+    detectPlatformAndSourceType("https://maps.app.goo.gl/AbCdEf123456")
+      .sourceType,
+    "place",
+  );
+  equal(
+    detectPlatformAndSourceType("https://restaurant.example/menu").sourceType,
+    "website",
+  );
 });
 
 Deno.test("rejects unsupported and deceptive source URLs", async () => {
@@ -64,7 +74,6 @@ Deno.test("rejects unsupported and deceptive source URLs", async () => {
       "not a URL",
       "http://instagram.com/reel/ABC",
       "https://instagram.com.evil.test/reel/ABC",
-      "https://example.com/@creator/video/123",
       "https://instagram.com/reel/ABC/extra",
       "https://www.tiktok.com/@creator/video/123/extra",
     ]
@@ -97,6 +106,48 @@ Deno.test("TikTok fetching is isolated and accepts a mocked official API", async
       ),
   );
   equal(result.posts[0].sourceCaption, "Nasi lemak at Village Park");
+});
+
+Deno.test("TikTok short links resolve only through allowlisted TikTok hosts", async () => {
+  const detected = detectPlatformAndSourceType(
+    "https://vt.tiktok.com/ZSExample/",
+  );
+  const resolved = await resolvePublicSocialPostUrl(detected, (input) => {
+    equal(input.toString(), "https://vt.tiktok.com/ZSExample/");
+    return Promise.resolve(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location:
+            "https://www.tiktok.com/@penangfood/video/7123456789012345678?share_app_id=1233",
+        },
+      }),
+    );
+  });
+  equal(
+    resolved.pathname,
+    "/@penangfood/video/7123456789012345678",
+  );
+});
+
+Deno.test("TikTok short links reject redirects outside the social allowlist", async () => {
+  const detected = detectPlatformAndSourceType(
+    "https://vm.tiktok.com/ZSExample/",
+  );
+  await throwsCode(
+    () =>
+      resolvePublicSocialPostUrl(
+        detected,
+        () =>
+          Promise.resolve(
+            new Response(null, {
+              status: 302,
+              headers: { location: "https://example.com/private" },
+            }),
+          ),
+      ),
+    "INVALID_SOURCE_URL",
+  );
 });
 
 Deno.test("TikTok profile fetching uses the connected account and limits posts", async () => {

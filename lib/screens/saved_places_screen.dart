@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +8,7 @@ import '../controllers/itinerary_controller.dart';
 import '../core/routing/protected_navigation.dart';
 import '../models/saved_collection_model.dart';
 import '../shared/presentation/app_state_view.dart';
+import '../shared/presentation/collection_cover_mosaic.dart';
 import 'collection_detail_screen.dart';
 import 'itinerary_screen.dart';
 
@@ -371,8 +371,6 @@ class _CollectionGridCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final count = collection.itemCount;
-    final hasCover = collection.coverImageUrl != null &&
-        collection.coverImageUrl!.isNotEmpty;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -389,41 +387,7 @@ class _CollectionGridCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: hasCover
-                  ? CachedNetworkImage(
-                      imageUrl: collection.coverImageUrl!,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: colorScheme.surfaceContainerHighest,
-                        child: const Center(
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        width: double.infinity,
-                        color: colorScheme.surfaceContainerHighest,
-                        child: Icon(
-                          Icons.bookmark_outline,
-                          size: 36,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                    )
-                  : Container(
-                      width: double.infinity,
-                      color: colorScheme.surfaceContainerHighest,
-                      child: Icon(
-                        Icons.collections_bookmark_outlined,
-                        size: 36,
-                        color: colorScheme.primary,
-                      ),
-                    ),
+              child: CollectionCoverMosaic(items: collection.coverItems),
             ),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.x2),

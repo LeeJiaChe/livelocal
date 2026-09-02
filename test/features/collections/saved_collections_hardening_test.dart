@@ -26,6 +26,7 @@ class _FailingMembershipRepo extends DemoSavedItineraryRepository {
   Future<List<String>> fetchPlaceCollectionIds({
     required String targetType,
     required String targetId,
+    String? externalProvider,
   }) async {
     if (shouldFailFetchMemberships) {
       throw const AppException(
@@ -36,6 +37,7 @@ class _FailingMembershipRepo extends DemoSavedItineraryRepository {
     return super.fetchPlaceCollectionIds(
       targetType: targetType,
       targetId: targetId,
+      externalProvider: externalProvider,
     );
   }
 }

@@ -68,6 +68,19 @@ void main() {
         malay.translate('Use a matching instagram.com HTTPS URL.'),
         'Gunakan URL HTTPS instagram.com yang sepadan.',
       );
+      expect(malay.translate('Places'), 'Tempat');
+      expect(malay.translate('Near me'), 'Berdekatan saya');
+      expect(
+        malay.translate('Load more places'),
+        'Muatkan lebih banyak tempat',
+      );
+      expect(
+        malay.translate('Generate details with AI'),
+        'Jana butiran dengan AI',
+      );
+      expect(malay.translate('Open now'), 'Dibuka sekarang');
+      expect(malay.translate('Google rating'), 'penilaian Google');
+      expect(malay.translate('Visit website'), 'Lawati laman web');
     });
 
     test('legacy long-form role screens have genuine BM copy', () {

@@ -12,6 +12,7 @@ import '../../models/saved_collection_model.dart';
 import '../../models/spot_model.dart';
 import '../../screens/restaurant_detail_screen.dart';
 import '../../screens/spot_detail_screen.dart';
+import 'collection_cover_mosaic.dart';
 
 class SaveToCollectionSheet extends StatefulWidget {
   const SaveToCollectionSheet({
@@ -21,6 +22,7 @@ class SaveToCollectionSheet extends StatefulWidget {
     required this.placeName,
     this.spot,
     this.restaurant,
+    this.externalProvider,
   });
 
   final String targetType;
@@ -28,6 +30,7 @@ class SaveToCollectionSheet extends StatefulWidget {
   final String placeName;
   final SpotModel? spot;
   final RestaurantModel? restaurant;
+  final String? externalProvider;
 
   static Future<void> show(
     BuildContext context, {
@@ -36,6 +39,7 @@ class SaveToCollectionSheet extends StatefulWidget {
     required String placeName,
     SpotModel? spot,
     RestaurantModel? restaurant,
+    String? externalProvider,
   }) async {
     final auth = context.read<AuthController>();
     if (!auth.canWrite) {
@@ -76,6 +80,7 @@ class SaveToCollectionSheet extends StatefulWidget {
         placeName: placeName,
         spot: spot,
         restaurant: restaurant,
+        externalProvider: externalProvider,
       ),
     );
   }
@@ -123,6 +128,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
       final memberships = await controller.fetchPlaceCollectionIds(
         targetType: widget.targetType,
         targetId: widget.targetId,
+        externalProvider: widget.externalProvider,
       );
 
       if (!mounted) return;
@@ -174,6 +180,7 @@ class _SaveToCollectionSheetState extends State<SaveToCollectionSheet> {
         targetType: widget.targetType,
         targetId: widget.targetId,
         collectionIds: targetCollectionIds,
+        externalProvider: widget.externalProvider,
       );
 
       if (!mounted) return;
@@ -591,9 +598,6 @@ class _CollectionWishlistRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final coverUrl = collection.coverImageUrl?.trim();
-    final hasCover = coverUrl != null && coverUrl.isNotEmpty;
-
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.x2,
@@ -614,57 +618,14 @@ class _CollectionWishlistRow extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // 56px thumbnail with real cover image or fallback icon
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Container(
+                  child: SizedBox(
                     width: 56,
                     height: 56,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? colorScheme.primaryContainer
-                          : colorScheme.surfaceContainerHighest,
+                    child: CollectionCoverMosaic(
+                      items: collection.coverItems,
                     ),
-                    child: hasCover
-                        ? Image.network(
-                            coverUrl,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return Center(
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    value: progress.expectedTotalBytes != null
-                                        ? progress.cumulativeBytesLoaded /
-                                            progress.expectedTotalBytes!
-                                        : null,
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) =>
-                                Center(
-                              child: Icon(
-                                Icons.collections_bookmark_outlined,
-                                size: 24,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        : Center(
-                            child: Icon(
-                              isSelected
-                                  ? Icons.bookmark
-                                  : Icons.collections_bookmark_outlined,
-                              size: 24,
-                              color: isSelected
-                                  ? colorScheme.onPrimaryContainer
-                                  : colorScheme.onSurfaceVariant,
-                            ),
-                          ),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.x2),

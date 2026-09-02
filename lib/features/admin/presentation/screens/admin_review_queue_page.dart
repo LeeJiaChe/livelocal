@@ -8,7 +8,7 @@ import '../../../../controllers/admin_controller.dart';
 import '../../../../controllers/guide_controller.dart';
 import '../../../../controllers/localeats_controller.dart';
 import '../../../../controllers/spot_controller.dart';
-import '../../../../core/validation/social_url_validator.dart';
+import '../../../../core/validation/restaurant_source_url_validator.dart';
 import '../../../../models/guide_model.dart';
 import '../../../../models/restaurant_model.dart';
 import '../../../../models/spot_model.dart';
@@ -86,7 +86,7 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
       title:
           decision == 'approved' ? 'Approve restaurant?' : 'Reject restaurant?',
       prompt: decision == 'approved'
-          ? 'Record why the business details and supporting post are suitable.'
+          ? 'Record why the business details and supporting source are suitable.'
           : 'Explain what must be corrected before resubmission.',
       destructive: decision == 'rejected',
     );
@@ -106,7 +106,7 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
   }
 
   Future<void> _openReviewUrl(String url) async {
-    if (!SocialUrlValidator.isReviewPost(url)) {
+    if (!RestaurantSourceUrlValidator.isSupported(url)) {
       _showMessage('This review source link is invalid or unavailable.');
       return;
     }
@@ -414,11 +414,12 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
             if (_selectedSubmissionFilter == 'Spots')
               for (final spot in spots.pendingSpots)
                 AdminQueueCard(
-                  typeLabel: 'SPOT SUBMISSION',
+                  typeLabel: 'THINGS TO DO SUBMISSION',
                   typeIcon: Icons.place_outlined,
                   title: spot.name,
                   subtitle: '${spot.category} · ${spot.city}, ${spot.state}',
-                  details: spot.description,
+                  details:
+                      '${spot.googlePlaceId != null ? 'Google-backed place' : 'LiveLocal custom place'}\nAddress: ${spot.address}\n${spot.description}',
                   status: spot.status,
                   actions: [
                     OutlinedButton(
@@ -479,7 +480,7 @@ class _AdminReviewQueuePageState extends State<AdminReviewQueuePage> {
                   subtitle:
                       '${restaurant.cuisineType} · ${restaurant.city}, ${restaurant.state}',
                   details:
-                      'Address: ${restaurant.address}\nDishes: ${restaurant.reviewedDishes.isNotEmpty ? restaurant.reviewedDishes : 'None specified'}\nSource: ${restaurant.socialMediaUrl}',
+                      '${restaurant.googlePlaceId != null ? 'Google-backed place' : 'LiveLocal custom place'}\nAddress: ${restaurant.address}\nDishes: ${restaurant.reviewedDishes.isNotEmpty ? restaurant.reviewedDishes : 'None specified'}\nSource: ${restaurant.socialMediaUrl}',
                   status: restaurant.status,
                   actions: [
                     OutlinedButton.icon(

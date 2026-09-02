@@ -26,6 +26,8 @@ class RestaurantModel {
   final bool hasApprovedRevision;
   final bool aiAssisted;
   final String? aiSourcePlatform;
+  final String? placeProvider;
+  final String? googlePlaceId;
 
   RestaurantModel({
     required this.id,
@@ -55,6 +57,8 @@ class RestaurantModel {
     this.hasApprovedRevision = false,
     this.aiAssisted = false,
     this.aiSourcePlatform,
+    this.placeProvider,
+    this.googlePlaceId,
   });
 
   Map<String, dynamic> toMap() => {
@@ -84,6 +88,8 @@ class RestaurantModel {
         'has_approved_revision': hasApprovedRevision,
         'ai_assisted': aiAssisted,
         'ai_source_platform': aiSourcePlatform,
+        'place_provider': placeProvider,
+        'google_place_id': googlePlaceId,
       };
 
   factory RestaurantModel.fromMap(Map<String, dynamic> map) => RestaurantModel(
@@ -114,5 +120,7 @@ class RestaurantModel {
         hasApprovedRevision: map['has_approved_revision'] ?? false,
         aiAssisted: map['ai_assisted'] == true,
         aiSourcePlatform: map['ai_source_platform'] as String?,
+        placeProvider: map['place_provider'] as String?,
+        googlePlaceId: map['google_place_id'] as String?,
       );
 }

@@ -1,4 +1,4 @@
-enum GuideStopKind { listing, custom }
+enum GuideStopKind { listing, provider, custom }
 
 class GuideStopModel {
   const GuideStopModel({
@@ -7,6 +7,8 @@ class GuideStopModel {
     required this.instruction,
     this.listingType,
     this.listingId,
+    this.placeProvider,
+    this.googlePlaceId,
   });
 
   final GuideStopKind kind;
@@ -14,6 +16,8 @@ class GuideStopModel {
   final String instruction;
   final String? listingType;
   final String? listingId;
+  final String? placeProvider;
+  final String? googlePlaceId;
 
   bool get isCustom => kind == GuideStopKind.custom;
 
@@ -23,16 +27,22 @@ class GuideStopModel {
         'instruction': instruction,
         if (listingType != null) 'listing_type': listingType,
         if (listingId != null) 'listing_id': listingId,
+        if (placeProvider != null) 'place_provider': placeProvider,
+        if (googlePlaceId != null) 'google_place_id': googlePlaceId,
       };
 
   factory GuideStopModel.fromMap(Map<String, dynamic> map) => GuideStopModel(
-        kind: map['kind'] == 'listing'
-            ? GuideStopKind.listing
-            : GuideStopKind.custom,
+        kind: switch (map['kind']) {
+          'listing' => GuideStopKind.listing,
+          'provider' => GuideStopKind.provider,
+          _ => GuideStopKind.custom,
+        },
         name: map['name'] as String? ?? '',
         instruction: map['instruction'] as String? ?? '',
         listingType: map['listing_type'] as String?,
         listingId: map['listing_id'] as String?,
+        placeProvider: map['place_provider'] as String?,
+        googlePlaceId: map['google_place_id'] as String?,
       );
 }
 

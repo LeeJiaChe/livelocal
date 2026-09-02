@@ -90,6 +90,36 @@ export function detectPlatformAndSourceType(url: string): DetectedSource {
       normalizedUrl: parsed.toString(),
     };
   }
+  if (
+    [
+      "instagram.com",
+      "www.instagram.com",
+      "tiktok.com",
+      "www.tiktok.com",
+      "vm.tiktok.com",
+      "vt.tiktok.com",
+    ].includes(host)
+  ) {
+    throw new GenerationError("INVALID_SOURCE_URL", "Unsupported social URL");
+  }
+  if (
+    host === "maps.app.goo.gl" || host === "maps.google.com" ||
+    ((host === "google.com" || host === "www.google.com") &&
+      (parsed.pathname === "/maps" || parsed.pathname.startsWith("/maps/")))
+  ) {
+    return {
+      platform: "google_maps",
+      sourceType: "place",
+      normalizedUrl: parsed.toString(),
+    };
+  }
+  if (isPublicWebsiteHost(host)) {
+    return {
+      platform: "website",
+      sourceType: "website",
+      normalizedUrl: parsed.toString(),
+    };
+  }
   throw new GenerationError("INVALID_SOURCE_URL", "Unsupported source URL");
 }
 
@@ -103,6 +133,15 @@ export function canonicalizeSourceUrlForQuota(url: string): string {
   const rawSegments = parsed.pathname.split("/").filter(Boolean);
 
   let canonicalPath = "";
+  if (detected.platform === "google_maps" || detected.platform === "website") {
+    parsed.hash = "";
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (key.toLowerCase().startsWith("utm_") || key === "fbclid") {
+        parsed.searchParams.delete(key);
+      }
+    }
+    return parsed.toString();
+  }
   if (detected.platform === "instagram") {
     if (detected.sourceType === "post" && rawSegments.length === 2) {
       const type = rawSegments[0].toLowerCase();
@@ -135,6 +174,104 @@ export function canonicalizeSourceUrlForQuota(url: string): string {
   }
 
   return `https://${host}${canonicalPath}`;
+}
+
+export async function resolvePublicSocialPostUrl(
+  detected: DetectedSource,
+  fetcher: typeof fetch = fetch,
+): Promise<URL> {
+  const original = new URL(detected.normalizedUrl);
+  if (detected.platform !== "tiktok") return original;
+
+  let current = original;
+  for (let redirects = 0; redirects < 5; redirects += 1) {
+    assertTikTokPostHost(current);
+    if (!["vm.tiktok.com", "vt.tiktok.com"].includes(current.hostname)) {
+      const finalDetection = detectPlatformAndSourceType(current.toString());
+      if (
+        finalDetection.platform !== "tiktok" ||
+        finalDetection.sourceType !== "post"
+      ) {
+        throw new GenerationError(
+          "INVALID_SOURCE_URL",
+          "TikTok link did not resolve to a public video",
+        );
+      }
+      return new URL(finalDetection.normalizedUrl);
+    }
+
+    let response: Response;
+    try {
+      response = await fetcher(current, {
+        method: "GET",
+        redirect: "manual",
+        signal: AbortSignal.timeout(10_000),
+        headers: { "user-agent": "LiveLocal/1.0 public-social-import" },
+      });
+    } catch (_) {
+      throw new GenerationError(
+        "SOCIAL_API_UNAVAILABLE",
+        "TikTok link could not be resolved",
+        503,
+      );
+    }
+    await response.body?.cancel();
+    const location = response.headers.get("location");
+    if (!location) {
+      throw new GenerationError(
+        "POST_UNAVAILABLE",
+        "TikTok link did not resolve to a public video",
+        404,
+      );
+    }
+    current = new URL(location, current);
+  }
+  throw new GenerationError(
+    "INVALID_SOURCE_URL",
+    "TikTok link redirected too many times",
+  );
+}
+
+function assertTikTokPostHost(url: URL): void {
+  if (
+    url.protocol !== "https:" || url.port || url.username || url.password ||
+    ![
+      "tiktok.com",
+      "www.tiktok.com",
+      "vm.tiktok.com",
+      "vt.tiktok.com",
+    ].includes(url.hostname.toLowerCase())
+  ) {
+    throw new GenerationError(
+      "INVALID_SOURCE_URL",
+      "TikTok redirect target is not supported",
+    );
+  }
+}
+
+function isPublicWebsiteHost(host: string): boolean {
+  const normalized = host.toLowerCase();
+  if (
+    normalized.includes("instagram.com.") ||
+    normalized.includes("tiktok.com.") ||
+    normalized.includes("google.com.")
+  ) return false;
+  if (
+    normalized === "localhost" || normalized.endsWith(".localhost") ||
+    normalized.endsWith(".local") || normalized === "0.0.0.0" ||
+    normalized === "127.0.0.1" || normalized === "::1"
+  ) return false;
+  const parts = normalized.split(".").map(Number);
+  if (parts.length === 4 && parts.every(Number.isInteger)) {
+    const [first, second] = parts;
+    if (
+      first === 0 || first === 10 || first === 127 ||
+      (first === 169 && second === 254) ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168)
+    ) return false;
+  }
+  return normalized.includes(".");
 }
 
 function assertMatchingProfile(
@@ -213,8 +350,9 @@ export async function fetchTikTokSource(
   fetcher: typeof fetch = fetch,
 ): Promise<SocialSourceContent> {
   if (detected.sourceType === "post") {
+    const resolved = await resolvePublicSocialPostUrl(detected, fetcher);
     const endpoint = new URL("https://www.tiktok.com/oembed");
-    endpoint.searchParams.set("url", detected.normalizedUrl);
+    endpoint.searchParams.set("url", resolved.toString());
     const data = await checkedJson(
       await fetcher(endpoint, { signal: AbortSignal.timeout(12_000) }),
     );

@@ -24,6 +24,8 @@ class SpotModel {
   final bool hasApprovedRevision;
   final int upvoteCount;
   final bool isUpvotedByCurrentUser;
+  final String? placeProvider;
+  final String? googlePlaceId;
 
   SpotModel({
     required this.id,
@@ -51,6 +53,8 @@ class SpotModel {
     this.hasApprovedRevision = false,
     this.upvoteCount = 0,
     this.isUpvotedByCurrentUser = false,
+    this.placeProvider,
+    this.googlePlaceId,
   });
 
   Map<String, dynamic> toMap() => {
@@ -79,6 +83,8 @@ class SpotModel {
         'has_approved_revision': hasApprovedRevision,
         'upvote_count': upvoteCount,
         'is_upvoted_by_current_user': isUpvotedByCurrentUser,
+        'place_provider': placeProvider,
+        'google_place_id': googlePlaceId,
       };
 
   factory SpotModel.fromMap(Map<String, dynamic> map) => SpotModel(
@@ -107,5 +113,7 @@ class SpotModel {
         hasApprovedRevision: map['has_approved_revision'] ?? false,
         upvoteCount: (map['upvote_count'] as num?)?.toInt() ?? 0,
         isUpvotedByCurrentUser: map['is_upvoted_by_current_user'] ?? false,
+        placeProvider: map['place_provider'] as String?,
+        googlePlaceId: map['google_place_id'] as String?,
       );
 }

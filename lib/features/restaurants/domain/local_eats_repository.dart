@@ -18,6 +18,8 @@ class RestaurantDraftInput {
     this.longitude,
     this.aiAssisted = false,
     this.aiSourcePlatform,
+    this.placeProvider,
+    this.googlePlaceId,
   });
 
   final String name;
@@ -32,6 +34,8 @@ class RestaurantDraftInput {
   final double? longitude;
   final bool aiAssisted;
   final String? aiSourcePlatform;
+  final String? placeProvider;
+  final String? googlePlaceId;
 }
 
 class RestaurantDraftResult {
@@ -75,8 +79,9 @@ abstract interface class LocalEatsRepository {
   Future<List<RestaurantModel>> fetchOwnedRestaurantSubmissions();
 
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  );
+    String sourceUrl, {
+    String? restaurantName,
+  });
 
   Future<RestaurantDraftResult> createRestaurantDraft({
     required RestaurantDraftInput input,

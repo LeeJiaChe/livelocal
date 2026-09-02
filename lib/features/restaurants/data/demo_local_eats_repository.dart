@@ -52,14 +52,15 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
 
   @override
   Future<SocialSourceAnalysisResult> generateRestaurantListingFromSource(
-    String sourceUrl,
-  ) async {
+    String sourceUrl, {
+    String? restaurantName,
+  }) async {
     _requireInfluencer();
     if (!SocialUrlValidator.isReviewPost(sourceUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
         userMessage:
-            'Paste a valid TikTok review video or Instagram post/Reel link.',
+            'Paste a valid Google Maps, public website, Instagram post/Reel, or TikTok video link.',
       );
     }
     final detection = SocialUrlValidator.detectSource(sourceUrl);
@@ -165,7 +166,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
     if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
-        userMessage: 'Use a valid TikTok video or Instagram post/reel URL.',
+        userMessage:
+            'Use a valid Google Maps, public website, Instagram post/reel, or TikTok video URL.',
       );
     }
     final id = 'demo-restaurant-${DateTime.now().microsecondsSinceEpoch}';
@@ -202,6 +204,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
         isOwnedByCurrentUser: true,
         aiAssisted: input.aiAssisted,
         aiSourcePlatform: input.aiSourcePlatform,
+        placeProvider: input.placeProvider,
+        googlePlaceId: input.googlePlaceId,
       ),
     );
     _currentRevisionIds[id] = revisionId;
@@ -224,7 +228,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
     if (!SocialUrlValidator.isReviewPost(input.socialMediaUrl)) {
       throw const AppException(
         code: AppErrorCode.validation,
-        userMessage: 'Use a valid TikTok video or Instagram post/reel URL.',
+        userMessage:
+            'Use a valid Google Maps, public website, Instagram post/reel, or TikTok video URL.',
       );
     }
     if (imageBytes != null) {
@@ -284,6 +289,8 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
       ),
       aiAssisted: input.aiAssisted,
       aiSourcePlatform: input.aiSourcePlatform,
+      placeProvider: input.placeProvider,
+      googlePlaceId: input.googlePlaceId,
     );
     if (revised.coverPhotoUrl.isEmpty) {
       throw const AppException(
@@ -619,6 +626,10 @@ class DemoLocalEatsRepository implements LocalEatsRepository {
       isOwnedByCurrentUser: isOwnedByCurrentUser ?? value.isOwnedByCurrentUser,
       decisionReason: value.decisionReason,
       hasApprovedRevision: value.hasApprovedRevision,
+      aiAssisted: value.aiAssisted,
+      aiSourcePlatform: value.aiSourcePlatform,
+      placeProvider: value.placeProvider,
+      googlePlaceId: value.googlePlaceId,
     );
   }
 }

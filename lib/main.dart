@@ -73,6 +73,10 @@ import 'features/guides/presentation/submit_guide_screen.dart';
 import 'features/moderation/presentation/blocked_users_screen.dart';
 import 'screens/add_restaurant_screen.dart';
 import 'screens/my_submissions_screen.dart';
+import 'features/places/data/supabase_google_places_provider.dart';
+import 'features/places/domain/place_provider.dart';
+import 'features/places/presentation/place_discovery_controller.dart';
+import 'features/places/presentation/external_places_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -112,6 +116,7 @@ Future<void> main() async {
   late final GuideRepository guideRepository;
   late final NotificationRepository notificationRepository;
   late final ModerationRepository moderationRepository;
+  late final PlaceProvider placeProvider;
   try {
     if (configuration.isDemo) {
       final demoAuthRepository = DemoAuthRepository();
@@ -135,6 +140,7 @@ Future<void> main() async {
           DemoGuideRepository(demoAuthRepository, seedAdminWorkload: true);
       notificationRepository = DemoNotificationRepository(demoAuthRepository);
       moderationRepository = DemoModerationRepository(demoAuthRepository);
+      placeProvider = const UnavailablePlaceProvider();
     } else {
       await Supabase.initialize(
         url: configuration.supabaseUrl!,
@@ -156,8 +162,11 @@ Future<void> main() async {
           SupabaseInfluencerApplicationRepository(Supabase.instance.client);
       localEatsRepository =
           SupabaseLocalEatsRepository(Supabase.instance.client);
-      savedItineraryRepository =
-          SupabaseSavedItineraryRepository(Supabase.instance.client);
+      placeProvider = SupabaseGooglePlacesProvider(Supabase.instance.client);
+      savedItineraryRepository = SupabaseSavedItineraryRepository(
+        Supabase.instance.client,
+        placeProvider: placeProvider,
+      );
       guideRepository = SupabaseGuideRepository(Supabase.instance.client);
       notificationRepository =
           SupabaseNotificationRepository(Supabase.instance.client);
@@ -191,6 +200,7 @@ Future<void> main() async {
       guideRepository: guideRepository,
       notificationRepository: notificationRepository,
       moderationRepository: moderationRepository,
+      placeProvider: placeProvider,
     ),
   );
 }
@@ -213,6 +223,7 @@ class LiveLocalApp extends StatelessWidget {
     required this.guideRepository,
     required this.notificationRepository,
     required this.moderationRepository,
+    this.placeProvider = const UnavailablePlaceProvider(),
   });
 
   final AppConfiguration configuration;
@@ -227,12 +238,14 @@ class LiveLocalApp extends StatelessWidget {
   final GuideRepository guideRepository;
   final NotificationRepository notificationRepository;
   final ModerationRepository moderationRepository;
+  final PlaceProvider placeProvider;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         Provider<AppConfiguration>.value(value: configuration),
+        Provider<PlaceProvider>.value(value: placeProvider),
         ChangeNotifierProvider(
           create: (_) => AppLocaleController()..initialize(),
         ),
@@ -277,6 +290,9 @@ class LiveLocalApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => ModerationController(repository: moderationRepository),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PlaceDiscoveryController(provider: placeProvider),
         ),
       ],
       child: Builder(
@@ -338,6 +354,18 @@ class LiveLocalApp extends StatelessWidget {
                 },
                 '/saved-places': (context) => const SavedPlacesScreen(),
                 '/trips': (context) => const ItineraryScreen(),
+                '/external-place-detail': (context) {
+                  final arguments = ModalRoute.of(context)?.settings.arguments;
+                  if (arguments is! ExternalPlaceDetailArguments) {
+                    return const ConfigurationFailureApp(
+                      message: 'The requested place is unavailable.',
+                    );
+                  }
+                  return ExternalPlaceDetailScreen(
+                    initialPlace: arguments.place,
+                    pendingAction: arguments.pendingAction,
+                  );
+                },
                 '/spot-detail': (context) {
                   final arguments = ModalRoute.of(context)?.settings.arguments;
                   if (arguments is! SpotDetailArguments) {
