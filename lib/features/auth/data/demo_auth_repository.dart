@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/errors/app_exception.dart';
 import '../../../core/validation/auth_form_validator.dart';
@@ -8,21 +11,33 @@ import '../domain/account_identity.dart';
 import '../domain/auth_repository.dart';
 
 class DemoAuthRepository implements AuthRepository {
-  DemoAuthRepository({List<ProfileModel>? initialProfiles})
-      : _profiles = List<ProfileModel>.of(
+  static const String _sessionKey = 'demo_auth_session';
+
+  DemoAuthRepository({
+    List<ProfileModel>? initialProfiles,
+  }) : _profiles = List<ProfileModel>.of(
           initialProfiles ?? SeedDataService.getInitialProfiles(),
         );
 
   final List<ProfileModel> _profiles;
+
   final StreamController<void> _sessionController =
       StreamController<void>.broadcast();
+
   final StreamController<AuthSessionEvent> _authEventController =
       StreamController<AuthSessionEvent>.broadcast();
+
   final Map<String, AppRole> _roleOverrides = {};
+
   final Map<String, String> _customPasswords = {};
+
   AccountIdentity? _currentAccount;
 
   AccountIdentity? get currentAccountForDemo => _currentAccount;
+
+  // ============================================================
+  // STREAMS
+  // ============================================================
 
   @override
   Stream<void> get sessionChanges => _sessionController.stream;
@@ -30,8 +45,117 @@ class DemoAuthRepository implements AuthRepository {
   @override
   Stream<AuthSessionEvent> get authEvents => _authEventController.stream;
 
+  // ============================================================
+  // SESSION STORAGE
+  // ============================================================
+
+  Future<void> _saveSession(
+    AccountIdentity account,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+
+    final data = <String, dynamic>{
+      'id': account.id,
+      'email': account.email,
+      'fullName': account.fullName,
+      'avatarUrl': account.avatarUrl,
+      'role': account.appRole.name,
+      'accessStatus': account.accessStatus.name,
+      'emailVerified': account.emailVerified,
+      'accessReason': account.accessReason,
+    };
+
+    await preferences.setString(
+      _sessionKey,
+      jsonEncode(data),
+    );
+  }
+
+  Future<void> _clearSavedSession() async {
+    final preferences = await SharedPreferences.getInstance();
+
+    await preferences.remove(_sessionKey);
+  }
+
+  AccountIdentity? _decodeSession(
+    String? encodedSession,
+  ) {
+    if (encodedSession == null || encodedSession.isEmpty) {
+      return null;
+    }
+
+    try {
+      final decoded = jsonDecode(encodedSession);
+
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final id = decoded['id'];
+      final email = decoded['email'];
+      final fullName = decoded['fullName'];
+      final role = decoded['role'];
+      final accessStatus = decoded['accessStatus'];
+      final emailVerified = decoded['emailVerified'];
+
+      if (id is! String ||
+          email is! String ||
+          fullName is! String ||
+          role is! String ||
+          accessStatus is! String ||
+          emailVerified is! bool) {
+        return null;
+      }
+
+      final parsedAccessStatus = AccountAccessStatus.values.firstWhere(
+        (status) => status.name == accessStatus,
+        orElse: () => AccountAccessStatus.active,
+      );
+
+      return AccountIdentity(
+        id: id,
+        email: email,
+        fullName: fullName,
+        avatarUrl: decoded['avatarUrl'] as String?,
+        role: AppRole.fromDatabase(role),
+        accessStatus: parsedAccessStatus,
+        emailVerified: emailVerified,
+        accessReason: decoded['accessReason'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // RESTORE SESSION
+  // ============================================================
+
   @override
-  Future<AccountIdentity?> restoreSession() async => _currentAccount;
+  Future<AccountIdentity?> restoreSession() async {
+    if (_currentAccount != null) {
+      return _currentAccount;
+    }
+
+    final preferences = await SharedPreferences.getInstance();
+
+    final encodedSession = preferences.getString(_sessionKey);
+
+    final restoredAccount = _decodeSession(encodedSession);
+
+    if (restoredAccount == null) {
+      await preferences.remove(_sessionKey);
+      return null;
+    }
+
+    _currentAccount = restoredAccount;
+
+    return _currentAccount;
+  }
+
+  // ============================================================
+  // SIGN IN
+  // ============================================================
 
   @override
   Future<AccountIdentity> signIn({
@@ -39,9 +163,13 @@ class DemoAuthRepository implements AuthRepository {
     required String password,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
+
     final matches = _profiles
-        .where((profile) => profile.email.toLowerCase() == normalizedEmail)
+        .where(
+          (profile) => profile.email.toLowerCase() == normalizedEmail,
+        )
         .toList();
+
     if (matches.isEmpty) {
       throw const AppException(
         code: AppErrorCode.authentication,
@@ -51,6 +179,7 @@ class DemoAuthRepository implements AuthRepository {
 
     final expectedPassword =
         _customPasswords[normalizedEmail] ?? SeedDataService.demoPassword;
+
     if (password != expectedPassword) {
       throw const AppException(
         code: AppErrorCode.authentication,
@@ -59,10 +188,21 @@ class DemoAuthRepository implements AuthRepository {
     }
 
     _currentAccount = _fromProfile(matches.single);
+
+    await _saveSession(_currentAccount!);
+
     _sessionController.add(null);
-    _authEventController.add(AuthSessionEvent.sessionChanged);
+
+    _authEventController.add(
+      AuthSessionEvent.sessionChanged,
+    );
+
     return _currentAccount!;
   }
+
+  // ============================================================
+  // REGISTER TOURIST
+  // ============================================================
 
   @override
   Future<AccountIdentity> registerTourist({
@@ -70,7 +210,10 @@ class DemoAuthRepository implements AuthRepository {
     required String password,
     required String displayName,
   }) async {
-    final passwordError = AuthFormValidator.validateRegisterPassword(password);
+    final passwordError = AuthFormValidator.validateRegisterPassword(
+      password,
+    );
+
     if (passwordError != null) {
       throw AppException(
         code: AppErrorCode.validation,
@@ -79,6 +222,7 @@ class DemoAuthRepository implements AuthRepository {
     }
 
     final normalizedEmail = email.trim().toLowerCase();
+
     if (_profiles.any(
       (profile) => profile.email.toLowerCase() == normalizedEmail,
     )) {
@@ -94,53 +238,93 @@ class DemoAuthRepository implements AuthRepository {
       fullName: displayName.trim(),
       role: AppRole.tourist.name,
     );
+
     _profiles.add(profile);
+
     _customPasswords[normalizedEmail] = password;
+
     _currentAccount = _fromProfile(profile);
+
+    await _saveSession(_currentAccount!);
+
     _sessionController.add(null);
-    _authEventController.add(AuthSessionEvent.sessionChanged);
+
+    _authEventController.add(
+      AuthSessionEvent.sessionChanged,
+    );
+
     return _currentAccount!;
   }
 
+  // ============================================================
+  // RESEND VERIFICATION EMAIL
+  // ============================================================
+
   @override
-  Future<void> resendVerificationEmail(String email) async {
+  Future<void> resendVerificationEmail(
+    String email,
+  ) async {
     throw const AppException(
       code: AppErrorCode.unavailable,
       userMessage: 'Demo accounts are already verified. No email was sent.',
     );
   }
 
+  // ============================================================
+  // PASSWORD RESET
+  // ============================================================
+
   @override
-  Future<PasswordResetDelivery> requestPasswordReset(String email) async {
+  Future<PasswordResetDelivery> requestPasswordReset(
+    String email,
+  ) async {
     if (email.trim().isEmpty) {
       throw const AppException(
         code: AppErrorCode.validation,
         userMessage: 'Enter your email address.',
       );
     }
+
     return PasswordResetDelivery.demo;
   }
 
+  // ============================================================
+  // UPDATE PASSWORD
+  // ============================================================
+
   @override
-  Future<void> updatePassword(String newPassword) async {
-    final passwordError =
-        AuthFormValidator.validateRegisterPassword(newPassword);
+  Future<void> updatePassword(
+    String newPassword,
+  ) async {
+    final passwordError = AuthFormValidator.validateRegisterPassword(
+      newPassword,
+    );
+
     if (passwordError != null) {
       throw AppException(
         code: AppErrorCode.validation,
         userMessage: passwordError,
       );
     }
+
     final email = _currentAccount?.email.toLowerCase();
+
     if (email != null) {
       _customPasswords[email] = newPassword;
     }
   }
 
-  void triggerPasswordRecoveryForDemo(String email) {
+  // ============================================================
+  // DEMO PASSWORD RECOVERY
+  // ============================================================
+
+  void triggerPasswordRecoveryForDemo(
+    String email,
+  ) {
     final normalizedEmail = email.trim().toLowerCase();
+
     final profile = _profiles.firstWhere(
-      (p) => p.email.toLowerCase() == normalizedEmail,
+      (profile) => profile.email.toLowerCase() == normalizedEmail,
       orElse: () => ProfileModel(
         id: 'demo-recovery',
         email: normalizedEmail,
@@ -148,30 +332,56 @@ class DemoAuthRepository implements AuthRepository {
         role: AppRole.tourist.name,
       ),
     );
+
     _currentAccount = _fromProfile(profile);
-    _authEventController.add(AuthSessionEvent.passwordRecovery);
+
+    _authEventController.add(
+      AuthSessionEvent.passwordRecovery,
+    );
   }
+
+  // ============================================================
+  // SIGN OUT
+  // ============================================================
 
   @override
   Future<void> signOut() async {
     _currentAccount = null;
+
+    await _clearSavedSession();
+
     _sessionController.add(null);
-    _authEventController.add(AuthSessionEvent.sessionChanged);
+
+    _authEventController.add(
+      AuthSessionEvent.sessionChanged,
+    );
   }
+
+  // ============================================================
+  // REFRESH ACCOUNT
+  // ============================================================
 
   @override
   Future<AccountIdentity> refreshAccount() async {
     final current = _currentAccount;
+
     if (current == null) {
       throw const AppException(
         code: AppErrorCode.authentication,
         userMessage: 'Sign in to continue.',
       );
     }
+
     return current;
   }
 
-  AccountIdentity _fromProfile(ProfileModel profile) {
+  // ============================================================
+  // PROFILE -> ACCOUNT IDENTITY
+  // ============================================================
+
+  AccountIdentity _fromProfile(
+    ProfileModel profile,
+  ) {
     return AccountIdentity(
       id: profile.id,
       email: profile.email,
@@ -188,18 +398,44 @@ class DemoAuthRepository implements AuthRepository {
     );
   }
 
-  AccountIdentity replaceAccountForDemo(AccountIdentity account) {
+  // ============================================================
+  // DEMO HELPERS
+  // ============================================================
+
+  AccountIdentity replaceAccountForDemo(
+    AccountIdentity account,
+  ) {
     _currentAccount = account;
+
+    unawaited(
+      _saveSession(account),
+    );
+
     _sessionController.add(null);
+
     return account;
   }
 
-  /// Demo-only server adapter behavior. Production role grants occur only in
-  /// the audited `admin_decide_influencer_application` database function.
-  void grantRoleForDemo(String userId, AppRole role) {
+  /// Demo-only server adapter behavior.
+  ///
+  /// Production role grants occur only in the audited
+  /// `admin_decide_influencer_application`
+  /// database function.
+  void grantRoleForDemo(
+    String userId,
+    AppRole role,
+  ) {
     _roleOverrides[userId] = role;
+
     if (_currentAccount?.id == userId) {
-      _currentAccount = _currentAccount!.copyWith(role: role);
+      _currentAccount = _currentAccount!.copyWith(
+        role: role,
+      );
+
+      unawaited(
+        _saveSession(_currentAccount!),
+      );
+
       _sessionController.add(null);
     }
   }
