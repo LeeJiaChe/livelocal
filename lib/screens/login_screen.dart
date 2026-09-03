@@ -26,7 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
   String _errorMessage = '';
   bool _obscurePassword = true;
   bool _preservePendingOnExit = false;
-  bool _navigatingAfterAuth = false;
+  bool _waitingForSocialAuth = false;
+  bool _socialNavigationScheduled = false;
 
   InputDecoration _fieldDecoration({
     required IconData prefixIcon,
@@ -78,26 +79,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  void _navigateHome() {
-    if (!mounted || _navigatingAfterAuth) {
-      return;
-    }
-
-    _navigatingAfterAuth = true;
-    _preservePendingOnExit = true;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/home',
-        (route) => false,
-      );
-    });
-  }
-
   void _handleBack() {
     if (!_preservePendingOnExit) {
       context.read<ProtectedNavigation?>()?.clearPending();
@@ -135,6 +116,9 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    _waitingForSocialAuth = false;
+    _socialNavigationScheduled = false;
+
     FocusScope.of(context).unfocus();
     _clearError();
 
@@ -148,7 +132,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (success) {
-      _navigateHome();
+      _preservePendingOnExit = true;
+
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        (route) => false,
+      );
+
       return;
     }
 
@@ -170,6 +160,9 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     _clearError();
 
+    _waitingForSocialAuth = true;
+    _socialNavigationScheduled = false;
+
     final success = await authController.signInWithSocial(
       provider,
     );
@@ -179,10 +172,38 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (!success) {
+      _waitingForSocialAuth = false;
+
       _showAuthError(
         authController,
       );
     }
+  }
+
+  void _scheduleSocialNavigation(
+    AuthController authController,
+  ) {
+    if (!_waitingForSocialAuth ||
+        !authController.isAuthenticated ||
+        _socialNavigationScheduled) {
+      return;
+    }
+
+    _socialNavigationScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      _preservePendingOnExit = true;
+      _waitingForSocialAuth = false;
+
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        (route) => false,
+      );
+    });
   }
 
   Widget _socialButton({
@@ -239,12 +260,11 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authController = context.watch<AuthController>();
-
     final isSubmitting = authController.isLoading;
 
-    if (authController.isAuthenticated) {
-      _navigateHome();
-    }
+    _scheduleSocialNavigation(
+      authController,
+    );
 
     return PopScope(
       canPop: true,
@@ -349,7 +369,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           autofillHints: const [
                             AutofillHints.email,
                           ],
-                          onChanged: (_) => _clearError(),
+                          onChanged: (_) {
+                            _clearError();
+                          },
                           decoration: _fieldDecoration(
                             prefixIcon: Icons.email_outlined,
                             labelText: context.tr(
@@ -371,7 +393,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           autofillHints: const [
                             AutofillHints.password,
                           ],
-                          onChanged: (_) => _clearError(),
+                          onChanged: (_) {
+                            _clearError();
+                          },
                           onFieldSubmitted: (_) {
                             if (!isSubmitting) {
                               _handleLogin();
@@ -397,11 +421,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               onPressed: isSubmitting
                                   ? null
                                   : () {
-                                      setState(
-                                        () {
-                                          _obscurePassword = !_obscurePassword;
-                                        },
-                                      );
+                                      setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      });
                                     },
                             ),
                           ),
