@@ -1,10 +1,17 @@
 import 'account_identity.dart';
 
-enum PasswordResetDelivery { email, demo }
+enum PasswordResetDelivery {
+  email,
+  demo,
+}
 
 enum AuthSessionEvent {
   sessionChanged,
   passwordRecovery,
+}
+
+enum SocialAuthProvider {
+  google,
 }
 
 abstract interface class AuthRepository {
@@ -30,6 +37,10 @@ abstract interface class AuthRepository {
   Future<PasswordResetDelivery> requestPasswordReset(String email);
 
   Future<void> updatePassword(String newPassword);
+
+  Future<void> signInWithSocial(
+    SocialAuthProvider provider,
+  );
 
   Future<void> signOut();
 
