@@ -28,26 +28,17 @@ class DemoAuthRepository implements AuthRepository {
       StreamController<AuthSessionEvent>.broadcast();
 
   final Map<String, AppRole> _roleOverrides = {};
-
   final Map<String, String> _customPasswords = {};
 
   AccountIdentity? _currentAccount;
 
   AccountIdentity? get currentAccountForDemo => _currentAccount;
 
-  // ============================================================
-  // STREAMS
-  // ============================================================
-
   @override
   Stream<void> get sessionChanges => _sessionController.stream;
 
   @override
   Stream<AuthSessionEvent> get authEvents => _authEventController.stream;
-
-  // ============================================================
-  // SESSION STORAGE
-  // ============================================================
 
   Future<void> _saveSession(
     AccountIdentity account,
@@ -127,10 +118,6 @@ class DemoAuthRepository implements AuthRepository {
     }
   }
 
-  // ============================================================
-  // RESTORE SESSION
-  // ============================================================
-
   @override
   Future<AccountIdentity?> restoreSession() async {
     if (_currentAccount != null) {
@@ -152,10 +139,6 @@ class DemoAuthRepository implements AuthRepository {
 
     return _currentAccount;
   }
-
-  // ============================================================
-  // SIGN IN
-  // ============================================================
 
   @override
   Future<AccountIdentity> signIn({
@@ -199,10 +182,6 @@ class DemoAuthRepository implements AuthRepository {
 
     return _currentAccount!;
   }
-
-  // ============================================================
-  // REGISTER TOURIST
-  // ============================================================
 
   @override
   Future<AccountIdentity> registerTourist({
@@ -256,9 +235,16 @@ class DemoAuthRepository implements AuthRepository {
     return _currentAccount!;
   }
 
-  // ============================================================
-  // RESEND VERIFICATION EMAIL
-  // ============================================================
+  @override
+  Future<void> signInWithSocial(
+    SocialAuthProvider provider,
+  ) async {
+    throw const AppException(
+      code: AppErrorCode.unavailable,
+      userMessage:
+          'Google sign-in is only available when connected to Supabase.',
+    );
+  }
 
   @override
   Future<void> resendVerificationEmail(
@@ -269,10 +255,6 @@ class DemoAuthRepository implements AuthRepository {
       userMessage: 'Demo accounts are already verified. No email was sent.',
     );
   }
-
-  // ============================================================
-  // PASSWORD RESET
-  // ============================================================
 
   @override
   Future<PasswordResetDelivery> requestPasswordReset(
@@ -287,10 +269,6 @@ class DemoAuthRepository implements AuthRepository {
 
     return PasswordResetDelivery.demo;
   }
-
-  // ============================================================
-  // UPDATE PASSWORD
-  // ============================================================
 
   @override
   Future<void> updatePassword(
@@ -314,10 +292,6 @@ class DemoAuthRepository implements AuthRepository {
     }
   }
 
-  // ============================================================
-  // DEMO PASSWORD RECOVERY
-  // ============================================================
-
   void triggerPasswordRecoveryForDemo(
     String email,
   ) {
@@ -340,10 +314,6 @@ class DemoAuthRepository implements AuthRepository {
     );
   }
 
-  // ============================================================
-  // SIGN OUT
-  // ============================================================
-
   @override
   Future<void> signOut() async {
     _currentAccount = null;
@@ -356,10 +326,6 @@ class DemoAuthRepository implements AuthRepository {
       AuthSessionEvent.sessionChanged,
     );
   }
-
-  // ============================================================
-  // REFRESH ACCOUNT
-  // ============================================================
 
   @override
   Future<AccountIdentity> refreshAccount() async {
@@ -374,10 +340,6 @@ class DemoAuthRepository implements AuthRepository {
 
     return current;
   }
-
-  // ============================================================
-  // PROFILE -> ACCOUNT IDENTITY
-  // ============================================================
 
   AccountIdentity _fromProfile(
     ProfileModel profile,
@@ -398,10 +360,6 @@ class DemoAuthRepository implements AuthRepository {
     );
   }
 
-  // ============================================================
-  // DEMO HELPERS
-  // ============================================================
-
   AccountIdentity replaceAccountForDemo(
     AccountIdentity account,
   ) {
@@ -416,11 +374,6 @@ class DemoAuthRepository implements AuthRepository {
     return account;
   }
 
-  /// Demo-only server adapter behavior.
-  ///
-  /// Production role grants occur only in the audited
-  /// `admin_decide_influencer_application`
-  /// database function.
   void grantRoleForDemo(
     String userId,
     AppRole role,
