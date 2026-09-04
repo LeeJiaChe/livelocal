@@ -391,7 +391,7 @@ class ExternalPlaceCard extends StatelessWidget {
                           ),
                         const _Meta(
                           icon: Icons.place_outlined,
-                          text: 'Location verified',
+                          text: 'Google Places',
                         ),
                       ],
                     ),

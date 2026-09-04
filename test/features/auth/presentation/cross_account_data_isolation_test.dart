@@ -162,5 +162,92 @@ void main() {
         expect(adminController.accounts, isEmpty);
       },
     );
+
+    testWidgets(
+      'Tourist -> Creator -> Tourist switching purges memory on each transition',
+      (tester) async {
+        final navKey = GlobalKey<NavigatorState>();
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AuthController>.value(
+                  value: authController),
+              ChangeNotifierProvider<ItineraryController>.value(
+                value: itineraryController,
+              ),
+              ChangeNotifierProvider<NotificationController>.value(
+                value: notificationController,
+              ),
+              ChangeNotifierProvider<SpotController>.value(
+                value: spotController,
+              ),
+              ChangeNotifierProvider<LocalEatsController>.value(
+                value: localEatsController,
+              ),
+              ChangeNotifierProvider<GuideController>.value(
+                value: guideController,
+              ),
+              ChangeNotifierProvider<InfluencerApplicationController>.value(
+                value: influencerController,
+              ),
+              ChangeNotifierProvider<ModerationController>.value(
+                value: moderationController,
+              ),
+              ChangeNotifierProvider<AccountController>.value(
+                value: accountController,
+              ),
+              ChangeNotifierProvider<AdminController>.value(
+                value: adminController,
+              ),
+            ],
+            child: AuthNavigationCoordinator(
+              navigatorKey: navKey,
+              child: MaterialApp(
+                navigatorKey: navKey,
+                home: const Scaffold(body: Text('Test Root')),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // 1. Sign in as Tourist 1
+        await authController.login(
+          'tourist@gmail.com',
+          SeedDataService.demoPassword,
+        );
+        await tester.pumpAndSettle();
+
+        await itineraryRepo.setSaved(
+          targetType: 'spot',
+          targetId: 'spot-tourist-1',
+          saved: true,
+        );
+        await itineraryController.loadSavedPlaces();
+        expect(itineraryController.savedPlaces, isNotEmpty);
+
+        // 2. Switch directly to Creator 1 (infuencer@gmail.com)
+        await authController.login(
+          'infuencer@gmail.com',
+          SeedDataService.demoPassword,
+        );
+        await tester.pumpAndSettle();
+
+        // Tourist's saved places must be purged
+        expect(itineraryController.savedPlaces, isEmpty);
+        expect(authController.currentUser?.role, 'influencer');
+
+        // 3. Switch to Tourist 2 (tourist1@gmail.com)
+        await authController.login(
+          'tourist1@gmail.com',
+          SeedDataService.demoPassword,
+        );
+        await tester.pumpAndSettle();
+
+        expect(authController.currentUser?.role, 'tourist');
+        expect(itineraryController.savedPlaces, isEmpty);
+      },
+    );
   });
 }

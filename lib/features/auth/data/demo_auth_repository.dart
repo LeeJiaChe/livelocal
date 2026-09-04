@@ -146,6 +146,12 @@ class DemoAuthRepository implements AuthRepository {
     required String password,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
+    final resolvedEmail = switch (normalizedEmail) {
+      'tourist@livelocal.com' => 'tourist@gmail.com',
+      'foodie@livelocal.com' => 'infuencer@gmail.com',
+      'admin@livelocal.com' => 'admin@gmail.com',
+      _ => normalizedEmail,
+    };
 
     final matches = _profiles
         .where(
@@ -153,24 +159,36 @@ class DemoAuthRepository implements AuthRepository {
         )
         .toList();
 
-    if (matches.isEmpty) {
+    final profile = matches.isNotEmpty
+        ? matches.first
+        : _profiles.firstWhere(
+            (p) => p.email.toLowerCase() == resolvedEmail,
+            orElse: () => throw const AppException(
+              code: AppErrorCode.authentication,
+              userMessage: 'Invalid email or password.',
+            ),
+          );
+
+    final hasCustomPassword = _customPasswords.containsKey(normalizedEmail) ||
+        _customPasswords.containsKey(resolvedEmail);
+    final expectedPassword = _customPasswords[normalizedEmail] ??
+        _customPasswords[resolvedEmail] ??
+        SeedDataService.demoPassword;
+
+    final passwordMatches = hasCustomPassword
+        ? password == expectedPassword
+        : (password == expectedPassword ||
+            password == '123456' ||
+            password == SeedDataService.demoPassword);
+
+    if (!passwordMatches) {
       throw const AppException(
         code: AppErrorCode.authentication,
         userMessage: 'Invalid email or password.',
       );
     }
 
-    final expectedPassword =
-        _customPasswords[normalizedEmail] ?? SeedDataService.demoPassword;
-
-    if (password != expectedPassword) {
-      throw const AppException(
-        code: AppErrorCode.authentication,
-        userMessage: 'Invalid email or password.',
-      );
-    }
-
-    _currentAccount = _fromProfile(matches.single);
+    _currentAccount = _fromProfile(profile);
 
     await _saveSession(_currentAccount!);
 
@@ -296,9 +314,17 @@ class DemoAuthRepository implements AuthRepository {
     String email,
   ) {
     final normalizedEmail = email.trim().toLowerCase();
+    final resolvedEmail = switch (normalizedEmail) {
+      'tourist@livelocal.com' => 'tourist@gmail.com',
+      'foodie@livelocal.com' => 'infuencer@gmail.com',
+      'admin@livelocal.com' => 'admin@gmail.com',
+      _ => normalizedEmail,
+    };
 
     final profile = _profiles.firstWhere(
-      (profile) => profile.email.toLowerCase() == normalizedEmail,
+      (profile) =>
+          profile.email.toLowerCase() == resolvedEmail ||
+          profile.email.toLowerCase() == normalizedEmail,
       orElse: () => ProfileModel(
         id: 'demo-recovery',
         email: normalizedEmail,
