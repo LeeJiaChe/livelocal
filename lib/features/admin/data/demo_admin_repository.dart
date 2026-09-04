@@ -12,7 +12,12 @@ class DemoAdminRepository implements AdminRepository {
             .map(
               (profile) => AdminAccountSummary(
                 id: profile.id,
-                email: profile.email,
+                email: switch (profile.email) {
+                  'tourist@gmail.com' => 'tourist@livelocal.com',
+                  'admin@gmail.com' => 'admin@livelocal.com',
+                  'infuencer@gmail.com' => 'foodie@livelocal.com',
+                  _ => profile.email,
+                },
                 displayName: profile.fullName,
                 role: profile.role,
                 accessStatus: profile.isSuspended ? 'restricted' : 'active',

@@ -8,7 +8,7 @@ import '../../../../controllers/guide_controller.dart';
 import '../../../../controllers/localeats_controller.dart';
 import '../../../../controllers/spot_controller.dart';
 import '../../../influencer_applications/presentation/influencer_application_controller.dart';
-import 'admin_guides_page.dart';
+import 'admin_content_page.dart';
 import 'admin_more_page.dart';
 import 'admin_overview_page.dart';
 import 'admin_review_queue_page.dart';
@@ -133,7 +133,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         initialFilter: _reviewSubFilter,
         initialSubmissionFilter: _reviewSubmissionFilter,
       ),
-      const AdminGuidesPage(),
+      const AdminContentPage(),
       const AdminUsersPage(),
       AdminMorePage(
         onOpenQueue: (filter, {submissionFilter}) => _navigateToTab(
@@ -147,7 +147,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     const sectionTitles = [
       'Overview',
       'Review Queue',
-      'Guides',
+      'Content',
       'User Management',
       'More',
     ];
@@ -278,9 +278,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           label: Text(context.tr('Queue')),
                         ),
                         NavigationRailDestination(
-                          icon: const Icon(Icons.route_outlined),
-                          selectedIcon: const Icon(Icons.route),
-                          label: Text(context.tr('Guides')),
+                          icon: const Icon(Icons.inventory_2_outlined),
+                          selectedIcon: const Icon(Icons.inventory_2),
+                          label: Text(context.tr('Content')),
                         ),
                         NavigationRailDestination(
                           icon: const Icon(Icons.people_outline),
@@ -326,9 +326,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       label: context.tr('Queue'),
                     ),
                     NavigationDestination(
-                      icon: const Icon(Icons.route_outlined),
-                      selectedIcon: const Icon(Icons.route),
-                      label: context.tr('Guides'),
+                      icon: const Icon(Icons.inventory_2_outlined),
+                      selectedIcon: const Icon(Icons.inventory_2),
+                      label: context.tr('Content'),
                     ),
                     NavigationDestination(
                       icon: const Icon(Icons.people_outline),

@@ -25,6 +25,15 @@ class NotificationController with ChangeNotifier {
   int get unreadCount =>
       _notifications.where((notification) => !notification.isRead).length;
 
+  void reset() {
+    _notifications = [];
+    _isLoading = false;
+    _isLoadingMore = false;
+    _hasMore = true;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   Future<void> load() async {
     _isLoading = true;
     _errorMessage = null;

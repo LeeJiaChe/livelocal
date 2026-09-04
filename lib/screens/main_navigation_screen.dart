@@ -13,6 +13,7 @@ import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'saved_places_screen.dart';
 import 'itinerary_screen.dart';
+import 'neighbourhood_explorer_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -23,6 +24,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  final ValueNotifier<int> _exploreTabNotifier = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -33,6 +35,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       context.read<ItineraryController>().loadItineraries();
       context.read<NotificationController>().load();
     });
+  }
+
+  @override
+  void dispose() {
+    _exploreTabNotifier.dispose();
+    super.dispose();
   }
 
   @override
@@ -47,7 +55,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       destinations = const [
         _RoleDestination('Home', Icons.home_outlined, Icons.home),
         _RoleDestination('Explore', Icons.explore_outlined, Icons.explore),
-        _RoleDestination('Trips', Icons.luggage_outlined, Icons.luggage),
+        _RoleDestination('Guides', Icons.route_outlined, Icons.route),
         _RoleDestination('Profile', Icons.person_outline, Icons.person),
       ];
     } else if (isCreator) {
@@ -79,6 +87,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (index >= 0) setState(() => _currentIndex = index);
     }
 
+    void navigateToExplore([int tabIndex = 0]) {
+      _exploreTabNotifier.value = tabIndex;
+      selectLabel('Explore');
+    }
+
     void openTrips() {
       if (isGuest) {
         context.read<ProtectedNavigation>().open(context, '/trips');
@@ -95,29 +108,31 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
 
     final home = RoleHomeScreen(
-      onOpenExplore: () => selectLabel('Explore'),
+      onOpenExplore: ([int tabIndex = 0]) => navigateToExplore(tabIndex),
       onOpenPlanning: openTrips,
       onOpenStudio: () => selectLabel('Studio'),
     );
 
+    final explore = ExploreHubScreen(selectedTabNotifier: _exploreTabNotifier);
+
     final pages = isGuest
         ? <Widget>[
             home,
-            const ExploreHubScreen(),
-            const SizedBox.shrink(),
+            explore,
+            const NeighbourhoodExplorerScreen(),
             const ProfileScreen(),
           ]
         : isCreator
             ? <Widget>[
                 home,
-                const ExploreHubScreen(),
+                explore,
                 const CreatorStudioScreen(),
                 const SavedPlacesScreen(),
                 const ProfileScreen(),
               ]
             : <Widget>[
                 home,
-                const ExploreHubScreen(),
+                explore,
                 const SavedPlacesScreen(),
                 const ItineraryScreen(),
                 const ProfileScreen(),
@@ -157,10 +172,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
-          if (isGuest && destinations[index].label == 'Trips') {
-            openTrips();
-            return;
-          }
           setState(() => _currentIndex = index);
         },
         destinations: destinations

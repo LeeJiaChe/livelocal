@@ -10,32 +10,56 @@ class SeedDataService {
   /// Shared synthetic password for non-release demo fixtures only.
   ///
   /// Demo authentication is intentionally not a production security model.
-  static const demoPassword = '123456';
+  static const demoPassword = 'livelocal123';
 
   static List<ProfileModel> getInitialProfiles() => [
         ProfileModel(
-          id: 'usr-tourist-1',
-          email: 'tourist@livelocal.com',
-          fullName: 'Alex Tan (Tourist)',
+          id: 'usr-admin-1',
+          email: 'admin@gmail.com',
+          fullName: 'Admin User',
           avatarUrl:
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-          role: 'tourist',
+              'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
+          role: 'admin',
         ),
         ProfileModel(
           id: 'usr-influencer-1',
-          email: 'foodie@livelocal.com',
+          email: 'infuencer@gmail.com',
           fullName: 'KL Foodie (Creator)',
           avatarUrl:
               'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
           role: 'influencer',
         ),
         ProfileModel(
-          id: 'usr-admin-1',
-          email: 'admin@livelocal.com',
-          fullName: 'Admin User',
+          id: 'usr-influencer-2',
+          email: 'infuencer1@gmail.com',
+          fullName: 'Creator 2',
           avatarUrl:
-              'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-          role: 'admin',
+              'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+          role: 'influencer',
+        ),
+        ProfileModel(
+          id: 'usr-tourist-1',
+          email: 'tourist@gmail.com',
+          fullName: 'Alex Tan (Tourist)',
+          avatarUrl:
+              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+          role: 'tourist',
+        ),
+        ProfileModel(
+          id: 'usr-tourist-2',
+          email: 'tourist1@gmail.com',
+          fullName: 'Tourist 2',
+          avatarUrl:
+              'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150',
+          role: 'tourist',
+        ),
+        ProfileModel(
+          id: 'usr-tourist-3',
+          email: 'tourist2@gmail.com',
+          fullName: 'Tourist 3',
+          avatarUrl:
+              'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+          role: 'tourist',
         ),
       ];
 

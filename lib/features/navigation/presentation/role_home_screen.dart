@@ -20,7 +20,7 @@ class RoleHomeScreen extends StatelessWidget {
     required this.onOpenStudio,
   });
 
-  final VoidCallback onOpenExplore;
+  final void Function([int tabIndex]) onOpenExplore;
   final VoidCallback onOpenPlanning;
   final VoidCallback onOpenStudio;
 
@@ -65,7 +65,7 @@ class RoleHomeScreen extends StatelessWidget {
                     ? 'Browse trusted local places, restaurants, and community guides before you decide where to go.'
                     : 'Continue a plan, revisit a saved place, or discover somewhere local today.',
                 imageUrl: spots.isEmpty ? null : spots.first.imageUrl,
-                onExplore: onOpenExplore,
+                onExplore: () => onOpenExplore(0),
               ),
             ),
             if (!isGuest)
@@ -100,7 +100,7 @@ class RoleHomeScreen extends StatelessWidget {
               child: _SectionHeading(
                 title: 'Places to know',
                 subtitle: 'Approved local picks from across Malaysia',
-                onViewAll: onOpenExplore,
+                onViewAll: () => onOpenExplore(2),
               ),
             ),
             if (spots.isEmpty)
@@ -165,19 +165,19 @@ class RoleHomeScreen extends StatelessWidget {
                     icon: Icons.park_outlined,
                     title: 'Local Spots',
                     detail: '${spots.length} approved places',
-                    onTap: onOpenExplore,
+                    onTap: () => onOpenExplore(2),
                   ),
                   _DiscoveryTile(
                     icon: Icons.restaurant_outlined,
                     title: 'Local Eats',
                     detail: '${restaurants.length} restaurants',
-                    onTap: onOpenExplore,
+                    onTap: () => onOpenExplore(1),
                   ),
                   _DiscoveryTile(
                     icon: Icons.route_outlined,
                     title: 'Community Guides',
                     detail: '${guides.length} routes',
-                    onTap: onOpenExplore,
+                    onTap: () => onOpenExplore(3),
                   ),
                 ],
               ),

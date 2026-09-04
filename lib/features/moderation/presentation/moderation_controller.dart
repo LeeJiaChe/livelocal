@@ -21,6 +21,15 @@ class ModerationController with ChangeNotifier {
   UserBlockReceipt? get lastBlock => _lastBlock;
   List<BlockedUser> get blockedUsers => List.unmodifiable(_blockedUsers);
 
+  void reset() {
+    _isLoading = false;
+    _errorMessage = null;
+    _lastReceipt = null;
+    _lastBlock = null;
+    _blockedUsers = const [];
+    notifyListeners();
+  }
+
   Future<bool> reportContent({
     required String targetType,
     required String targetId,

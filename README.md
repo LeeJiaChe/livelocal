@@ -136,9 +136,10 @@ deletion resource, store privacy declarations, production telemetry choice,
 and scheduled deletion/retention jobs require product-owner or external
 configuration. None are fabricated in this repository.
 
-Push notifications, social login, review photos, payment/redemption tracking,
-full offline writes, public guide submissions, and web/desktop releases remain
-deferred. See [deferred features](docs/product/deferred-features.md).
+Push notifications, third-party social login, payment/redemption tracking,
+full offline writes, and web/desktop releases remain deferred. Community review
+photos (0–3 photos per review) and public guide submissions with administrative
+moderation are fully implemented. See [deferred features](docs/product/deferred-features.md).
 
 ## Product source of truth
 

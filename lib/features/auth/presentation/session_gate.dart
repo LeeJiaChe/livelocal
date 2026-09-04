@@ -35,7 +35,7 @@ class SessionGate extends StatelessWidget {
       case AuthStatus.passwordRecovery:
         return const SetNewPasswordScreen();
       case AuthStatus.guest:
-        return const MainNavigationScreen();
+        return const MainNavigationScreen(key: ValueKey('main_nav_guest'));
       case AuthStatus.authenticated:
         if (auth.currentUser?.role == 'admin') {
           context.read<ProtectedNavigation?>()?.clearPending();
@@ -55,7 +55,9 @@ class SessionGate extends StatelessWidget {
             }
           });
         }
-        return const MainNavigationScreen();
+        return MainNavigationScreen(
+          key: ValueKey('main_nav_${auth.currentUser?.id ?? "authenticated"}'),
+        );
     }
   }
 }
