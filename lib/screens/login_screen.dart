@@ -7,6 +7,7 @@ import '../controllers/auth_controller.dart';
 import '../core/config/app_environment.dart';
 import '../core/routing/protected_navigation.dart';
 import '../core/validation/auth_form_validator.dart';
+import '../features/auth/domain/auth_repository.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,12 +19,15 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
   bool _showError = false;
   String _errorMessage = '';
   bool _obscurePassword = true;
-
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  bool _preservePendingOnExit = false;
+  bool _waitingForSocialAuth = false;
+  bool _socialNavigationScheduled = false;
 
   InputDecoration _fieldDecoration({
     required IconData prefixIcon,
@@ -31,13 +35,21 @@ class _LoginScreenState extends State<LoginScreen> {
     Widget? suffixIcon,
   }) {
     return InputDecoration(
-      prefixIcon: Icon(prefixIcon, color: AppColors.primary),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: AppColors.primary,
+      ),
       labelText: labelText,
       suffixIcon: suffixIcon,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        borderSide: const BorderSide(
+          color: AppColors.primary,
+          width: 2,
+        ),
       ),
     );
   }
@@ -53,46 +65,64 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+  void _showAuthError(
+    AuthController authController, {
+    String fallback = 'Authentication could not be completed.',
+  }) {
+    if (!mounted) {
+      return;
+    }
 
-    super.dispose();
+    setState(() {
+      _showError = true;
+      _errorMessage = authController.errorMessage ?? fallback;
+    });
   }
-
-  bool _preservePendingOnExit = false;
 
   void _handleBack() {
     if (!_preservePendingOnExit) {
       context.read<ProtectedNavigation?>()?.clearPending();
     }
+
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
       return;
     }
-    Navigator.of(context).pushReplacementNamed('/home');
+
+    Navigator.of(context).pushReplacementNamed(
+      '/home',
+    );
   }
 
   void _switchToRegister() {
     _preservePendingOnExit = true;
-    Navigator.pushReplacementNamed(context, '/register');
+
+    Navigator.pushReplacementNamed(
+      context,
+      '/register',
+    );
   }
 
   Future<void> _handleLogin() async {
     final form = _formKey.currentState;
+
     if (form == null || !form.validate()) {
       return;
     }
 
-    final authCtrl = context.read<AuthController>();
-    if (authCtrl.isLoading) {
+    final authController = context.read<AuthController>();
+
+    if (authController.isLoading) {
       return;
     }
 
-    FocusScope.of(context).unfocus();
+    _waitingForSocialAuth = false;
+    _socialNavigationScheduled = false;
 
-    final success = await authCtrl.login(
+    FocusScope.of(context).unfocus();
+    _clearError();
+
+    final success = await authController.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
@@ -103,25 +133,138 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success) {
       _preservePendingOnExit = true;
+
       Navigator.of(context).pushNamedAndRemoveUntil(
         '/home',
         (route) => false,
       );
-    } else {
-      setState(() {
-        _showError = true;
 
-        _errorMessage = authCtrl.errorMessage ??
-            'Invalid email or password. Please try again.';
-      });
+      return;
     }
+
+    _showAuthError(
+      authController,
+      fallback: 'Invalid email or password. Please try again.',
+    );
+  }
+
+  Future<void> _handleSocialLogin(
+    SocialAuthProvider provider,
+  ) async {
+    final authController = context.read<AuthController>();
+
+    if (authController.isLoading) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    _clearError();
+
+    _waitingForSocialAuth = true;
+    _socialNavigationScheduled = false;
+
+    final success = await authController.signInWithSocial(
+      provider,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!success) {
+      _waitingForSocialAuth = false;
+
+      _showAuthError(
+        authController,
+      );
+    }
+  }
+
+  void _scheduleSocialNavigation(
+    AuthController authController,
+  ) {
+    if (!_waitingForSocialAuth ||
+        !authController.isAuthenticated ||
+        _socialNavigationScheduled) {
+      return;
+    }
+
+    _socialNavigationScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      _preservePendingOnExit = true;
+      _waitingForSocialAuth = false;
+
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        (route) => false,
+      );
+    });
+  }
+
+  Widget _socialButton({
+    required Widget icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.black87,
+          backgroundColor: Colors.white,
+          side: BorderSide(
+            color: Colors.grey.shade300,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 24,
+              child: Center(
+                child: icon,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final authController = context.watch<AuthController>();
-
     final isSubmitting = authController.isLoading;
+
+    _scheduleSocialNavigation(
+      authController,
+    );
 
     return PopScope(
       canPop: true,
@@ -129,8 +272,11 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!_preservePendingOnExit) {
           context.read<ProtectedNavigation?>()?.clearPending();
         }
+
         if (!didPop) {
-          Navigator.of(context).pushReplacementNamed('/home');
+          Navigator.of(context).pushReplacementNamed(
+            '/home',
+          );
         }
       },
       child: Scaffold(
@@ -140,7 +286,9 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: Colors.white,
           foregroundColor: AppColors.primary,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(
+              Icons.arrow_back,
+            ),
             onPressed: isSubmitting ? null : _handleBack,
           ),
           title: const Text(
@@ -161,12 +309,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const Text(
                     'Welcome back',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     'Log in to continue exploring',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   if (_showError) ...[
@@ -176,7 +330,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.errorBg,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade200),
+                        border: Border.all(
+                          color: Colors.red.shade200,
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -210,16 +366,22 @@ class _LoginScreenState extends State<LoginScreen> {
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           autocorrect: false,
-                          autofillHints: const [AutofillHints.email],
-                          onChanged: (_) => _clearError(),
+                          autofillHints: const [
+                            AutofillHints.email,
+                          ],
+                          onChanged: (_) {
+                            _clearError();
+                          },
                           decoration: _fieldDecoration(
                             prefixIcon: Icons.email_outlined,
-                            labelText: context.tr('Email Address'),
+                            labelText: context.tr(
+                              'Email Address',
+                            ),
                           ),
-
-                          // LOGIN EMAIL VALIDATION
                           validator: (value) => context.trNullable(
-                            AuthFormValidator.validateEmail(value),
+                            AuthFormValidator.validateEmail(
+                              value,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -228,8 +390,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           enabled: !isSubmitting,
                           obscureText: _obscurePassword,
                           textInputAction: TextInputAction.done,
-                          autofillHints: const [AutofillHints.password],
-                          onChanged: (_) => _clearError(),
+                          autofillHints: const [
+                            AutofillHints.password,
+                          ],
+                          onChanged: (_) {
+                            _clearError();
+                          },
                           onFieldSubmitted: (_) {
                             if (!isSubmitting) {
                               _handleLogin();
@@ -237,7 +403,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                           decoration: _fieldDecoration(
                             prefixIcon: Icons.lock_outline,
-                            labelText: context.tr('Password'),
+                            labelText: context.tr(
+                              'Password',
+                            ),
                             suffixIcon: IconButton(
                               tooltip: context.tr(
                                 _obscurePassword
@@ -259,10 +427,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                     },
                             ),
                           ),
-
-                          // LOGIN PASSWORD VALIDATION
                           validator: (value) => context.trNullable(
-                            AuthFormValidator.validateLoginPassword(value),
+                            AuthFormValidator.validateLoginPassword(
+                              value,
+                            ),
                           ),
                         ),
                       ],
@@ -274,19 +442,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: TextButton(
                       onPressed: isSubmitting
                           ? null
-                          : () =>
-                              Navigator.pushNamed(context, '/password-reset'),
-                      child: const Text('Forgot password?'),
+                          : () {
+                              Navigator.pushNamed(
+                                context,
+                                '/password-reset',
+                              );
+                            },
+                      child: const Text(
+                        'Forgot password?',
+                      ),
                     ),
                   ),
                   if (context.read<AppConfiguration>().isDemo) ...[
                     const Text(
                       'Demo mode uses the fixed password 123456 and does not contact production services.',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 8),
                   ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -302,20 +479,74 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: isSubmitting
                           ? const SizedBox.square(
                               dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
                             )
-                          : const Text('Log In',
-                              style: TextStyle(fontSize: 16)),
+                          : const Text(
+                              'Log In',
+                              style: TextStyle(
+                                fontSize: 16,
+                              ),
+                            ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Divider(
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                        ),
+                        child: Text(
+                          'or',
+                          style: TextStyle(
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Divider(
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _socialButton(
+                    icon: const Text(
+                      'G',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    label: 'Continue with Google',
+                    onPressed: isSubmitting
+                        ? null
+                        : () {
+                            _handleSocialLogin(
+                              SocialAuthProvider.google,
+                            );
+                          },
+                  ),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Don't have an account? "),
+                      const Text(
+                        "Don't have an account? ",
+                      ),
                       TextButton(
                         onPressed: isSubmitting ? null : _switchToRegister,
-                        child: const Text('Sign up'),
+                        child: const Text(
+                          'Sign up',
+                        ),
                       ),
                     ],
                   ),

@@ -28,6 +28,15 @@ class GuideController with ChangeNotifier {
   List<GuideModel> get guides => List.unmodifiable(_guides);
   List<GuideModel> get adminDrafts => List.unmodifiable(_adminDrafts);
   List<GuideModel> get mySubmissions => List.unmodifiable(_mySubmissions);
+
+  void resetPrivateState() {
+    _adminDrafts = [];
+    _mySubmissions = [];
+    _isLoadingAdminDrafts = false;
+    _adminDraftsErrorMessage = null;
+    notifyListeners();
+  }
+
   bool get isLoading => _isLoading;
   bool get isLoadingAdminDrafts => _isLoadingAdminDrafts;
   String get selectedState => _selectedState;

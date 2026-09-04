@@ -23,6 +23,16 @@ class InfluencerApplicationController with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get pendingErrorMessage => _pendingErrorMessage;
 
+  void reset() {
+    _mine = null;
+    _pending = [];
+    _isLoading = false;
+    _isLoadingPending = false;
+    _errorMessage = null;
+    _pendingErrorMessage = null;
+    notifyListeners();
+  }
+
   Future<void> loadMine() async {
     await _run(() async => _mine = await _repository.fetchMine());
   }
