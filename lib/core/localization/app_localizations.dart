@@ -216,8 +216,8 @@ class AppLocalizations {
         'Laluan dan cadangan komuniti yang sedia diikuti.',
     'See all': 'Lihat semua',
     'Real places could not be loaded': 'Tempat sebenar tidak dapat dimuatkan',
-    'Search above or use Near me to discover thousands of real places.':
-        'Cari di atas atau gunakan Berdekatan saya untuk menemui ribuan tempat sebenar.',
+    'Search above or use Near me to discover places across Malaysia.':
+        'Cari di atas atau gunakan Berdekatan saya untuk menemui tempat di seluruh Malaysia.',
     'No matching real places yet. Try a broader search.':
         'Belum ada tempat sebenar yang sepadan. Cuba carian yang lebih luas.',
     'Community Spots are being prepared.': 'Tempat Komuniti sedang disediakan.',
@@ -1055,8 +1055,8 @@ class AppLocalizations {
         'Panduan yang diminta tidak tersedia.',
     'Create Account': 'Cipta Akaun',
     'Create your account': 'Cipta akaun anda',
-    'Join thousands discovering authentic Malaysia':
-        'Sertai ribuan pengguna yang menerokai Malaysia yang autentik',
+    'Save places, plan trips, and share authentic local discoveries across Malaysia':
+        'Simpan tempat, rancang perjalanan, dan kongsi penemuan tempatan di seluruh Malaysia',
     'All new accounts start as tourists.':
         'Semua akaun baharu bermula sebagai pelancong.',
     'Already have an account?': 'Sudah mempunyai akaun?',
@@ -1192,11 +1192,13 @@ class AppLocalizations {
     'Parks': 'Taman',
     'Beaches': 'Pantai',
     'Places near your current location': 'Tempat berdekatan lokasi semasa anda',
+    'Places across Malaysia': 'Tempat di seluruh Malaysia',
     'Google Places results': 'Hasil Google Places',
     'Places could not be loaded': 'Tempat tidak dapat dimuatkan',
     'Location is not available': 'Lokasi tidak tersedia',
     'Open settings': 'Buka tetapan',
-    'Search thousands of real places': 'Cari ribuan tempat sebenar',
+    'Search places across Malaysia': 'Cari tempat di seluruh Malaysia',
+    'Search thousands of real places': 'Cari tempat di seluruh Malaysia',
     'No matching places': 'Tiada tempat yang sepadan',
     'Try “museum Kuala Lumpur”, “beach Terengganu”, or use Near me.':
         'Cuba “muzium Kuala Lumpur”, “pantai Terengganu”, atau gunakan Berdekatan saya.',
@@ -1206,6 +1208,8 @@ class AppLocalizations {
     'Add to Trip': 'Tambah ke Perjalanan',
     'Open directions in Maps': 'Buka arah dalam Peta',
     'Opening hours': 'Waktu operasi',
+    'Location verified': 'Lokasi disahkan',
+    'Local insight': 'Wawasan tempatan',
     'Google Places': 'Google Places',
     'Restaurant or review link': 'Pautan restoran atau ulasan',
     'Paste a public Google Maps, website, TikTok, or Instagram link':

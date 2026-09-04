@@ -146,11 +146,11 @@ void main() {
         findsOneWidget,
       );
 
-      // Switch to Guides
-      await tester.tap(find.text('Guides').first);
+      // Switch to Content
+      await tester.tap(find.text('Content').first);
       await tester.pumpAndSettle();
       expect(
-        find.widgetWithText(AdminSectionHeader, 'Guides'),
+        find.widgetWithText(AdminSectionHeader, 'Content'),
         findsOneWidget,
       );
 
@@ -317,10 +317,15 @@ void main() {
     testWidgets(
         '39-45. Guide management drafts, published, publish and archive',
         (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
-      // Go to Guides tab
+      // Go to Content tab and open Guides segment
+      await tester.tap(find.text('Content').first);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Guides').first);
       await tester.pumpAndSettle();
 
@@ -468,7 +473,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -495,7 +500,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
@@ -522,7 +527,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Content'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 

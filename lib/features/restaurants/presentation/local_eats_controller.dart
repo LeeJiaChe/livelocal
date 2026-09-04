@@ -43,6 +43,21 @@ class LocalEatsController with ChangeNotifier {
       List.unmodifiable(_discountCodes);
   List<DiscountCodeModel> get ownedDiscounts =>
       List.unmodifiable(_ownedDiscounts);
+
+  void resetPrivateState() {
+    _pendingRestaurants = [];
+    _ownedRestaurantSubmissions = [];
+    _ownedDiscounts = [];
+    _isLoadingPending = false;
+    _pendingErrorMessage = null;
+    _isGeneratingListing = false;
+    _generationError = null;
+    _generatedCandidates = [];
+    _selectedGeneratedCandidate = null;
+    _generationRequestId++;
+    notifyListeners();
+  }
+
   bool get isLoading => _isLoading;
   bool get isLoadingPending => _isLoadingPending;
   String? get errorMessage => _errorMessage;

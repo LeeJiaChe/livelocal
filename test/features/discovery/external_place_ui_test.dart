@@ -30,7 +30,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Google Places'), findsOneWidget);
+    expect(find.text('Location verified'), findsOneWidget);
     await tester
         .tap(find.byKey(const ValueKey('external-place-google-place-123')));
     await tester.pumpAndSettle();

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart' hide Text;
 import 'package:live_local/core/localization/localized_text.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../screens/main_navigation_screen.dart';
+import '../../../../screens/neighbourhood_explorer_screen.dart';
 import '../../../auth/presentation/auth_controller.dart';
+import '../../../navigation/presentation/explore_hub_screen.dart';
+import '../../../navigation/presentation/role_home_screen.dart';
 import 'admin_audit_page.dart';
 
 class AdminMorePage extends StatelessWidget {
@@ -152,15 +154,112 @@ class _AuditHistoryScreen extends StatelessWidget {
       );
 }
 
-class _PublicPreviewScreen extends StatelessWidget {
+class _PublicPreviewScreen extends StatefulWidget {
   const _PublicPreviewScreen();
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Preview public experience'),
-          backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+  State<_PublicPreviewScreen> createState() => _PublicPreviewScreenState();
+}
+
+class _PublicPreviewScreenState extends State<_PublicPreviewScreen> {
+  int _currentIndex = 0;
+  final ValueNotifier<int> _exploreTabNotifier = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _exploreTabNotifier.dispose();
+    super.dispose();
+  }
+
+  void _showReadOnlyNotice(String action) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Public Preview (Read-Only): $action requires logging in as a tourist.',
         ),
-        body: const MainNavigationScreen(),
-      );
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final home = RoleHomeScreen(
+      onOpenExplore: ([int tabIndex = 0]) {
+        _exploreTabNotifier.value = tabIndex;
+        setState(() => _currentIndex = 1);
+      },
+      onOpenPlanning: () => _showReadOnlyNotice('Trip planning'),
+      onOpenStudio: () => _showReadOnlyNotice('Creator Studio'),
+    );
+
+    final pages = [
+      home,
+      ExploreHubScreen(selectedTabNotifier: _exploreTabNotifier),
+      const NeighbourhoodExplorerScreen(),
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Public Preview (Read-Only)'),
+        backgroundColor: theme.colorScheme.secondaryContainer,
+      ),
+      body: Column(
+        children: [
+          Container(
+            color: theme.colorScheme.tertiaryContainer,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.visibility_outlined,
+                  size: 20,
+                  color: theme.colorScheme.onTertiaryContainer,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Previewing public discovery experience as Guest',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onTertiaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: pages,
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore),
+            label: 'Explore',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.route_outlined),
+            selectedIcon: Icon(Icons.route),
+            label: 'Guides',
+          ),
+        ],
+      ),
+    );
+  }
 }

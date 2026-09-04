@@ -786,11 +786,11 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.widgetWithText(NavigationDestination, 'Trips'),
+        find.widgetWithText(NavigationDestination, 'Guides'),
         findsOneWidget,
       );
       expect(
-        find.widgetWithText(NavigationDestination, 'Guides'),
+        find.widgetWithText(NavigationDestination, 'Trips'),
         findsNothing,
       );
       expect(
@@ -800,7 +800,7 @@ void main() {
     });
 
     testWidgets(
-        '8. Guest Explore exposes Guides while Trips requires authentication',
+        '8. Guest can open public Guides directly, while contextual Trips requires authentication',
         (tester) async {
       final repo = _FakeAuthRepository();
       final authCtrl = AuthController(repository: repo);
@@ -825,6 +825,7 @@ void main() {
       expect(itinerary.errorMessage, isNull);
       expect(itinerary.savedItineraries, isEmpty);
 
+      // Explore Hub and its tabs
       await tester.tap(
         find.widgetWithText(NavigationDestination, 'Explore'),
       );
@@ -842,26 +843,32 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(LocalEatsScreen), findsOneWidget);
 
-      final tabs = DefaultTabController.of(
-        tester.element(find.byKey(const Key('explore_section_tabs'))),
-      );
-      tabs.animateTo(2, duration: Duration.zero);
+      await tester.tap(find.widgetWithText(Tab, 'Things to Do'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(SpotsDiscoveryScreen), findsOneWidget);
 
-      tabs.animateTo(3, duration: Duration.zero);
+      await tester.tap(find.widgetWithText(Tab, 'Guides'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(NeighbourhoodExplorerScreen), findsOneWidget);
 
-      tabs.animateTo(0, duration: Duration.zero);
+      await tester.tap(find.widgetWithText(Tab, 'Discover'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(ExternalPlacesScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Trips'));
+      // Tapping Guides in bottom nav opens public Guides directly without login trap
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Guides'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(NeighbourhoodExplorerScreen), findsOneWidget);
+      expect(find.byType(LoginScreen), findsNothing);
+
+      // Contextual protected action (e.g. attempting to open Trips)
+      final mainNavContext = tester.element(find.byType(MainNavigationScreen));
+      protectedNav.open(mainNavContext, '/trips');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 

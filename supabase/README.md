@@ -65,24 +65,21 @@ that key is never embedded in Flutter. CI type-checks the function with Deno.
 
 ## AI restaurant listing import
 
-`generate-restaurant-listing` accepts an authenticated TikTok or Instagram
-post/profile URL. It verifies the current database role and active account
-state, reads source metadata through official platform APIs, and sends only
-that untrusted metadata to a structured-output AI call. Results are transient;
-the existing restaurant draft, duplicate-detection, and moderation RPCs remain
-the only persistence/publication path.
-
-`social-account-oauth` provides the creator-authorized connection required for
-profile imports. OAuth state is hashed, single-use and expires after ten
-minutes. Provider tokens are AES-GCM encrypted before they enter the
-server-only `social_account_connections` table. Flutter never receives a
-provider token or a service-role credential.
+`generate-restaurant-listing` accepts an authenticated Malaysian restaurant link
+(Google Maps place URL, restaurant website, or a specific public TikTok / Instagram post URL).
+Profile-level URL imports are intentionally rejected with `PROFILE_IMPORT_NOT_SUPPORTED`
+in the paste-one-link flow to ensure single-listing verification and prevent bulk unverified scraping.
+The function verifies the current database role (`influencer` or `admin`) and active account
+state, fetches sanitized source metadata, and sends only that metadata to a
+structured-output AI model. Results are transient candidate listings; the existing restaurant
+draft, duplicate-detection, and moderation RPCs remain the only persistence/publication path.
 
 Required Edge Function secrets:
 
-- `AI_API_KEY`, `AI_MODEL`, and optionally `AI_API_BASE_URL` for an
+- `AI_API_KEY`, `AI_MODEL`, and optionally `AI_API_BASE_URL` (or `OPENAI_API_KEY`) for an
   OpenAI-compatible structured-output endpoint.
-- `SOCIAL_TOKEN_ENCRYPTION_KEY`, a base64-encoded random 32-byte value.
+- `GOOGLE_PLACES_API_KEY` for Google Maps place link resolution.
+- `STORAGE_CLEANUP_CRON_SECRET` for secure scheduled storage cleanup triggers.
 - `SOCIAL_OAUTH_CALLBACK_URL`, the deployed `social-account-oauth` function
   URL, and optionally `SOCIAL_OAUTH_APP_REDIRECT_URI` (defaults to
   `io.livelocal.app://social-connected`).

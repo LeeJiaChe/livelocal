@@ -48,6 +48,22 @@ class ItineraryController with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get itineraryError => _errorMessage;
 
+  void reset() {
+    _collections = [];
+    _activeCollectionItems = [];
+    _activeCollectionPlaces = [];
+    _activeCollection = null;
+    _savedPlaces = [];
+    _savedItineraries = [];
+    _itinerarySteps = [];
+    _isLoading = false;
+    _isLoadingCollections = false;
+    _isLoadingCollectionPlaces = false;
+    _isGeneratingItinerary = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   void setActiveCollection(SavedCollectionModel? collection) {
     final changedCollection = _activeCollection?.id != collection?.id;
     _activeCollection = collection;

@@ -53,6 +53,26 @@ class AdminController with ChangeNotifier {
       _statistics?.accountsRestricted ??
       _accounts.where((account) => account.accessStatus != 'active').length;
 
+  void reset() {
+    _accounts = [];
+    _cases = [];
+    _auditEvents = [];
+    _appeals = [];
+    _statistics = null;
+    _isRefreshing = false;
+    _isMutating = false;
+    _isLoadingModerationCases = false;
+    _isLoadingAppeals = false;
+    _mutationErrorMessage = null;
+    _accountsErrorMessage = null;
+    _moderationCasesErrorMessage = null;
+    _statisticsErrorMessage = null;
+    _auditErrorMessage = null;
+    _appealsErrorMessage = null;
+    _lastUpdatedAt = null;
+    notifyListeners();
+  }
+
   Future<void> loadDashboard() async {
     _isRefreshing = true;
     _mutationErrorMessage = null;

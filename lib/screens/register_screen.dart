@@ -185,7 +185,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 4),
 
                   const Text(
-                    'Join thousands discovering authentic Malaysia',
+                    'Save places, plan trips, and share authentic local discoveries across Malaysia',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey,

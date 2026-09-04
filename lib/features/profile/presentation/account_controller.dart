@@ -22,6 +22,13 @@ class AccountController with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   AppealCase? get submittedAppeal => _submittedAppeal;
 
+  void reset() {
+    _isLoading = false;
+    _errorMessage = null;
+    _submittedAppeal = null;
+    notifyListeners();
+  }
+
   Future<void> loadAppeal(String decisionId) async {
     await _run(() async {
       _submittedAppeal =

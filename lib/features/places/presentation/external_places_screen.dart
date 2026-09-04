@@ -141,7 +141,7 @@ class _ExternalPlacesScreenState extends State<ExternalPlacesScreen> {
                         child: Text(
                           controller.isNearby
                               ? 'Places near your current location'
-                              : 'Google Places results',
+                              : 'Places across Malaysia',
                           style:
                               Theme.of(context).textTheme.labelLarge?.copyWith(
                                     color: Theme.of(context)
@@ -190,7 +190,7 @@ class _ExternalPlacesScreenState extends State<ExternalPlacesScreen> {
                   child: AppStateView(
                     icon: Icons.travel_explore_outlined,
                     title: controller.query.length < 2
-                        ? 'Search thousands of real places'
+                        ? 'Search places across Malaysia'
                         : 'No matching places',
                     message: controller.query.length < 2
                         ? 'Try “museum Kuala Lumpur”, “beach Terengganu”, or use Near me.'
@@ -379,15 +379,20 @@ class ExternalPlaceCard extends StatelessWidget {
                                 : Icons.schedule_outlined,
                             text: place.openNow! ? 'Open now' : 'Closed now',
                           ),
-                        const _Meta(
-                          icon: Icons.verified_outlined,
-                          text: 'Google Places',
-                        ),
-                        if (enrichment?.hasInsights != true)
+                        if (enrichment?.hasInsights == true)
+                          const _Meta(
+                            icon: Icons.tips_and_updates_outlined,
+                            text: 'Local insight',
+                          )
+                        else
                           const _Meta(
                             icon: Icons.add_comment_outlined,
                             text: 'Add local insight',
                           ),
+                        const _Meta(
+                          icon: Icons.place_outlined,
+                          text: 'Location verified',
+                        ),
                       ],
                     ),
                   ],
